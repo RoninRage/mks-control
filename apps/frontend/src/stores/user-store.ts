@@ -18,18 +18,15 @@ export const useUserStore = defineStore('user', {
     // Permission checks
     isAdmin: (state): boolean => state.selectedRole?.id === 'admin',
     isVorstand: (state): boolean => state.selectedRole?.id === 'vorstand',
-    isBereichsleiter: (state): boolean =>
-      state.selectedRole?.id === 'bereichsleitung',
+    isBereichsleiter: (state): boolean => state.selectedRole?.id === 'bereichsleitung',
     isMitglied: (state): boolean => state.selectedRole?.id === 'mitglied',
 
     // Role-based permissions
     canManageAreas: (state): boolean => state.selectedRole?.id === 'admin',
     canManageMembers: (state): boolean =>
-      state.selectedRole?.id === 'admin' ||
-      state.selectedRole?.id === 'bereichsleitung',
+      state.selectedRole?.id === 'admin' || state.selectedRole?.id === 'bereichsleitung',
     canAssignRoles: (state): boolean =>
-      state.selectedRole?.id === 'admin' ||
-      state.selectedRole?.id === 'vorstand',
+      state.selectedRole?.id === 'admin' || state.selectedRole?.id === 'vorstand',
     canViewDashboard: (state): boolean => state.isAuthenticated,
   },
 

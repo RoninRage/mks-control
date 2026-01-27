@@ -12,14 +12,7 @@
             <div class="text-body2 text-grey-7">{{ getRoleDescription() }}</div>
           </div>
         </div>
-        <q-btn
-          flat
-          round
-          dense
-          icon="logout"
-          color="primary"
-          @click="handleLogout"
-        >
+        <q-btn flat round dense icon="logout" color="primary" @click="handleLogout">
           <q-tooltip>Abmelden</q-tooltip>
         </q-btn>
       </div>
@@ -50,9 +43,7 @@
             <q-card-section>
               <q-icon name="people" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Alle Mitglieder</div>
-              <div class="text-body2 text-grey-7">
-                Mitglieder verwalten und Rollen zuweisen
-              </div>
+              <div class="text-body2 text-grey-7">Mitglieder verwalten und Rollen zuweisen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -69,9 +60,7 @@
             <q-card-section>
               <q-icon name="assignment" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Rollen zuweisen</div>
-              <div class="text-body2 text-grey-7">
-                Mitgliedern Rollen zuweisen
-              </div>
+              <div class="text-body2 text-grey-7">Mitgliedern Rollen zuweisen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -82,9 +71,7 @@
             <q-card-section>
               <q-icon name="analytics" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Berichte</div>
-              <div class="text-body2 text-grey-7">
-                Übersichten und Statistiken ansehen
-              </div>
+              <div class="text-body2 text-grey-7">Übersichten und Statistiken ansehen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -101,9 +88,7 @@
             <q-card-section>
               <q-icon name="person_add" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Mitglieder zuweisen</div>
-              <div class="text-body2 text-grey-7">
-                Mitglieder Ihrem Bereich zuweisen
-              </div>
+              <div class="text-body2 text-grey-7">Mitglieder Ihrem Bereich zuweisen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -114,9 +99,7 @@
             <q-card-section>
               <q-icon name="groups" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Bereichsmitglieder</div>
-              <div class="text-body2 text-grey-7">
-                Mitglieder in Ihrem Bereich ansehen
-              </div>
+              <div class="text-body2 text-grey-7">Mitglieder in Ihrem Bereich ansehen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -133,9 +116,7 @@
             <q-card-section>
               <q-icon name="account_circle" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Mein Profil</div>
-              <div class="text-body2 text-grey-7">
-                Persönliche Informationen ansehen
-              </div>
+              <div class="text-body2 text-grey-7">Persönliche Informationen ansehen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -146,9 +127,7 @@
             <q-card-section>
               <q-icon name="calendar_today" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Veranstaltungen</div>
-              <div class="text-body2 text-grey-7">
-                Kommende Veranstaltungen ansehen
-              </div>
+              <div class="text-body2 text-grey-7">Kommende Veranstaltungen ansehen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" />
@@ -165,9 +144,7 @@
             <q-card-section>
               <q-icon name="info" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Über</div>
-              <div class="text-body2 text-grey-7">
-                Informationen über MKS Control
-              </div>
+              <div class="text-body2 text-grey-7">Informationen über MKS Control</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" to="/about" />
@@ -272,7 +249,7 @@ function handleLogout() {
 .action-card {
   border-radius: 16px;
   transition: all 0.2s ease;
-  
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
