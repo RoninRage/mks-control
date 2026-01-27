@@ -358,3 +358,17 @@ function toggleDark(val: boolean) {
   $q.dark.set(val);
 }
 </script>
+
+<style lang="scss">
+:deep(.body--dark) {
+  .q-toggle {
+    .q-toggle__track {
+      background-color: #555555;
+    }
+
+    .q-toggle__thumb {
+      background-color: #ffffff;
+    }
+  }
+}
+</style>

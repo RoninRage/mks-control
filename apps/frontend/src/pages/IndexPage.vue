@@ -23,7 +23,7 @@ defineOptions({
 const router = useRouter();
 
 function simulateLogin() {
-  router.push('/about');
+  router.push('/role-selection');
 }
 </script>
 
