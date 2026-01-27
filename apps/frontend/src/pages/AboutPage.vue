@@ -20,7 +20,14 @@
         </q-card-section>
 
         <q-card-actions>
-          <q-btn flat color="primary" label="Zurück" icon="arrow_back" @click="goBack" class="action-button" />
+          <q-btn
+            flat
+            color="primary"
+            label="Zurück"
+            icon="arrow_back"
+            @click="goBack"
+            class="action-button"
+          />
         </q-card-actions>
       </q-card>
     </div>
