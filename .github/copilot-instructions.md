@@ -59,3 +59,4 @@ applyTo: '**'
 - Write clear, descriptive commit messages
 - Reference related issues or features
 - Keep commits atomic and focused on single changes
+- Keep the about page up to date with any new features or changes
