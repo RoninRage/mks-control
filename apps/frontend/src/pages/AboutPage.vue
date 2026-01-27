@@ -2,16 +2,14 @@
   <q-page padding>
     <div class="q-pa-md">
       <div class="text-h3 q-mb-md">About MKS Control</div>
-      
+
       <q-card flat bordered>
         <q-card-section>
           <div class="text-h6">Project Information</div>
         </q-card-section>
 
         <q-card-section>
-          <p>
-            MKS Control is a modern web application built with:
-          </p>
+          <p>MKS Control is a modern web application built with:</p>
           <ul>
             <li>Quasar Framework v2</li>
             <li>Vue 3 with Composition API</li>
@@ -22,13 +20,7 @@
         </q-card-section>
 
         <q-card-actions>
-          <q-btn
-            flat
-            color="primary"
-            label="Back to Home"
-            icon="arrow_back"
-            to="/"
-          />
+          <q-btn flat color="primary" label="Back to Home" icon="arrow_back" to="/" />
         </q-card-actions>
       </q-card>
 

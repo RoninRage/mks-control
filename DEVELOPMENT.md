@@ -129,7 +129,7 @@ export default boot(({ app, router, store }) => {
 Then register it in `quasar.config.ts`:
 
 ```typescript
-boot: ['my-boot-file']
+boot: ['my-boot-file'];
 ```
 
 ## Using Quasar Plugins
@@ -138,7 +138,7 @@ boot: ['my-boot-file']
 
 ```typescript
 framework: {
-  plugins: ['Notify', 'Dialog', 'Loading']
+  plugins: ['Notify', 'Dialog', 'Loading'];
 }
 ```
 
@@ -174,11 +174,9 @@ Quasar provides utility classes:
       <div class="col">Column 1</div>
       <div class="col">Column 2</div>
     </div>
-    
+
     <!-- Typography -->
-    <div class="text-h4 text-center text-primary">
-      Title
-    </div>
+    <div class="text-h4 text-center text-primary">Title</div>
   </div>
 </template>
 ```
@@ -200,7 +198,7 @@ Use scoped styles in components:
 <style scoped lang="scss">
 .my-component {
   padding: 1rem;
-  
+
   &__title {
     font-size: 1.5rem;
     color: $primary;
@@ -262,7 +260,7 @@ export const userService = {
     const { data } = await api.get('/users');
     return data;
   },
-  
+
   async createUser(user: User) {
     const { data } = await api.post('/users', user);
     return data;
@@ -337,11 +335,7 @@ const emailRules = [
 
 <template>
   <q-form @submit="onSubmit">
-    <q-input
-      v-model="email"
-      :rules="emailRules"
-      label="Email"
-    />
+    <q-input v-model="email" :rules="emailRules" label="Email" />
     <q-btn type="submit" label="Submit" />
   </q-form>
 </template>

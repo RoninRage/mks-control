@@ -3,6 +3,7 @@
 ## Initial Setup
 
 1. **Install Dependencies**
+
    ```bash
    npm install
    ```
@@ -90,11 +91,13 @@ mks-control/
 ## Troubleshooting
 
 If you see TypeScript errors in your IDE:
+
 1. Reload the VS Code window (Ctrl+Shift+P → "Reload Window")
 2. Run `npm run prepare` in apps/frontend
 3. Check that `.quasar/tsconfig.json` exists
 
 For build issues:
+
 1. Delete `node_modules` and `package-lock.json`
 2. Run `npm install` again
 3. Clear Quasar cache: delete `.quasar` folder

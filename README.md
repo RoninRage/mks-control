@@ -31,6 +31,7 @@ npm run lint
 ## Frontend Application
 
 The frontend is built with:
+
 - **Quasar Framework** - Enterprise-ready Vue.js framework
 - **Vue 3** - Progressive JavaScript framework
 - **TypeScript** - Type-safe development
@@ -45,6 +46,7 @@ See [apps/frontend/README.md](apps/frontend/README.md) for more details.
 Create a new directory under `packages/` or `apps/` with its own `package.json`.
 
 Example:
+
 ```bash
 mkdir packages/my-package
 cd packages/my-package
@@ -54,11 +56,13 @@ npm init -y
 ## Workspace Commands
 
 Run a command in a specific workspace:
+
 ```bash
 npm run <script> --workspace=<package-name>
 ```
 
 Run a command in all workspaces:
+
 ```bash
 npm run <script> --workspaces
 ```
