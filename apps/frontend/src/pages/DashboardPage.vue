@@ -3,16 +3,25 @@
     <!-- User Header Section -->
     <div class="ms-section">
       <div class="user-header">
-        <div class="user-info">
-          <div class="user-avatar">
+        <div class="user-header__info">
+          <div class="user-header__avatar">
             <role-icon v-if="userStore.roleId" :role-id="userStore.roleId" />
           </div>
-          <div class="user-details">
+          <div class="user-header__details">
             <div class="text-h5">{{ userStore.roleName }}</div>
             <div class="text-body2 text-grey-7">{{ getRoleDescription() }}</div>
           </div>
         </div>
-        <q-btn flat round dense icon="logout" color="primary" @click="handleLogout">
+        <q-btn
+          flat
+          icon="logout"
+          color="primary"
+          @click="handleLogout"
+          size="md"
+          padding="md"
+          min-width="44px"
+          class="q-ml-md"
+        >
           <q-tooltip>Abmelden</q-tooltip>
         </q-btn>
       </div>
@@ -35,7 +44,7 @@
               </div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
 
@@ -46,7 +55,7 @@
               <div class="text-body2 text-grey-7">Mitglieder verwalten und Rollen zuweisen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
         </div>
@@ -63,7 +72,7 @@
               <div class="text-body2 text-grey-7">Mitgliedern Rollen zuweisen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
 
@@ -74,7 +83,7 @@
               <div class="text-body2 text-grey-7">Übersichten und Statistiken ansehen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
         </div>
@@ -91,7 +100,7 @@
               <div class="text-body2 text-grey-7">Mitglieder Ihrem Bereich zuweisen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
 
@@ -102,7 +111,7 @@
               <div class="text-body2 text-grey-7">Mitglieder in Ihrem Bereich ansehen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
         </div>
@@ -119,7 +128,7 @@
               <div class="text-body2 text-grey-7">Persönliche Informationen ansehen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
 
@@ -127,10 +136,10 @@
             <q-card-section>
               <q-icon name="calendar_today" size="48px" color="primary" />
               <div class="text-h6 q-mt-md">Veranstaltungen</div>
-              <div class="text-body2 text-grey-7">Kommende Veranstaltungen ansehen</div>
+              <div class="text-body2 text-grey-7\">Kommende Veranstaltungen ansehen</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
         </div>
@@ -147,7 +156,7 @@
               <div class="text-body2 text-grey-7">Informationen über MKS Control</div>
             </q-card-section>
             <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" to="/about" />
+              <q-btn flat color="primary" label="Öffnen" class="action-card__button" to="/about" />
             </q-card-actions>
           </q-card>
         </div>
@@ -202,6 +211,7 @@ function handleLogout() {
 </script>
 
 <style scoped lang="scss">
+// User header section
 .user-header {
   display: flex;
   align-items: center;
@@ -210,30 +220,31 @@ function handleLogout() {
   background: var(--ms-background);
   border: 1px solid var(--ms-border);
   border-radius: 16px;
-}
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
 
-.user-avatar {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--ms-background);
-  border: 2px solid var(--ms-border);
-  border-radius: 50%;
-  padding: 12px;
-}
+  &__avatar {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ms-background);
+    border: 2px solid var(--ms-border);
+    border-radius: 50%;
+    padding: 12px;
+    flex-shrink: 0;
+  }
 
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 
 .dashboard-section {
@@ -249,6 +260,8 @@ function handleLogout() {
 .action-card {
   border-radius: 16px;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
 
   &:hover {
     transform: translateY(-2px);
@@ -262,10 +275,18 @@ function handleLogout() {
 
   .q-card__section {
     text-align: center;
+    flex-grow: 1;
   }
 
   .q-card__actions {
     justify-content: center;
+    padding: 12px;
+  }
+
+  &__button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 24px;
   }
 }
 

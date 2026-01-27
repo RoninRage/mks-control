@@ -3,7 +3,15 @@
     <div class="ms-section">
       <div class="row items-center justify-between q-mb-lg">
         <h1 class="text-h3 q-mb-none">Rolle auswählen</h1>
-        <q-btn flat round dense icon="arrow_back" color="primary" @click="goBack" />
+        <q-btn
+          flat
+          icon="arrow_back"
+          color="primary"
+          @click="goBack"
+          size="md"
+          padding="md"
+          min-width="44px"
+        />
       </div>
     </div>
 
@@ -16,7 +24,7 @@
           :class="{ 'role-card--selected': selectedRole === role.id }"
           @click="selectRole(role.id)"
         >
-          <div class="role-icon-wrapper">
+          <div class="role-card__icon-wrapper">
             <role-icon :role-id="role.id" />
           </div>
           <div class="text-h6 q-mt-md">{{ role.name }}</div>
@@ -35,7 +43,7 @@
         label="Weiter"
         color="primary"
         size="lg"
-        class="full-width"
+        class="full-width action-button"
         :disable="!selectedRole"
         @click="proceedWithRole"
       />
@@ -53,11 +61,16 @@ defineOptions({
   name: 'RoleSelectionPage',
 });
 
+interface Role {
+  id: string;
+  name: string;
+}
+
 const router = useRouter();
 const userStore = useUserStore();
 const selectedRole = ref<string | null>(null);
 
-const roles = [
+const roles: Role[] = [
   { id: 'admin', name: 'Admin' },
   { id: 'vorstand', name: 'Vorstand' },
   { id: 'bereichsleitung', name: 'Bereichsleitung' },
@@ -95,12 +108,14 @@ function proceedWithRole() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.5rem;
+  padding: 24px 16px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
   background: transparent;
+  min-height: 280px;
+  justify-content: center;
 
   &:hover {
     border-color: #111111;
@@ -111,14 +126,19 @@ function proceedWithRole() {
     border-color: #1f7a4d;
     background: rgba(31, 122, 77, 0.05);
   }
+
+  &__icon-wrapper {
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
 }
 
-.role-icon-wrapper {
-  width: 100px;
-  height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.action-button {
+  min-height: 48px;
 }
 
 :deep(.body--dark) {
@@ -134,15 +154,15 @@ function proceedWithRole() {
       border-color: #1f7a4d;
       background: rgba(31, 122, 77, 0.1);
     }
-  }
 
-  .q-toggle {
-    :deep(.q-toggle__track) {
-      background-color: #555555;
-    }
+    .q-toggle {
+      :deep(.q-toggle__track) {
+        background-color: #555555;
+      }
 
-    :deep(.q-toggle__thumb) {
-      background-color: #ffffff;
+      :deep(.q-toggle__thumb) {
+        background-color: #ffffff;
+      }
     }
   }
 }
