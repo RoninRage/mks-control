@@ -41,11 +41,80 @@ applyTo: '**'
 - Test all UI in both light and dark modes
 - Ensure sufficient contrast in both themes (WCAG AA minimum)
 
+### Button & Icon Dark Mode Handling
+
+- **Buttons with `color="primary"`**: Must have explicit dark mode color styling in `app.scss`
+  - Light mode: `color: #111111 !important;` (black)
+  - Dark mode: `color: #ffffff !important;` (white)
+  - Target selectors: `.q-btn.text-primary` (Quasar applies `text-primary` class, not `color` attribute)
+  - Include hover/active states with appropriate background colors
+
+- **Icons with `color="primary"`**: Must have explicit dark mode color styling in `app.scss`
+  - Light mode: `color: #111111 !important;` (black)
+  - Dark mode: `color: #ffffff !important;` (white)
+  - Target selector: `.q-icon.text-primary`
+
+- **CSS Pattern for Dark Mode**:
+
+  ```scss
+  // Light mode (default)
+  .q-btn.text-primary,
+  .q-icon.text-primary {
+    color: #111111 !important;
+  }
+
+  // Dark mode override
+  body.body--dark {
+    .q-btn.text-primary,
+    .q-icon.text-primary {
+      color: #ffffff !important;
+    }
+  }
+  ```
+
+- Always use `!important` to override Quasar's theme color system
+- Add styling to `src/css/app.scss` in the global style section, not in component scoped styles
+
 ### File Naming
 
 - Components: PascalCase (e.g., `RfidIcon.vue`)
 - Pages: PascalCase (e.g., `IndexPage.vue`)
 - Utilities: camelCase (e.g., `helpers.ts`)
+
+### Touchscreen Usability
+
+- **Touch Target Size**: All interactive elements (buttons, links, inputs) must be at least 44x44px or 48x48px
+  - Buttons: minimum `height: 44px` and sufficient padding
+  - Icon buttons: minimum size of 44x44px
+  - Spacing between targets: at least 8-16px to prevent accidental taps
+
+- **Avoid Hover-Only Interactions**: Touchscreen devices don't support hover
+  - Don't rely on `:hover` to show important information (use active/focus states)
+  - Implement `@click` or tap handlers for interactions
+  - Use `.active` or `.focused` states for visual feedback
+  - Consider using tooltips for hints instead of hover text
+
+- **Touch-Friendly Spacing**:
+  - Add adequate padding around interactive elements
+  - Use `q-pa-md` (16px) or larger spacing around buttons and clickable areas
+  - Avoid small, tightly-packed controls
+
+- **Mobile Responsiveness**:
+  - Test all pages on mobile devices (iOS and Android)
+  - Use Quasar's responsive utilities (`.xs`, `.sm`, `.md`, `.lg`, `.xl`)
+  - Ensure forms are usable with on-screen keyboards
+  - Avoid fixed positioning that interferes with mobile viewports
+
+- **Input Fields**:
+  - Use appropriate `type` attributes (`email`, `number`, `tel`, `date`, etc.) for better mobile keyboards
+  - Ensure inputs have adequate padding and size for touch interaction
+  - Labels should be clear and associated with inputs for accessibility
+
+- **Testing on Touchscreen**:
+  - Test with actual touchscreen devices or tablet emulation in DevTools
+  - Verify buttons and links are easily tappable (not misclicking nearby elements)
+  - Check that modals and dialogs work with touch interactions
+  - Validate form submission on touch devices
 
 ### Testing & Validation
 
