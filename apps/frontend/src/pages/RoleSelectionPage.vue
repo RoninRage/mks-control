@@ -17,7 +17,7 @@
           @click="selectRole(role.id)"
         >
           <div class="role-icon-wrapper">
-            <rfid-icon />
+            <role-icon :role-id="role.id" />
           </div>
           <div class="text-h6 q-mt-md">{{ role.name }}</div>
           <q-toggle
@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import RfidIcon from 'components/RfidIcon.vue';
+import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
   name: 'RoleSelectionPage',
