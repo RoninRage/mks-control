@@ -105,7 +105,7 @@ export default configure((ctx) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: ['Dark'],
+      plugins: ['Dark', 'Dialog'],
     },
 
     // animations: 'all', // --- includes all animations

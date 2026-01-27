@@ -46,6 +46,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUserStore } from 'stores/user-store';
 import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
@@ -53,6 +54,7 @@ defineOptions({
 });
 
 const router = useRouter();
+const userStore = useUserStore();
 const selectedRole = ref<string | null>(null);
 
 const roles = [
@@ -72,7 +74,11 @@ function goBack() {
 
 function proceedWithRole() {
   if (selectedRole.value) {
-    router.push('/about');
+    const role = roles.find((r) => r.id === selectedRole.value);
+    if (role) {
+      userStore.setRole(role.id, role.name);
+      router.push('/dashboard');
+    }
   }
 }
 </script>

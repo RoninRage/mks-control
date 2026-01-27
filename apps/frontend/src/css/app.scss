@@ -143,6 +143,79 @@ a {
   }
 }
 
+// Button - Enhanced visibility in dark/light mode
+.q-btn {
+  transition: all 0.2s ease;
+
+  // Target buttons with text-primary class (which renders as color property in HTML)
+  &.q-btn--flat {
+    &.text-primary {
+      color: #111111 !important;
+
+      &:hover {
+        background-color: rgba(17, 17, 17, 0.08);
+      }
+
+      &:active {
+        background-color: rgba(17, 17, 17, 0.12);
+      }
+    }
+  }
+
+  &.q-btn--outline {
+    &.text-primary {
+      border-color: #111111;
+      color: #111111 !important;
+
+      &:hover {
+        background-color: rgba(17, 17, 17, 0.04);
+      }
+    }
+  }
+}
+
+// Icon - Enhanced visibility in dark/light mode
+.q-icon {
+  &.text-primary {
+    color: #111111 !important;
+  }
+}
+
+body.body--dark {
+  .q-btn {
+    &.q-btn--flat {
+      &.text-primary {
+        color: #ffffff !important;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        &:active {
+          background-color: rgba(255, 255, 255, 0.18);
+        }
+      }
+    }
+
+    &.q-btn--outline {
+      &.text-primary {
+        border-color: #ffffff;
+        color: #ffffff !important;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+      }
+    }
+  }
+
+  .q-icon {
+    &.text-primary {
+      color: #ffffff !important;
+    }
+  }
+}
+
 // Toggle - Enhanced visibility in dark mode
 .q-toggle {
   .q-toggle__track {
