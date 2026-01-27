@@ -2,6 +2,7 @@
   <q-layout view="lHh Lpr lFf">
     <q-header flat bordered>
       <q-toolbar>
+        <maker-space-logo-a />
         <q-toolbar-title>MKS Control</q-toolbar-title>
 
         <q-btn
@@ -25,6 +26,7 @@
 
 <script setup lang="ts">
 import { useQuasar } from 'quasar';
+import MakerSpaceLogoA from 'components/MakerSpaceLogoA.vue';
 
 defineOptions({
   name: 'MainLayout',
