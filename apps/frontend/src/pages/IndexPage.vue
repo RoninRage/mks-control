@@ -1,12 +1,14 @@
 <template>
-  <q-page class="flex flex-center login-page">
-    <div class="login-container column items-center justify-center q-gutter-xl">
-      <div class="text-h4 text-center">Bitte mit anmelden</div>
-      
-      <div class="rfid-icon-wrapper flex flex-center">
-        <rfid-icon />
-      </div>
-    </div>
+  <q-page class="flex flex-center">
+    <q-card flat bordered class="login-card">
+      <q-card-section class="column items-center q-gutter-xl">
+        <div class="text-h4 text-center">Bitte Anmelden</div>
+
+        <div class="rfid-icon-wrapper flex flex-center">
+          <rfid-icon />
+        </div>
+      </q-card-section>
+    </q-card>
   </q-page>
 </template>
 
@@ -19,22 +21,15 @@ defineOptions({
 </script>
 
 <style scoped lang="scss">
-.login-page {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.login-container {
-  background: white;
-  border-radius: 16px;
-  padding: 3rem 4rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+.login-card {
+  padding: 2rem;
   min-width: 400px;
+  max-width: 500px;
   text-align: center;
 }
 
 .rfid-icon-wrapper {
   width: 200px;
   height: 200px;
-  color: #1976d2;
 }
 </style>

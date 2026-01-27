@@ -1,11 +1,11 @@
 <template>
   <q-page class="flex flex-center">
-    <div class="column items-center q-gutter-md">
-      <div style="font-size: 30vh">404</div>
+    <div class="column items-center q-gutter-lg text-center">
+      <div class="text-h1" style="font-size: 8rem; font-weight: 700; line-height: 1">404</div>
 
-      <div class="text-h5 text-grey-7">Oops. Nothing here...</div>
+      <div class="text-h5 ms-muted">Oops. Nothing here...</div>
 
-      <q-btn color="primary" label="Go Home" to="/" size="lg" />
+      <q-btn color="primary" label="Go Home" icon="home" to="/" size="lg" />
     </div>
   </q-page>
 </template>

@@ -18,7 +18,7 @@ export default configure((ctx) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: [],
+    boot: ['theme'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -81,7 +81,18 @@ export default configure((ctx) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
     framework: {
-      config: {},
+      config: {
+        brand: {
+          primary: '#111111',
+          secondary: '#FFFFFF',
+          accent: '#2D2D2D',
+          dark: '#0B0B0C',
+          positive: '#1F7A4D',
+          negative: '#B42318',
+          info: '#1B4DFF',
+          warning: '#B25E00',
+        },
+      },
 
       // iconSet: 'material-icons', // Quasar icon set
       // lang: 'en-US', // Quasar language pack
@@ -94,7 +105,7 @@ export default configure((ctx) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: [],
+      plugins: ['Dark'],
     },
 
     // animations: 'all', // --- includes all animations

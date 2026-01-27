@@ -1,25 +1,54 @@
 // Quasar SCSS (& Sass) Variables
 // --------------------------------------------------
-// To customize the look and feel of this app, you can override
-// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+// MakerSpace Theme - Monochrome, minimal, clean
 
-// Check documentation for full list of Quasar variables
+// Typography
+$typography-font-family:
+  'Nunito',
+  system-ui,
+  -apple-system,
+  'Segoe UI',
+  Roboto,
+  Arial,
+  sans-serif !default;
 
-// Your own variables (that are declared here) and Quasar's own
-// ones will be available out of the box in your .vue/.scss/.sass files
+// Brand Colors - Monochrome MakerSpace palette
+$primary: #111111;
+$secondary: #ffffff;
+$accent: #2d2d2d;
 
-// It's highly recommended to change the default colors
-// to match your app's branding.
-// Tip: Use the "Theme Builder" on Quasar's documentation website.
+$dark: #0b0b0c;
+$dark-page: #0b0b0c;
 
-$primary: #1976d2;
-$secondary: #26a69a;
-$accent: #9c27b0;
+$positive: #1f7a4d;
+$negative: #b42318;
+$info: #1b4dff;
+$warning: #b25e00;
 
-$dark: #1d1d1d;
-$dark-page: #121212;
+// Border radius - consistent rounded corners
+$generic-border-radius: 16px !default;
 
-$positive: #21ba45;
-$negative: #c10015;
-$info: #31ccec;
-$warning: #f2c037;
+// Shadows - subtle, minimal
+$shadow-1:
+  0 1px 3px rgba(0, 0, 0, 0.04),
+  0 1px 2px rgba(0, 0, 0, 0.02) !default;
+$shadow-2:
+  0 2px 4px rgba(0, 0, 0, 0.04),
+  0 2px 3px rgba(0, 0, 0, 0.02) !default;
+$shadow-3:
+  0 4px 6px rgba(0, 0, 0, 0.04),
+  0 4px 5px rgba(0, 0, 0, 0.02) !default;
+$shadow-4:
+  0 8px 10px rgba(0, 0, 0, 0.04),
+  0 8px 8px rgba(0, 0, 0, 0.02) !default;
+$shadow-5:
+  0 16px 24px rgba(0, 0, 0, 0.04),
+  0 16px 16px rgba(0, 0, 0, 0.02) !default;
+
+// Button styling
+$button-border-radius: 16px !default;
+$button-padding: 10px 16px !default;
+$button-dense-padding: 6px 12px !default;
+
+// Input styling
+$input-border-radius: 16px !default;
