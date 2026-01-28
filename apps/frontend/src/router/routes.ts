@@ -12,6 +12,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/DashboardPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'profile',
+        component: () => import('pages/ProfilePage.vue'),
+        meta: { requiresAuth: true },
+      },
       { path: 'theme', component: () => import('pages/ThemeShowcasePage.vue') },
       { path: 'about', component: () => import('pages/AboutPage.vue') },
     ],
