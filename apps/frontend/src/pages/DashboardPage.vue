@@ -37,22 +37,9 @@
         <div class="action-grid">
           <q-card flat bordered class="action-card">
             <q-card-section>
-              <q-icon name="category" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Bereiche verwalten</div>
-              <div class="text-body2 text-grey-7">
-                Bereiche definieren und Bereichsleiter zuweisen
-              </div>
-            </q-card-section>
-            <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
-            </q-card-actions>
-          </q-card>
-
-          <q-card flat bordered class="action-card">
-            <q-card-section>
-              <q-icon name="people" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Alle Mitglieder</div>
-              <div class="text-body2 text-grey-7">Mitglieder verwalten und Rollen zuweisen</div>
+              <q-icon name="build" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Ausstattung verwalten</div>
+              <div class="text-body2 text-grey-7">Geräte und Ausstattung verwalten</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
@@ -67,20 +54,9 @@
         <div class="action-grid">
           <q-card flat bordered class="action-card">
             <q-card-section>
-              <q-icon name="assignment" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Rollen zuweisen</div>
-              <div class="text-body2 text-grey-7">Mitgliedern Rollen zuweisen</div>
-            </q-card-section>
-            <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
-            </q-card-actions>
-          </q-card>
-
-          <q-card flat bordered class="action-card">
-            <q-card-section>
-              <q-icon name="analytics" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Berichte</div>
-              <div class="text-body2 text-grey-7">Übersichten und Statistiken ansehen</div>
+              <q-icon name="category" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Bereiche verwalten</div>
+              <div class="text-body2 text-grey-7">Bereiche definieren und verwalten</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
@@ -95,20 +71,9 @@
         <div class="action-grid">
           <q-card flat bordered class="action-card">
             <q-card-section>
-              <q-icon name="person_add" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Mitglieder zuweisen</div>
-              <div class="text-body2 text-grey-7">Mitglieder Ihrem Bereich zuweisen</div>
-            </q-card-section>
-            <q-card-actions>
-              <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
-            </q-card-actions>
-          </q-card>
-
-          <q-card flat bordered class="action-card">
-            <q-card-section>
-              <q-icon name="groups" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Bereichsmitglieder</div>
-              <div class="text-body2 text-grey-7">Mitglieder in Ihrem Bereich ansehen</div>
+              <q-icon name="admin_panel_settings" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Berechtigungen</div>
+              <div class="text-body2 text-grey-7">Berechtigungen in Ihrem Bereich verwalten</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
@@ -134,9 +99,9 @@
 
           <q-card flat bordered class="action-card">
             <q-card-section>
-              <q-icon name="calendar_today" size="48px" color="primary" />
-              <div class="text-h6 q-mt-md">Veranstaltungen</div>
-              <div class="text-body2 text-grey-7\">Kommende Veranstaltungen ansehen</div>
+              <q-icon name="admin_panel_settings" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Berechtigungen</div>
+              <div class="text-body2 text-grey-7">Ihre Zugriffsberechtigungen ansehen</div>
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
