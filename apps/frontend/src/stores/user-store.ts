@@ -18,12 +18,7 @@ export type Permission =
 // Define which permissions each role has
 const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
   mitglied: ['view:profile', 'view:permissions', 'view:about'],
-  bereichsleitung: [
-    'view:profile',
-    'view:permissions',
-    'view:about',
-    'manage:area-permissions',
-  ],
+  bereichsleitung: ['view:profile', 'view:permissions', 'view:about', 'manage:area-permissions'],
   vorstand: [
     'view:profile',
     'view:permissions',
