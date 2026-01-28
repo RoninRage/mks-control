@@ -32,7 +32,7 @@
       <h1 class="text-h4 q-mb-lg">Dashboard</h1>
 
       <!-- Admin Section -->
-      <div v-if="userStore.isAdmin" class="dashboard-section">
+      <div v-if="userStore.can('manage:equipment')" class="dashboard-section">
         <h2 class="text-h5 q-mb-md">Administration</h2>
         <div class="action-grid">
           <q-card flat bordered class="action-card">
@@ -49,7 +49,7 @@
       </div>
 
       <!-- Vorstand Section -->
-      <div v-if="userStore.isVorstand" class="dashboard-section">
+      <div v-if="userStore.can('manage:areas')" class="dashboard-section">
         <h2 class="text-h5 q-mb-md">Vorstand</h2>
         <div class="action-grid">
           <q-card flat bordered class="action-card">
@@ -66,7 +66,7 @@
       </div>
 
       <!-- Bereichsleitung Section -->
-      <div v-if="userStore.isBereichsleiter" class="dashboard-section">
+      <div v-if="userStore.can('manage:area-permissions')" class="dashboard-section">
         <h2 class="text-h5 q-mb-md">Bereichsleitung</h2>
         <div class="action-grid">
           <q-card flat bordered class="action-card">
@@ -83,7 +83,7 @@
       </div>
 
       <!-- Mitglied Section -->
-      <div v-if="userStore.isMitglied" class="dashboard-section">
+      <div v-if="userStore.can('view:profile')" class="dashboard-section">
         <h2 class="text-h5 q-mb-md">Mitglied</h2>
         <div class="action-grid">
           <q-card flat bordered class="action-card">
