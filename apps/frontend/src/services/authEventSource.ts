@@ -2,6 +2,8 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 're
 
 export type TagEventSource = 'acr122u' | 'webnfc' | 'manual';
 
+export type ReaderStatus = 'attached' | 'detached';
+
 export interface TagEvent {
   type: 'tag';
   uid: string;
@@ -10,10 +12,27 @@ export interface TagEvent {
   device: string;
 }
 
+export interface ReaderEvent {
+  type: 'reader';
+  status: ReaderStatus;
+  ts: string;
+  source: TagEventSource;
+  device: string;
+}
+
+export interface HeartbeatEvent {
+  type: 'heartbeat';
+  ts: string;
+  source: string;
+  device: string;
+}
+
 export interface AuthEventSource {
   connect(): void;
   disconnect(): void;
-  onTag(cb: (event: TagEvent) => void): void;
+  onTag(callback: (event: TagEvent) => void): void;
+  onReader(callback: (event: ReaderEvent) => void): void;
+  onHeartbeat(callback: (event: HeartbeatEvent) => void): void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
 }
 
@@ -52,6 +71,35 @@ const isTagEvent = (value: unknown): value is TagEvent => {
   );
 };
 
+const isReaderEvent = (value: unknown): value is ReaderEvent => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as ReaderEvent;
+  return (
+    event.type === 'reader' &&
+    (event.status === 'attached' || event.status === 'detached') &&
+    typeof event.ts === 'string' &&
+    typeof event.source === 'string' &&
+    typeof event.device === 'string'
+  );
+};
+
+const isHeartbeatEvent = (value: unknown): value is HeartbeatEvent => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as HeartbeatEvent;
+  return (
+    event.type === 'heartbeat' &&
+    typeof event.ts === 'string' &&
+    typeof event.source === 'string' &&
+    typeof event.device === 'string'
+  );
+};
+
 export class ServerWsAuthEventSource implements AuthEventSource {
   private ws: WebSocket | null = null;
   private status: ConnectionStatus = 'disconnected';
@@ -59,6 +107,8 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private retryCount = 0;
   private shouldReconnect = true;
   private readonly tagListeners: Array<(event: TagEvent) => void> = [];
+  private readonly readerListeners: Array<(event: ReaderEvent) => void> = [];
+  private readonly heartbeatListeners: Array<(event: HeartbeatEvent) => void> = [];
   private readonly statusListeners: Array<(status: ConnectionStatus) => void> = [];
 
   public constructor(private readonly url: string) {}
@@ -95,6 +145,14 @@ export class ServerWsAuthEventSource implements AuthEventSource {
         const parsed = JSON.parse(data) as unknown;
         if (isTagEvent(parsed)) {
           this.emitTag(parsed);
+          return;
+        }
+        if (isReaderEvent(parsed)) {
+          this.emitReader(parsed);
+          return;
+        }
+        if (isHeartbeatEvent(parsed)) {
+          this.emitHeartbeat(parsed);
         }
       } catch {
         // Ignore malformed messages
@@ -128,6 +186,14 @@ export class ServerWsAuthEventSource implements AuthEventSource {
     this.tagListeners.push(cb);
   }
 
+  public onReader(cb: (event: ReaderEvent) => void): void {
+    this.readerListeners.push(cb);
+  }
+
+  public onHeartbeat(cb: (event: HeartbeatEvent) => void): void {
+    this.heartbeatListeners.push(cb);
+  }
+
   public onStatus(cb: (status: ConnectionStatus) => void): void {
     this.statusListeners.push(cb);
     cb(this.status);
@@ -135,6 +201,14 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
   private emitTag(event: TagEvent): void {
     this.tagListeners.forEach((listener: (event: TagEvent) => void) => listener(event));
+  }
+
+  private emitReader(event: ReaderEvent): void {
+    this.readerListeners.forEach((listener: (event: ReaderEvent) => void) => listener(event));
+  }
+
+  private emitHeartbeat(event: HeartbeatEvent): void {
+    this.heartbeatListeners.forEach((listener: (event: HeartbeatEvent) => void) => listener(event));
   }
 
   private setStatus(status: ConnectionStatus): void {

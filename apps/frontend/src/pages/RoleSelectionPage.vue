@@ -48,12 +48,23 @@
         @click="proceedWithRole"
       />
     </div>
+
+    <div class="ms-section">
+      <q-card flat bordered class="debug-card">
+        <q-card-section>
+          <div class="text-h6 q-mb-sm">Tag Debug</div>
+          <div class="debug-card__row">Last UID: {{ lastUidLabel }}</div>
+          <div class="debug-card__row">Last Seen: {{ lastTsLabel }}</div>
+        </q-card-section>
+      </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from 'stores/auth';
 import { useUserStore } from 'stores/user-store';
 import RoleIcon from 'components/RoleIcon.vue';
 
@@ -67,8 +78,12 @@ interface Role {
 }
 
 const router = useRouter();
+const authStore = useAuthStore();
 const userStore = useUserStore();
 const selectedRole = ref<string | null>(null);
+
+const lastUidLabel = computed((): string => authStore.lastUid ?? '—');
+const lastTsLabel = computed((): string => authStore.lastTs ?? '—');
 
 const roles: Role[] = [
   { id: 'admin', name: 'Admin' },
@@ -139,6 +154,14 @@ function proceedWithRole() {
 
 .action-button {
   min-height: 48px;
+}
+
+.debug-card {
+  &__row {
+    font-size: 14px;
+    color: var(--ms-muted);
+    margin-top: 6px;
+  }
 }
 
 :deep(.body--dark) {

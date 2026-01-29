@@ -50,7 +50,7 @@ curl -X POST http://localhost:3000/api/auth/tag \
   -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
 ```
 
-Open the frontend in a browser and navigate to /lock to see events.
+Open the frontend in a browser and watch the index page for connection status and tag events.
 
 ## Tag Unlock (Frontend)
 

@@ -8,6 +8,7 @@ Create a .env file (copy from .env.example):
 
 GATEWAY_URL=http://localhost:3000
 POST_PATH=/api/auth/tag
+READER_POST_PATH=/api/auth/reader
 DEVICE_ID=kiosk-01
 SOURCE=acr122u
 DEBOUNCE_MS=800
