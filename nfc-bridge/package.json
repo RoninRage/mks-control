@@ -1,0 +1,26 @@
+{
+  "name": "mks-control-nfc-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "nfc-pcsc": "^0.8.0",
+    "undici": "^6.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "node-gyp": "^10.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -5,7 +5,8 @@
   "description": "MKS Control Monorepo",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "nfc-bridge"
   ],
   "scripts": {
     "build": "npm run build --workspaces",

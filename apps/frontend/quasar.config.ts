@@ -18,7 +18,7 @@ export default configure((ctx) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['theme'],
+    boot: ['theme', 'auth'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -53,7 +53,9 @@ export default configure((ctx) => {
 
       // publicPath: '/',
       // analyze: true,
-      // env: {},
+      env: {
+        AUTH_WS_URL: process.env.AUTH_WS_URL,
+      },
       // rawDefine: {}
       // ignorePublicFolder: true,
       // minify: false,
