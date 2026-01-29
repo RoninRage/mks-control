@@ -140,7 +140,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private setStatus(status: ConnectionStatus): void {
     this.status = status;
     this.statusListeners.forEach((listener: (status: ConnectionStatus) => void) =>
-      listener(status),
+      listener(status)
     );
   }
 

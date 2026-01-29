@@ -70,7 +70,7 @@ npm run dev
 
 ## End-to-End (Gateway + PWA + NFC Bridge)
 
-1) Start the backend:
+1. Start the backend:
 
 ```bash
 cd apps/backend
@@ -78,7 +78,7 @@ npm install
 npm run dev
 ```
 
-2) Start the Quasar PWA:
+2. Start the Quasar PWA:
 
 ```bash
 cd apps/frontend
@@ -86,7 +86,7 @@ npm install
 npm run dev
 ```
 
-3) Start the NFC bridge:
+3. Start the NFC bridge:
 
 ```bash
 cd nfc-bridge
@@ -95,7 +95,7 @@ cp .env.example .env
 npm run dev
 ```
 
-4) Tap a NFC tag: the bridge posts to the gateway, and the PWA unlocks via WS.
+4. Tap a NFC tag: the bridge posts to the gateway, and the PWA unlocks via WS.
 
 ### Raspberry Pi deployment notes
 

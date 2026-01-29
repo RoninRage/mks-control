@@ -46,9 +46,7 @@ const normalizeTagEvent = (req: Request): NormalizationResult => {
   };
 };
 
-export const createAuthRoutes = (
-  broadcast: (event: TagEvent) => void,
-): Router => {
+export const createAuthRoutes = (broadcast: (event: TagEvent) => void): Router => {
   const router = Router();
 
   router.post('/tag', (req: Request, res: Response) => {

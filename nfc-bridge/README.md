@@ -14,29 +14,29 @@ DEBOUNCE_MS=800
 
 ## Run (Windows)
 
-1) Ensure the Windows Smart Card service is running.
-2) Install dependencies:
+1. Ensure the Windows Smart Card service is running.
+2. Install dependencies:
 
 npm install
 
-3) Start the bridge:
+3. Start the bridge:
 
 npm run dev
 
 ## Run (Raspberry Pi)
 
-1) Install pcscd and tools:
+1. Install pcscd and tools:
 
 sudo apt-get update
 sudo apt-get install -y pcscd pcsc-tools
 sudo systemctl enable pcscd
 sudo systemctl start pcscd
 
-2) Verify the reader:
+2. Verify the reader:
 
 pcsc_scan
 
-3) Install dependencies and run:
+3. Install dependencies and run:
 
 npm install
 npm run dev
