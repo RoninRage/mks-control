@@ -17,6 +17,7 @@ export interface TagEvent {
     firstName: string;
     lastName: string;
     roles: string[];
+    preferredTheme?: 'light' | 'dark' | 'auto';
   };
 }
 

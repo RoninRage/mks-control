@@ -77,13 +77,22 @@ export default boot(({ router }) => {
       const memberId = event.member?.id;
       const firstName = event.member?.firstName;
       const lastName = event.member?.lastName;
-      userStore.setRole('admin', 'Admin', memberId, firstName, lastName);
+      const preferredTheme = event.member?.preferredTheme;
+      userStore.setRole('admin', 'Admin', memberId, firstName, lastName, preferredTheme);
     } else {
       console.log('[auth-boot] Assigning role based on permissions:', resolvedRoleId);
       const memberId = event.member?.id;
       const firstName = event.member?.firstName;
       const lastName = event.member?.lastName;
-      userStore.setRole(resolvedRoleId, resolvedRoleName, memberId, firstName, lastName);
+      const preferredTheme = event.member?.preferredTheme;
+      userStore.setRole(
+        resolvedRoleId,
+        resolvedRoleName,
+        memberId,
+        firstName,
+        lastName,
+        preferredTheme
+      );
     }
 
     console.log('[auth-boot] isAuthenticated:', userStore.isAuthenticated);

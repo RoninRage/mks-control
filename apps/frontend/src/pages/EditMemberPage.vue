@@ -121,6 +121,25 @@
           />
         </div>
 
+        <!-- Theme Preference -->
+        <div class="col-12 col-sm-6">
+          <q-select
+            v-model="themePreference"
+            :options="themeOptions"
+            label="Bevorzugtes Design"
+            outlined
+            dense
+            emit-value
+            map-options
+            @update:model-value="updateThemePreference"
+            class="full-width"
+          >
+            <template #prepend>
+              <q-icon name="palette" />
+            </template>
+          </q-select>
+        </div>
+
         <!-- Tags Section -->
         <div class="col-12">
           <div class="q-mb-md">
@@ -171,6 +190,7 @@ import { useQuasar } from 'quasar';
 import type { Member, Tag } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
 import { authEventSource } from 'src/services/authEventSource';
+import { useUserStore } from 'stores/user-store';
 
 defineOptions({
   name: 'EditMemberPage',
@@ -179,11 +199,19 @@ defineOptions({
 const router = useRouter();
 const route = useRoute();
 const $q = useQuasar();
+const userStore = useUserStore();
 const member = ref<Member | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const tags = ref<Tag[]>([]);
 const scanningTag = ref(false);
+const themePreference = ref<'light' | 'dark' | 'auto'>('auto');
+
+const themeOptions = [
+  { label: 'Hell', value: 'light' },
+  { label: 'Dunkel', value: 'dark' },
+  { label: 'Automatisch', value: 'auto' },
+];
 
 const memberId = computed(() => route.params.id as string);
 
@@ -195,6 +223,36 @@ const formattedJoinDate = computed(() => {
     return member.value.joinDate;
   }
 });
+
+async function updateThemePreference(theme: 'light' | 'dark' | 'auto') {
+  try {
+    await memberService.updateMemberTheme(memberId.value, theme);
+
+    // If editing current user's profile, apply theme immediately
+    if (memberId.value === userStore.memberId) {
+      userStore.setPreferredTheme(theme);
+
+      if (theme === 'dark') {
+        $q.dark.set(true);
+      } else if (theme === 'light') {
+        $q.dark.set(false);
+      } else {
+        $q.dark.set('auto');
+      }
+    }
+
+    $q.notify({
+      type: 'positive',
+      message: 'Design-Einstellung gespeichert',
+    });
+  } catch (err) {
+    console.error('Error updating theme:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Speichern der Design-Einstellung',
+    });
+  }
+}
 
 const statusLabel = computed(() => {
   return member.value?.isActive ? 'Aktiv' : 'Inaktiv';
@@ -211,6 +269,7 @@ async function loadMember() {
       return;
     }
     member.value = foundMember;
+    themePreference.value = foundMember.preferredTheme || 'auto';
     await loadTags();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Mitglieds';

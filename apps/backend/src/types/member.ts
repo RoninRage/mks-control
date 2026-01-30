@@ -10,6 +10,7 @@ export interface Member {
   roles: string[];
   joinDate: string;
   isActive: boolean;
+  preferredTheme?: 'light' | 'dark' | 'auto';
 }
 
 export interface CreateMemberRequest {
@@ -28,5 +29,6 @@ export interface UpdateMemberRequest {
   email?: string;
   phone?: string;
   roles?: string[];
+  preferredTheme?: 'light' | 'dark' | 'auto';
   isActive?: boolean;
 }

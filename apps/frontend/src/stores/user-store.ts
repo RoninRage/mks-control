@@ -43,6 +43,7 @@ export const useUserStore = defineStore('user', {
     memberId: null as string | null,
     firstName: null as string | null,
     lastName: null as string | null,
+    preferredTheme: 'auto' as 'light' | 'dark' | 'auto',
   }),
 
   getters: {
@@ -94,13 +95,15 @@ export const useUserStore = defineStore('user', {
       roleName: string,
       memberId?: string,
       firstName?: string,
-      lastName?: string
+      lastName?: string,
+      preferredTheme?: 'light' | 'dark' | 'auto'
     ) {
       this.selectedRole = { id: roleId, name: roleName };
       this.isAuthenticated = true;
       this.memberId = memberId || null;
       this.firstName = firstName || null;
       this.lastName = lastName || null;
+      this.preferredTheme = preferredTheme || 'auto';
 
       // Persist to localStorage
       localStorage.setItem('userRole', JSON.stringify(this.selectedRole));
@@ -114,6 +117,14 @@ export const useUserStore = defineStore('user', {
       if (lastName) {
         localStorage.setItem('lastName', lastName);
       }
+      if (preferredTheme) {
+        localStorage.setItem('preferredTheme', preferredTheme);
+      }
+    },
+
+    setPreferredTheme(theme: 'light' | 'dark' | 'auto') {
+      this.preferredTheme = theme;
+      localStorage.setItem('preferredTheme', theme);
     },
 
     logout() {
@@ -122,6 +133,7 @@ export const useUserStore = defineStore('user', {
       this.memberId = null;
       this.firstName = null;
       this.lastName = null;
+      this.preferredTheme = 'auto';
 
       // Clear localStorage immediately to ensure state is persisted
       localStorage.removeItem('userRole');
@@ -129,6 +141,7 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('memberId');
       localStorage.removeItem('firstName');
       localStorage.removeItem('lastName');
+      localStorage.removeItem('preferredTheme');
 
       // Force flush by reading back
       const userRoleExists = localStorage.getItem('userRole');
@@ -146,6 +159,11 @@ export const useUserStore = defineStore('user', {
       const storedMemberId = localStorage.getItem('memberId');
       const storedFirstName = localStorage.getItem('firstName');
       const storedLastName = localStorage.getItem('lastName');
+      const storedTheme = localStorage.getItem('preferredTheme') as
+        | 'light'
+        | 'dark'
+        | 'auto'
+        | null;
 
       if (storedRole && isAuth === 'true') {
         this.selectedRole = JSON.parse(storedRole);
@@ -153,6 +171,7 @@ export const useUserStore = defineStore('user', {
         this.memberId = storedMemberId;
         this.firstName = storedFirstName;
         this.lastName = storedLastName;
+        this.preferredTheme = storedTheme || 'auto';
       }
     },
 

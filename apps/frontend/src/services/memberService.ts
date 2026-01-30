@@ -20,6 +20,7 @@ export interface Member {
   roles: string[];
   joinDate: string;
   isActive: boolean;
+  preferredTheme?: 'light' | 'dark' | 'auto';
   tags?: Tag[];
 }
 
@@ -158,6 +159,35 @@ export const memberService = {
       }
     } catch (error) {
       console.error('[memberService] Error removing tag:', error);
+      throw error;
+    }
+  },
+
+  async updateMemberTheme(
+    memberId: string,
+    preferredTheme: 'light' | 'dark' | 'auto'
+  ): Promise<Member> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}`;
+      console.log('[memberService] Updating theme for member:', memberId, 'to:', preferredTheme);
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ preferredTheme }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update theme preference');
+      }
+
+      const data = (await response.json()) as { ok: boolean; data: Member };
+      return data.data;
+    } catch (error) {
+      console.error('[memberService] Error updating theme:', error);
       throw error;
     }
   },

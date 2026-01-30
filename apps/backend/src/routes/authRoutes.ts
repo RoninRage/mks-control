@@ -115,6 +115,7 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
         firstName: member.firstName,
         lastName: member.lastName,
         roles: member.roles,
+        preferredTheme: member.preferredTheme,
       };
     }
 

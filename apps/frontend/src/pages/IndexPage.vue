@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
+import { Dark, useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
@@ -112,6 +112,9 @@ function simulateLogin() {
 
 onMounted(() => {
   const q = useQuasar(); // Get fresh instance in onMounted
+
+  // Always use system default theme on login screen
+  Dark.set('auto');
 
   authEventSource.onStatus((next: ConnectionStatus): void => {
     status.value = next;
