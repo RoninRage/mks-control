@@ -12,7 +12,7 @@
             <div class="text-body2 text-grey-7">Bereiche definieren und verwalten</div>
           </q-card-section>
           <q-card-actions>
-            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" to="/areas" />
           </q-card-actions>
         </q-card>
 
