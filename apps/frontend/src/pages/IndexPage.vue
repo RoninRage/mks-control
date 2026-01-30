@@ -4,7 +4,7 @@
       <q-card-section class="column items-center q-gutter-lg">
         <div class="text-h4 text-center">Bitte Anmelden</div>
 
-        <div class="rfid-icon-wrapper flex flex-center cursor-pointer" @click="simulateLogin">
+        <div class="rfid-icon-wrapper flex flex-center">
           <rfid-icon />
         </div>
 
@@ -25,22 +25,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
-import { useUserStore } from 'src/stores/user-store';
 import RfidIcon from 'components/RfidIcon.vue';
 
 defineOptions({
   name: 'IndexPage',
 });
 
-const router = useRouter();
-const $q = useQuasar();
 const authStore = useAuthStore();
-const userStore = useUserStore();
 const status = ref<ConnectionStatus>('connecting');
 
 const statusLabel = computed((): string => {
@@ -105,11 +100,6 @@ const statusColor = computed((): string => {
   }
 });
 
-function simulateLogin() {
-  userStore.setRole('mitglied', 'Mitglied');
-  router.push('/dashboard');
-}
-
 onMounted(() => {
   const q = useQuasar(); // Get fresh instance in onMounted
 
@@ -145,16 +135,6 @@ onMounted(() => {
 .rfid-icon-wrapper {
   width: 200px;
   height: 200px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
 }
 
 .status-card {
