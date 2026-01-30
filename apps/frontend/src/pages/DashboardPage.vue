@@ -23,7 +23,13 @@
             <div class="text-body2 text-grey-7">Geräte und Ausstattung verwalten</div>
           </q-card-section>
           <q-card-actions>
-            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+            <q-btn
+              flat
+              color="primary"
+              label="Öffnen"
+              class="action-card__button"
+              to="/equipment"
+            />
           </q-card-actions>
         </q-card>
 
