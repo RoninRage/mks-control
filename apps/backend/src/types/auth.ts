@@ -9,6 +9,7 @@ export interface TagEvent {
   source: TagEventSource;
   device: string;
   isAdmin?: boolean;
+  memberFound?: boolean;
 }
 
 export interface ReaderEvent {

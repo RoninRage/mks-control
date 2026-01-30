@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
@@ -40,9 +41,9 @@ defineOptions({
 });
 
 const router = useRouter();
+const $q = useQuasar();
 const authStore = useAuthStore();
 const status = ref<ConnectionStatus>('connecting');
-const hasNavigated = ref(false);
 
 const statusLabel = computed((): string => {
   if (status.value !== 'connected') {
@@ -129,16 +130,22 @@ function simulateLogin() {
 }
 
 onMounted(() => {
+  const q = useQuasar(); // Get fresh instance in onMounted
+
   authEventSource.onStatus((next: ConnectionStatus): void => {
     status.value = next;
   });
 
-  authEventSource.onTag((event: TagEvent): void => {
-    authStore.unlock(event);
-    if (!hasNavigated.value) {
-      hasNavigated.value = true;
-      void router.push('/role-selection');
-    }
+  authEventSource.onUnknownTag((event: TagEvent): void => {
+    console.log('[IndexPage] Unknown tag detected:', event);
+    q.notify({
+      type: 'negative',
+      message: 'Unbekannter Benutzer',
+      position: 'center',
+      timeout: 5000,
+      badgeClass: 'hidden',
+      badgeStyle: 'display: none;',
+    });
   });
 });
 </script>

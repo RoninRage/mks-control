@@ -136,18 +136,21 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     const isAdmin = isAdminByEnv || (member?.roles.includes('admin') ?? false);
 
     // Enrich event with member info and admin status
-    const enrichedEvent = {
+    const enrichedEvent: AuthEvent = {
       ...event,
       isAdmin,
-      member: member
-        ? {
-            id: member.id,
-            firstName: member.firstName,
-            lastName: member.lastName,
-            roles: member.roles,
-          }
-        : undefined,
-    };
+      memberFound: member !== null,
+    } as any;
+
+    // Attach member info (not part of AuthEvent interface but will be sent)
+    if (member) {
+      (enrichedEvent as any).member = {
+        id: member.id,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        roles: member.roles,
+      };
+    }
 
     console.log(
       `[auth-routes] Tag received: ${event.uid}, isAdmin: ${isAdmin}, member: ${member ? `${member.firstName} ${member.lastName}` : 'not found'}`

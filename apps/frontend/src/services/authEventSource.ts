@@ -11,6 +11,7 @@ export interface TagEvent {
   source: TagEventSource;
   device: string;
   isAdmin?: boolean;
+  memberFound?: boolean;
 }
 
 export interface ReaderEvent {
@@ -35,6 +36,8 @@ export interface AuthEventSource {
   onReader(callback: (event: ReaderEvent) => void): void;
   onHeartbeat(callback: (event: HeartbeatEvent) => void): void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
+  onUnknownTag(callback: (event: TagEvent) => void): void;
+  emitUnknownTag(event: TagEvent): void;
 }
 
 const resolveWsUrl = (): string => {
@@ -112,6 +115,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly readerListeners: Array<(event: ReaderEvent) => void> = [];
   private readonly heartbeatListeners: Array<(event: HeartbeatEvent) => void> = [];
   private readonly statusListeners: Array<(status: ConnectionStatus) => void> = [];
+  private readonly unknownTagListeners: Array<(event: TagEvent) => void> = [];
 
   public constructor(private readonly url: string) {}
 
@@ -146,6 +150,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       try {
         const parsed = JSON.parse(data) as unknown;
         if (isTagEvent(parsed)) {
+          console.log('[authEventSource] Tag event received:', parsed);
           this.emitTag(parsed);
           return;
         }
@@ -199,6 +204,14 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   public onStatus(cb: (status: ConnectionStatus) => void): void {
     this.statusListeners.push(cb);
     cb(this.status);
+  }
+
+  public onUnknownTag(cb: (event: TagEvent) => void): void {
+    this.unknownTagListeners.push(cb);
+  }
+
+  public emitUnknownTag(event: TagEvent): void {
+    this.unknownTagListeners.forEach((listener: (event: TagEvent) => void) => listener(event));
   }
 
   private emitTag(event: TagEvent): void {

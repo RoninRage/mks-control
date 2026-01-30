@@ -24,6 +24,11 @@ export default boot(({ router }) => {
 
   authEventSource.onTag((event: TagEvent): void => {
     console.log('[auth-boot] Tag event received:', event);
+    console.log('[auth-boot] Event details:', {
+      uid: event.uid,
+      isAdmin: event.isAdmin,
+      memberFound: event.memberFound,
+    });
     console.log('[auth-boot] Current authentication state:', {
       isAuthenticated: userStore.isAuthenticated,
       selectedRole: userStore.selectedRole,
@@ -39,6 +44,14 @@ export default boot(({ router }) => {
       // Navigate to home/login page
       void router.push('/');
       // Don't process the tag further - just logout
+      return;
+    }
+
+    // Check for unknown user (tag not found in database and not admin)
+    if (event.memberFound === false && event.isAdmin !== true) {
+      console.log('[auth-boot] Unknown tag detected - member not found and not admin');
+      console.log('[auth-boot] Emitting unknown tag event');
+      authEventSource.emitUnknownTag(event);
       return;
     }
 
