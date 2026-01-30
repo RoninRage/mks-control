@@ -95,8 +95,8 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
   // Load admin tag UIDs from environment variable
   const adminTagUids = (process.env.ADMIN_TAG_UIDS || '')
     .split(',')
-    .map(uid => uid.trim())
-    .filter(uid => uid.length > 0);
+    .map((uid) => uid.trim())
+    .filter((uid) => uid.length > 0);
 
   console.log(`[auth-routes] Admin tags configured:`, adminTagUids);
 
