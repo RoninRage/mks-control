@@ -151,7 +151,17 @@ export const createMemberRoutes = (): Router => {
   router.delete('/members/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      log(`Deleting member: ${id}`);
+      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserRole = req.headers['x-user-role'] as string;
+      
+      log(`Deleting member: ${id}, requested by: ${currentUserId} (${currentUserRole})`);
+      
+      // Check if user is trying to delete themselves
+      if (currentUserId === id) {
+        res.status(403).json({ ok: false, error: 'Sie können sich nicht selbst löschen' });
+        return;
+      }
+      
       const db = getDatabase();
 
       // Find existing member
@@ -166,6 +176,15 @@ export const createMemberRoutes = (): Router => {
       }
 
       const member = result.docs[0];
+      
+      // Check if trying to delete an admin user
+      const isTargetAdmin = member.roles && member.roles.includes('admin');
+      const isCurrentUserAdmin = currentUserRole === 'admin';
+      
+      if (isTargetAdmin && !isCurrentUserAdmin) {
+        res.status(403).json({ ok: false, error: 'Nur Administratoren können andere Administratoren löschen' });
+        return;
+      }
 
       // Soft delete by setting isActive to false
       member.isActive = false;

@@ -40,6 +40,7 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     selectedRole: null as UserRole | null,
     isAuthenticated: false,
+    memberId: null as string | null,
   }),
 
   getters: {
@@ -80,22 +81,28 @@ export const useUserStore = defineStore('user', {
   },
 
   actions: {
-    setRole(roleId: string, roleName: string) {
+    setRole(roleId: string, roleName: string, memberId?: string) {
       this.selectedRole = { id: roleId, name: roleName };
       this.isAuthenticated = true;
+      this.memberId = memberId || null;
 
       // Persist to localStorage
       localStorage.setItem('userRole', JSON.stringify(this.selectedRole));
       localStorage.setItem('isAuthenticated', 'true');
+      if (memberId) {
+        localStorage.setItem('memberId', memberId);
+      }
     },
 
     logout() {
       this.selectedRole = null;
       this.isAuthenticated = false;
+      this.memberId = null;
 
       // Clear localStorage immediately to ensure state is persisted
       localStorage.removeItem('userRole');
       localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('memberId');
 
       // Force flush by reading back
       const userRoleExists = localStorage.getItem('userRole');
@@ -110,10 +117,12 @@ export const useUserStore = defineStore('user', {
     restoreSession() {
       const storedRole = localStorage.getItem('userRole');
       const isAuth = localStorage.getItem('isAuthenticated');
+      const storedMemberId = localStorage.getItem('memberId');
 
       if (storedRole && isAuth === 'true') {
         this.selectedRole = JSON.parse(storedRole);
         this.isAuthenticated = true;
+        this.memberId = storedMemberId;
       }
     },
 

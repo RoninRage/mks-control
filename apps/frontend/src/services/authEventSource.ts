@@ -12,6 +12,12 @@ export interface TagEvent {
   device: string;
   isAdmin?: boolean;
   memberFound?: boolean;
+  member?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    roles: string[];
+  };
 }
 
 export interface ReaderEvent {

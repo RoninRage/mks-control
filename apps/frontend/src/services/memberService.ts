@@ -50,4 +50,32 @@ export const memberService = {
       throw error;
     }
   },
+
+  async deleteMember(
+    memberId: string,
+    currentUserId: string,
+    currentUserRole: string
+  ): Promise<void> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}`;
+      console.log('[memberService] Deleting member:', memberId);
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId,
+          'x-user-role': currentUserRole,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete member');
+      }
+    } catch (error) {
+      console.error('[memberService] Error deleting member:', error);
+      throw error;
+    }
+  },
 };

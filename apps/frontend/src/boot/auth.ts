@@ -57,7 +57,8 @@ export default boot(({ router }) => {
     // Auto-login admin tags
     if (event.isAdmin) {
       console.log('[auth-boot] Admin tag detected, auto-logging in as admin');
-      userStore.setRole('admin', 'Admin');
+      const memberId = event.member?.id;
+      userStore.setRole('admin', 'Admin', memberId);
       console.log('[auth-boot] isAuthenticated:', userStore.isAuthenticated);
       console.log('[auth-boot] selectedRole:', userStore.selectedRole);
       // Use setTimeout to ensure state is committed before navigation

@@ -114,6 +114,7 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import type { Member } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
+import { useUserStore } from 'src/stores/user-store';
 
 defineOptions({
   name: 'MembersPage',
@@ -121,6 +122,7 @@ defineOptions({
 
 const router = useRouter();
 const $q = useQuasar();
+const userStore = useUserStore();
 
 const members = ref<Member[]>([]);
 const loading = ref(false);
@@ -219,12 +221,32 @@ function deleteMember(id: string) {
       label: 'Löschen',
       color: 'negative',
     },
-  }).onOk(() => {
-    members.value = members.value.filter((m) => m.id !== id);
-    $q.notify({
-      type: 'positive',
-      message: 'Mitglied gelöscht',
-    });
+  }).onOk(async () => {
+    try {
+      const currentUserId = userStore.memberId;
+      const currentUserRole = userStore.selectedRole?.id;
+
+      if (!currentUserId || !currentUserRole) {
+        $q.notify({
+          type: 'negative',
+          message: 'Benutzerinformationen fehlen. Bitte melden Sie sich erneut an.',
+        });
+        return;
+      }
+
+      await memberService.deleteMember(id, currentUserId, currentUserRole);
+      await loadMembers(); // Reload list after successful delete
+      $q.notify({
+        type: 'positive',
+        message: 'Mitglied gelöscht',
+      });
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      $q.notify({
+        type: 'negative',
+        message: errorMessage || 'Fehler beim Löschen des Mitglieds',
+      });
+    }
   });
 }
 
