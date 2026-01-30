@@ -1,8 +1,24 @@
 <template>
   <q-page class="ms-container">
+    <!-- Header -->
     <div class="ms-section">
-      <h1 class="text-h3 q-mb-sm">Über MKS Control</h1>
-      <p class="text-body1 ms-muted q-mb-lg">Ein modernes RFID-Steuerungssystem für MakerSpaces</p>
+      <div class="row items-center justify-between q-mb-lg">
+        <div>
+          <h1 class="text-h3 q-mb-sm">Über MKS Control</h1>
+          <p class="text-body1 ms-muted">Ein modernes RFID-Steuerungssystem für MakerSpaces</p>
+        </div>
+        <q-btn
+          flat
+          icon="arrow_back"
+          color="primary"
+          @click="goBack"
+          size="lg"
+          padding="md"
+          min-width="48px"
+          min-height="48px"
+          aria-label="Go back"
+        />
+      </div>
     </div>
 
     <div class="ms-section">
@@ -18,17 +34,6 @@
             <li class="q-mb-xs">Vite für schnelle Entwicklung</li>
           </ul>
         </q-card-section>
-
-        <q-card-actions>
-          <q-btn
-            flat
-            color="primary"
-            label="Zurück"
-            icon="arrow_back"
-            @click="goBack"
-            class="action-button"
-          />
-        </q-card-actions>
       </q-card>
     </div>
 

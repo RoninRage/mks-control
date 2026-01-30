@@ -6,8 +6,8 @@
           <role-icon v-if="userStore.roleId" :role-id="userStore.roleId" />
         </div>
         <div class="user-header__details">
-          <div class="text-h5">{{ userStore.roleName }}</div>
-          <div class="text-body2 text-grey-7">{{ getRoleDescription() }}</div>
+          <div class="text-h5">{{ userStore.fullName }}</div>
+          <div class="text-body2 text-grey-7">{{ userStore.roleName }}</div>
         </div>
       </div>
       <q-btn
@@ -39,16 +39,6 @@ defineOptions({
 const router = useRouter();
 const $q = useQuasar();
 const userStore = useUserStore();
-
-function getRoleDescription(): string {
-  const descriptions: Record<string, string> = {
-    admin: 'Vollständige Systemverwaltung',
-    vorstand: 'Vorstandsmitglied mit erweiterten Rechten',
-    bereichsleitung: 'Leitung eines Bereichs',
-    mitglied: 'MakerSpace Mitglied',
-  };
-  return descriptions[userStore.roleId || ''] || '';
-}
 
 function handleLogout() {
   $q.dialog({

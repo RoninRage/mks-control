@@ -1,8 +1,5 @@
 <template>
   <q-page class="ms-container">
-    <!-- User Header Section -->
-    <user-header />
-
     <!-- Dashboard Content -->
     <div class="ms-section">
       <h1 class="text-h4 q-mb-lg">Dashboard</h1>
@@ -83,7 +80,6 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useUserStore } from 'stores/user-store';
-import UserHeader from 'components/UserHeader.vue';
 
 defineOptions({
   name: 'DashboardPage',

@@ -41,11 +41,19 @@ export const useUserStore = defineStore('user', {
     selectedRole: null as UserRole | null,
     isAuthenticated: false,
     memberId: null as string | null,
+    firstName: null as string | null,
+    lastName: null as string | null,
   }),
 
   getters: {
     roleId: (state): string | null => state.selectedRole?.id || null,
     roleName: (state): string | null => state.selectedRole?.name || null,
+    fullName: (state): string => {
+      if (state.firstName && state.lastName) {
+        return `${state.firstName} ${state.lastName}`;
+      }
+      return state.firstName || state.lastName || 'Unbekannter Benutzer';
+    },
 
     // Legacy permission checks (kept for backward compatibility)
     isAdmin: (state): boolean => state.selectedRole?.id === 'admin',
@@ -81,10 +89,18 @@ export const useUserStore = defineStore('user', {
   },
 
   actions: {
-    setRole(roleId: string, roleName: string, memberId?: string) {
+    setRole(
+      roleId: string,
+      roleName: string,
+      memberId?: string,
+      firstName?: string,
+      lastName?: string
+    ) {
       this.selectedRole = { id: roleId, name: roleName };
       this.isAuthenticated = true;
       this.memberId = memberId || null;
+      this.firstName = firstName || null;
+      this.lastName = lastName || null;
 
       // Persist to localStorage
       localStorage.setItem('userRole', JSON.stringify(this.selectedRole));
@@ -92,17 +108,27 @@ export const useUserStore = defineStore('user', {
       if (memberId) {
         localStorage.setItem('memberId', memberId);
       }
+      if (firstName) {
+        localStorage.setItem('firstName', firstName);
+      }
+      if (lastName) {
+        localStorage.setItem('lastName', lastName);
+      }
     },
 
     logout() {
       this.selectedRole = null;
       this.isAuthenticated = false;
       this.memberId = null;
+      this.firstName = null;
+      this.lastName = null;
 
       // Clear localStorage immediately to ensure state is persisted
       localStorage.removeItem('userRole');
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('memberId');
+      localStorage.removeItem('firstName');
+      localStorage.removeItem('lastName');
 
       // Force flush by reading back
       const userRoleExists = localStorage.getItem('userRole');
@@ -118,11 +144,15 @@ export const useUserStore = defineStore('user', {
       const storedRole = localStorage.getItem('userRole');
       const isAuth = localStorage.getItem('isAuthenticated');
       const storedMemberId = localStorage.getItem('memberId');
+      const storedFirstName = localStorage.getItem('firstName');
+      const storedLastName = localStorage.getItem('lastName');
 
       if (storedRole && isAuth === 'true') {
         this.selectedRole = JSON.parse(storedRole);
         this.isAuthenticated = true;
         this.memberId = storedMemberId;
+        this.firstName = storedFirstName;
+        this.lastName = storedLastName;
       }
     },
 

@@ -75,11 +75,15 @@ export default boot(({ router }) => {
     if (event.isAdmin) {
       console.log('[auth-boot] Admin tag detected, auto-logging in as admin');
       const memberId = event.member?.id;
-      userStore.setRole('admin', 'Admin', memberId);
+      const firstName = event.member?.firstName;
+      const lastName = event.member?.lastName;
+      userStore.setRole('admin', 'Admin', memberId, firstName, lastName);
     } else {
       console.log('[auth-boot] Assigning role based on permissions:', resolvedRoleId);
       const memberId = event.member?.id;
-      userStore.setRole(resolvedRoleId, resolvedRoleName, memberId);
+      const firstName = event.member?.firstName;
+      const lastName = event.member?.lastName;
+      userStore.setRole(resolvedRoleId, resolvedRoleName, memberId, firstName, lastName);
     }
 
     console.log('[auth-boot] isAuthenticated:', userStore.isAuthenticated);
