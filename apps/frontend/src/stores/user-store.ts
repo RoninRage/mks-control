@@ -93,9 +93,17 @@ export const useUserStore = defineStore('user', {
       this.selectedRole = null;
       this.isAuthenticated = false;
 
-      // Clear localStorage
+      // Clear localStorage immediately to ensure state is persisted
       localStorage.removeItem('userRole');
       localStorage.removeItem('isAuthenticated');
+      
+      // Force flush by reading back
+      const userRoleExists = localStorage.getItem('userRole');
+      const isAuthExists = localStorage.getItem('isAuthenticated');
+      console.log('[user-store] Logout - localStorage cleared:', {
+        userRoleCleared: !userRoleExists,
+        isAuthCleared: !isAuthExists,
+      });
     },
 
     // Restore session from localStorage
