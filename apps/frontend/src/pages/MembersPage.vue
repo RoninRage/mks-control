@@ -201,11 +201,7 @@ function getRoleLabel(role: string): string {
 }
 
 function editMember(member: Member) {
-  const fullName = member.firstName + ' ' + member.lastName;
-  $q.notify({
-    type: 'info',
-    message: 'Bearbeiten von ' + fullName + ' - Wird in Zukunft implementiert',
-  });
+  router.push(`/members/${member.id}/edit`);
 }
 
 function deleteMember(id: string) {
