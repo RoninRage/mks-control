@@ -15,10 +15,6 @@
                 <q-badge :color="statusColor" :label="statusLabel" />
                 <span class="status-card__label">Gateway Connection</span>
               </div>
-              <div class="row items-center q-gutter-sm">
-                <q-badge :color="readerStatusColor" :label="readerStatusLabel" />
-                <span class="status-card__label">Reader Device</span>
-              </div>
             </div>
           </q-card-section>
         </q-card>
@@ -104,24 +100,6 @@ const statusColor = computed((): string => {
     return 'positive';
   } else {
     return 'negative';
-  }
-});
-
-const readerStatusLabel = computed((): string => {
-  if (authStore.readerStatus === 'unknown') {
-    return 'unknown';
-  }
-  return authStore.readerStatus;
-});
-
-const readerStatusColor = computed((): string => {
-  switch (authStore.readerStatus) {
-    case 'attached':
-      return 'positive';
-    case 'detached':
-      return 'negative';
-    default:
-      return 'warning';
   }
 });
 

@@ -2,7 +2,7 @@ import { NFC, Reader } from 'nfc-pcsc';
 import { fetch } from 'undici';
 import dotenv from 'dotenv';
 import path from 'path';
-import { HeartbeatEvent, ReaderEvent, ReaderStatus, TagEvent } from './types';
+import { HeartbeatEvent, TagEvent } from './types';
 
 // Enforce monorepo dev entry point
 if (process.env.MONOREPO_DEV !== 'true') {
@@ -14,7 +14,6 @@ if (process.env.MONOREPO_DEV !== 'true') {
 interface BridgeConfig {
   gatewayUrl: string;
   postPath: string;
-  readerPostPath: string;
   deviceId: string;
   source: 'acr122u';
   debounceMs: number;
@@ -54,7 +53,6 @@ const normalizePath = (value: string): string => {
 const loadConfig = (): BridgeConfig => {
   const gatewayUrl = (process.env.GATEWAY_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const postPath = normalizePath(process.env.POST_PATH ?? '/api/auth/tag');
-  const readerPostPath = normalizePath(process.env.READER_POST_PATH ?? '/api/auth/reader');
   const deviceId = process.env.DEVICE_ID ?? 'kiosk-01';
   const source = (process.env.SOURCE ?? 'acr122u') as 'acr122u';
   const debounceMs = parseDebounce(process.env.DEBOUNCE_MS);
@@ -62,7 +60,6 @@ const loadConfig = (): BridgeConfig => {
   return {
     gatewayUrl,
     postPath,
-    readerPostPath,
     deviceId,
     source,
     debounceMs,
@@ -73,7 +70,6 @@ const config = loadConfig();
 
 log('info', `config gatewayUrl=${config.gatewayUrl}`);
 log('info', `config postPath=${config.postPath}`);
-log('info', `config readerPostPath=${config.readerPostPath}`);
 log('info', `config deviceId=${config.deviceId}`);
 log('info', `config source=${config.source}`);
 log('info', `config debounceMs=${config.debounceMs}`);
@@ -126,38 +122,6 @@ const postTag = async (uid: string): Promise<void> => {
   }
 };
 
-const postReaderStatus = async (status: ReaderStatus, readerName: string): Promise<void> => {
-  const event: ReaderEvent = {
-    type: 'reader',
-    status,
-    ts: new Date().toISOString(),
-    source: config.source,
-    device: config.deviceId,
-  };
-
-  const url = `${config.gatewayUrl}${config.readerPostPath}`;
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-device-id': config.deviceId,
-      },
-      body: JSON.stringify(event),
-    });
-
-    if (!response.ok) {
-      log('warn', `reader status post failed ${response.status} (${readerName})`);
-    } else {
-      log('info', `reader status ${status} (${readerName})`);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error';
-    log('error', `reader status post error: ${message}`);
-  }
-};
-
 const postHeartbeat = async (): Promise<void> => {
   const event: HeartbeatEvent = {
     type: 'heartbeat',
@@ -190,7 +154,6 @@ const postHeartbeat = async (): Promise<void> => {
 nfc.on('reader', (reader: Reader) => {
   activeReaders.add(reader);
   log('info', `reader attached ${reader.name}`);
-  void postReaderStatus('attached', reader.name);
 
   reader.on('card', (card: { uid?: string }) => {
     const uid = card.uid;
@@ -215,7 +178,6 @@ nfc.on('reader', (reader: Reader) => {
   reader.on('end', () => {
     activeReaders.delete(reader);
     log('warn', `reader removed ${reader.name}`);
-    void postReaderStatus('detached', reader.name);
   });
 });
 

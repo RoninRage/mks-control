@@ -1,10 +1,5 @@
 import { boot } from 'quasar/wrappers';
-import {
-  authEventSource,
-  HeartbeatEvent,
-  ReaderEvent,
-  TagEvent,
-} from 'src/services/authEventSource';
+import { authEventSource, HeartbeatEvent, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
 import { useUserStore } from 'src/stores/user-store';
 
@@ -78,10 +73,6 @@ export default boot(({ router }) => {
         void router.push('/role-selection');
       }, 0);
     }
-  });
-
-  authEventSource.onReader((event: ReaderEvent): void => {
-    store.setReaderStatus(event);
   });
 
   authEventSource.onHeartbeat((event: HeartbeatEvent): void => {
