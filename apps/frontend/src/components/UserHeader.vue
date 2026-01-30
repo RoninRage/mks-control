@@ -41,23 +41,8 @@ const $q = useQuasar();
 const userStore = useUserStore();
 
 function handleLogout() {
-  $q.dialog({
-    title: 'Abmelden',
-    message: 'Möchten Sie sich wirklich abmelden?',
-    cancel: {
-      flat: true,
-      label: 'Abbrechen',
-    },
-    ok: {
-      flat: true,
-      label: 'Abmelden',
-      color: 'negative',
-    },
-    persistent: true,
-  }).onOk(() => {
-    userStore.logout();
-    router.push('/');
-  });
+  userStore.logout();
+  router.push('/');
 }
 </script>
 
