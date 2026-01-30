@@ -6,6 +6,11 @@ const http = require('http');
 const log = (msg) => console.log(msg);
 const error = (msg) => console.error('❌ ERROR: ' + msg);
 
+// Set default NODE_ENV for local development
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+}
+
 function checkNodeVersion() {
   const required = '18.0.0';
   const current = process.version.slice(1);

@@ -15,8 +15,7 @@ This is a monorepo managed with npm workspaces containing the MKS Control applic
 # Install dependencies
 npm install
 
-# Start the frontend development server
-cd apps/frontend
+# Start all services (frontend, backend, nfc-bridge)
 npm run dev
 
 # Build all packages
@@ -29,19 +28,24 @@ npm run test
 npm run lint
 ```
 
-## Auth Gateway (Backend)
+**Note:** `NODE_ENV` is automatically set to `development` for local development, so you don't need to configure it manually.
 
-The backend provides the tag ingest endpoint and WebSocket broadcast.
+## Running Services
 
-### Run the backend
+### Start All Services
 
 ```bash
-cd apps/backend
-npm install
+# From the root directory, this starts all services:
 npm run dev
 ```
 
-### Test a tag event
+This unified command starts:
+
+- **Backend (Auth Gateway)** - API and WebSocket server on port 3000
+- **Frontend (Quasar PWA)** - Development server on port 5173
+- **NFC Bridge** - NFC reader bridge service
+
+### Test a Tag Event
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/tag \
@@ -50,56 +54,36 @@ curl -X POST http://localhost:3000/api/auth/tag \
   -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
 ```
 
-Open the frontend in a browser and watch the index page for connection status and tag events.
+Open the frontend in a browser (http://localhost:5173) and watch for connection status and tag events on the index page.
 
-## Tag Unlock (Frontend)
+### Running Individual Services
 
-### Run the Quasar PWA
-
-```bash
-cd apps/frontend
-npm install
-npm run dev
-```
-
-### Deployment notes (Raspberry Pi)
-
-- Set AUTH_WS_URL to the backend WebSocket endpoint (for example, wss://pi-host/ws/auth).
-- Ensure the backend listens on the Pi and forwards tag events to /api/auth/tag.
-- Update the x-device-id header from your NFC bridge to identify the reader.
-
-## End-to-End (Gateway + PWA + NFC Bridge)
-
-1. Start the backend:
+If you need to run services separately:
 
 ```bash
+# Backend only
 cd apps/backend
 npm install
 npm run dev
-```
 
-2. Start the Quasar PWA:
-
-```bash
+# Frontend only
 cd apps/frontend
 npm install
 npm run dev
-```
 
-3. Start the NFC bridge:
-
-```bash
+# NFC Bridge only
 cd nfc-bridge
 npm install
 cp .env.example .env
 npm run dev
 ```
 
-4. Tap a NFC tag: the bridge posts to the gateway, and the PWA unlocks via WS.
+### Deployment Notes (Raspberry Pi)
 
-### Raspberry Pi deployment notes
-
-- Set GATEWAY_URL to the Pi-accessible Auth Gateway base URL.
+- Set AUTH_WS_URL to the backend WebSocket endpoint (for example, wss://pi-host/ws/auth).
+- Ensure the backend listens on the Pi and forwards tag events to /api/auth/tag.
+- Update the x-device-id header from your NFC bridge to identify the reader.
+- For NFC bridge: Set GATEWAY_URL to the Pi-accessible Auth Gateway base URL.
 - Ensure pcscd is installed and running on the Pi.
 - Use a unique DEVICE_ID per kiosk.
 

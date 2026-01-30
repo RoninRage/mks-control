@@ -5,6 +5,17 @@
       <h1 class="text-h4 q-mb-lg">Dashboard</h1>
 
       <div class="action-grid">
+        <q-card v-if="userStore.can('manage:areas')" flat bordered class="action-card">
+          <q-card-section>
+            <q-icon name="category" size="48px" color="primary" />
+            <div class="text-h6 q-mt-md">Bereiche verwalten</div>
+            <div class="text-body2 text-grey-7">Bereiche definieren und verwalten</div>
+          </q-card-section>
+          <q-card-actions>
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+          </q-card-actions>
+        </q-card>
+
         <q-card v-if="userStore.can('manage:equipment')" flat bordered class="action-card">
           <q-card-section>
             <q-icon name="build" size="48px" color="primary" />
@@ -24,17 +35,6 @@
           </q-card-section>
           <q-card-actions>
             <q-btn flat color="primary" label="Öffnen" class="action-card__button" to="/members" />
-          </q-card-actions>
-        </q-card>
-
-        <q-card v-if="userStore.can('manage:areas')" flat bordered class="action-card">
-          <q-card-section>
-            <q-icon name="category" size="48px" color="primary" />
-            <div class="text-h6 q-mt-md">Bereiche verwalten</div>
-            <div class="text-body2 text-grey-7">Bereiche definieren und verwalten</div>
-          </q-card-section>
-          <q-card-actions>
-            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
           </q-card-actions>
         </q-card>
 
