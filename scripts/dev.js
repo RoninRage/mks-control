@@ -1,4 +1,4 @@
-﻿const { spawn } = require('child_process');
+﻿const { spawn, execSync } = require('child_process');
 const path = require('path');
 const { runPreflight } = require('./preflight');
 const { waitForPort } = require('./wait-for');
@@ -11,6 +11,11 @@ const error = (msg) => console.error('❌ ' + msg);
 const success = (msg) => console.log('✅ ' + msg);
 
 const services = [
+  {
+    name: 'CouchDB',
+    type: 'docker',
+    port: 5984,
+  },
   {
     name: 'Backend',
     cmd: 'npm.cmd',
@@ -37,7 +42,40 @@ const services = [
   },
 ];
 
+async function startDocker() {
+  log('\n🐳 Starting Docker services...');
+
+  try {
+    // Check if Docker is running
+    execSync('docker ps', { stdio: 'ignore' });
+  } catch (err) {
+    error('Docker is not running. Please start Docker Desktop.');
+    process.exit(1);
+  }
+
+  if (RESET) {
+    log('🔄 Resetting database (--reset flag detected)...');
+    try {
+      execSync('docker-compose down -v', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+    } catch (err) {
+      // Ignore errors if containers don't exist
+    }
+  }
+
+  try {
+    execSync('docker-compose up -d', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+  } catch (err) {
+    error('Failed to start Docker services: ' + err.message);
+    process.exit(1);
+  }
+}
+
 async function startService(service) {
+  if (service.type === 'docker') {
+    // Docker services are started separately
+    return null;
+  }
+
   return new Promise((resolve, reject) => {
     log('\n🚀 Starting ' + service.name + '...');
 
@@ -97,6 +135,9 @@ async function main() {
       process.env.NODE_ENV = 'development';
     }
 
+    // Start Docker services
+    await startDocker();
+
     // Start all services in parallel
     log('\n📦 Starting all services...\n');
     const processes = await Promise.all(services.map(startService));
@@ -105,10 +146,26 @@ async function main() {
     await waitForServices();
 
     success('\n✨ MKS Control development environment started!\n');
+    log('🗄️  Database:  http://localhost:5984/_utils');
     log('🌐 Frontend:  http://localhost:9000');
     log('🔌 Backend:   http://localhost:3000');
     log('📡 WebSocket: ws://localhost:3000/ws/auth\n');
     log('Press Ctrl+C to stop all services\n');
+
+    // Handle shutdown
+    const cleanup = () => {
+      log('\n🛑 Shutting down services...');
+      processes.filter((p) => p).forEach((proc) => proc.kill());
+      try {
+        execSync('docker-compose down', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+      } catch (err) {
+        // Ignore errors during cleanup
+      }
+      process.exit(0);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
 
     // Keep process alive
     process.stdin.resume();

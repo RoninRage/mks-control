@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  couchdb:
+    image: couchdb:3.3
+    container_name: mks-control-couchdb
+    ports:
+      - '5984:5984'
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+      - couchdb_config:/opt/couchdb/etc/local.d
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5984/_up']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mks-network
+    restart: unless-stopped
+
+volumes:
+  couchdb_data:
+    name: mks-control-couchdb-data
+  couchdb_config:
+    name: mks-control-couchdb-config
+
+networks:
+  mks-network:
+    name: mks-control-network

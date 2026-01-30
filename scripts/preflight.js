@@ -1,6 +1,7 @@
 ﻿const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const http = require('http');
 
 const log = (msg) => console.log(msg);
 const error = (msg) => console.error('❌ ERROR: ' + msg);
@@ -52,6 +53,7 @@ async function checkPorts() {
     9000: 'Frontend',
   };
 
+  // Skip CouchDB port check - Docker manages it
   for (const [port, service] of Object.entries(ports)) {
     const available = await checkPort(parseInt(port));
     if (!available) {
@@ -62,12 +64,52 @@ async function checkPorts() {
   log('✅ Required ports available (3000, 9000)');
 }
 
+async function checkCouchDB() {
+  return new Promise((resolve) => {
+    const req = http.get('http://localhost:5984/_up', (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.status === 'ok') {
+            log('✅ CouchDB is running and reachable');
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        } catch (err) {
+          resolve(false);
+        }
+      });
+    });
+
+    req.on('error', () => {
+      resolve(false);
+    });
+
+    req.setTimeout(3000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
 async function runPreflight() {
   log('\n🔍 Running preflight checks...\n');
 
   checkNodeVersion();
   checkEnvVars();
   await checkPorts();
+
+  const dbRunning = await checkCouchDB();
+  if (!dbRunning) {
+    error('CouchDB is not running or not reachable at http://localhost:5984');
+    log('Start Docker services first: docker-compose up -d');
+    log('Or let the orchestrator start it for you.');
+  }
 
   log('\n✅ All checks passed\n');
 }

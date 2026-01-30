@@ -1,5 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { AuthEvent, ReaderEvent, ReaderStatus, TagEvent, TagEventSource } from '../types/auth';
+import { getDatabase } from '../db/couchdb';
+import { Member } from '../types/member';
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
 
@@ -100,7 +102,7 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
 
   console.log(`[auth-routes] Admin tags configured:`, adminTagUids);
 
-  router.post('/tag', (req: Request, res: Response) => {
+  router.post('/tag', async (req: Request, res: Response) => {
     const { event, error } = normalizeTagEvent(req);
 
     if (!event) {
@@ -108,11 +110,48 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       return;
     }
 
-    // Check if this is an admin tag
-    const isAdmin = adminTagUids.includes(event.uid);
-    const enrichedEvent = { ...event, isAdmin };
+    // Check if this is an admin tag (environment variable)
+    const isAdminByEnv = adminTagUids.includes(event.uid);
 
-    console.log(`[auth-routes] Tag received: ${event.uid}, isAdmin: ${isAdmin}`);
+    // Look up member by tag UID
+    let member: Member | null = null;
+    try {
+      const db = getDatabase();
+      const result = await db.find({
+        selector: { tagUid: { $eq: event.uid } },
+        limit: 1,
+      });
+
+      if (result.docs.length > 0) {
+        member = result.docs[0];
+        console.log(
+          `[auth-routes] Member found: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}`
+        );
+      }
+    } catch (err) {
+      console.error(`[auth-routes] Error looking up member: ${(err as Error).message}`);
+    }
+
+    // Determine if admin based on either environment variable or member roles
+    const isAdmin = isAdminByEnv || (member?.roles.includes('admin') ?? false);
+
+    // Enrich event with member info and admin status
+    const enrichedEvent = {
+      ...event,
+      isAdmin,
+      member: member
+        ? {
+            id: member.id,
+            firstName: member.firstName,
+            lastName: member.lastName,
+            roles: member.roles,
+          }
+        : undefined,
+    };
+
+    console.log(
+      `[auth-routes] Tag received: ${event.uid}, isAdmin: ${isAdmin}, member: ${member ? `${member.firstName} ${member.lastName}` : 'not found'}`
+    );
 
     broadcast(enrichedEvent);
     res.status(202).json({ ok: true });

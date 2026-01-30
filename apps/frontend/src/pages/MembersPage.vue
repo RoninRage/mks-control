@@ -44,6 +44,33 @@
           </q-td>
         </template>
 
+        <template #body-cell-email="props">
+          <q-td :props="props">
+            <span class="text-body2">{{ props.row.email || '—' }}</span>
+          </q-td>
+        </template>
+
+        <template #body-cell-roles="props">
+          <q-td :props="props">
+            <q-badge
+              v-for="role in props.row.roles"
+              :key="role"
+              :color="getRoleColor(role)"
+              :label="getRoleLabel(role)"
+              class="q-mr-xs"
+            />
+          </q-td>
+        </template>
+
+        <template #body-cell-status="props">
+          <q-td :props="props">
+            <q-badge
+              :color="props.row.isActive ? 'positive' : 'grey'"
+              :label="props.row.isActive ? 'Aktiv' : 'Inaktiv'"
+            />
+          </q-td>
+        </template>
+
         <template #body-cell-actions="props">
           <q-td :props="props" class="action-cell">
             <q-btn
@@ -105,6 +132,26 @@ const columns = [
     label: 'Name',
     field: 'firstName',
     align: 'left' as const,
+    sortable: true,
+  },
+  {
+    name: 'email',
+    label: 'E-Mail',
+    field: 'email',
+    align: 'left' as const,
+    sortable: true,
+  },
+  {
+    name: 'roles',
+    label: 'Rollen',
+    field: 'roles',
+    align: 'left' as const,
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'isActive',
+    align: 'center' as const,
   },
   {
     name: 'actions',
@@ -129,6 +176,26 @@ async function loadMembers() {
 
 function goBack() {
   router.back();
+}
+
+function getRoleColor(role: string): string {
+  const roleColors: Record<string, string> = {
+    admin: 'negative',
+    vorstand: 'info',
+    bereichsleitung: 'warning',
+    mitglied: 'primary',
+  };
+  return roleColors[role] || 'grey';
+}
+
+function getRoleLabel(role: string): string {
+  const roleLabels: Record<string, string> = {
+    admin: 'Admin',
+    vorstand: 'Vorstand',
+    bereichsleitung: 'Bereichsleitung',
+    mitglied: 'Mitglied',
+  };
+  return roleLabels[role] || role;
 }
 
 function editMember(member: Member) {

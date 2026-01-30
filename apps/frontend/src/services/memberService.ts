@@ -1,7 +1,15 @@
 ﻿export interface Member {
+  _id?: string;
+  _rev?: string;
   id: string;
   firstName: string;
   lastName: string;
+  tagUid?: string;
+  email?: string;
+  phone?: string;
+  roles: string[];
+  joinDate: string;
+  isActive: boolean;
 }
 
 interface MemberResponse {
