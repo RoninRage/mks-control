@@ -1,5 +1,6 @@
 import nano, { ServerScope } from 'nano';
 import { Member } from '../types/member';
+import { Tag } from '../types/tag';
 
 const log = (message: string): void => {
   console.log(`[couchdb] ${message}`);
@@ -14,16 +15,19 @@ const getCouchDBConfig = (): {
   user: string;
   password: string;
   dbName: string;
+  tagsDbName: string;
 } => {
   const url = process.env.COUCHDB_URL ?? 'http://localhost:5984';
   const user = process.env.COUCHDB_USER ?? 'admin';
   const password = process.env.COUCHDB_PASSWORD ?? 'password';
   const dbName = process.env.COUCHDB_DB_NAME ?? 'mks_members';
+  const tagsDbName = process.env.COUCHDB_TAGS_DB_NAME ?? 'mks_tags';
 
-  return { url, user, password, dbName };
+  return { url, user, password, dbName, tagsDbName };
 };
 
 let dbInstance: nano.DocumentScope<Member> | null = null;
+let tagDbInstance: nano.DocumentScope<Tag> | null = null;
 let nanoInstance: ServerScope | null = null;
 
 export const initializeDatabase = async (): Promise<void> => {
@@ -38,7 +42,7 @@ export const initializeDatabase = async (): Promise<void> => {
   nanoInstance = nano(authUrl);
 
   try {
-    // Check if database exists
+    // Check if members database exists
     const dbList = await nanoInstance.db.list();
     if (!dbList.includes(config.dbName)) {
       log(`Creating database: ${config.dbName}`);
@@ -48,9 +52,19 @@ export const initializeDatabase = async (): Promise<void> => {
       log(`Database already exists: ${config.dbName}`);
     }
 
-    dbInstance = nanoInstance.use<Member>(config.dbName);
+    // Check if tags database exists
+    if (!dbList.includes(config.tagsDbName)) {
+      log(`Creating database: ${config.tagsDbName}`);
+      await nanoInstance.db.create(config.tagsDbName);
+      log(`Database created: ${config.tagsDbName}`);
+    } else {
+      log(`Database already exists: ${config.tagsDbName}`);
+    }
 
-    // Create indexes for efficient queries
+    dbInstance = nanoInstance.use<Member>(config.dbName);
+    tagDbInstance = nanoInstance.use<Tag>(config.tagsDbName);
+
+    // Create indexes for members database
     try {
       await dbInstance.createIndex({
         index: {
@@ -75,6 +89,43 @@ export const initializeDatabase = async (): Promise<void> => {
       // Index might already exist
     }
 
+    // Create indexes for tags database
+    try {
+      await tagDbInstance.createIndex({
+        index: {
+          fields: ['tagUid'],
+        },
+        name: 'tag-uid-index',
+      });
+      log('Created index for tags: tag-uid-index');
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await tagDbInstance.createIndex({
+        index: {
+          fields: ['memberId'],
+        },
+        name: 'member-id-index',
+      });
+      log('Created index for tags: member-id-index');
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await tagDbInstance.createIndex({
+        index: {
+          fields: ['isActive'],
+        },
+        name: 'active-status-index',
+      });
+      log('Created index for tags: active-status-index');
+    } catch (err) {
+      // Index might already exist
+    }
+
     log('Database initialized successfully');
   } catch (err) {
     error(`Failed to initialize database: ${(err as Error).message}`);
@@ -87,6 +138,13 @@ export const getDatabase = (): nano.DocumentScope<Member> => {
     throw new Error('Database not initialized. Call initializeDatabase() first.');
   }
   return dbInstance;
+};
+
+export const getTagDatabase = (): nano.DocumentScope<Tag> => {
+  if (!tagDbInstance) {
+    throw new Error('Tag database not initialized. Call initializeDatabase() first.');
+  }
+  return tagDbInstance;
 };
 
 export const getNanoInstance = (): ServerScope => {

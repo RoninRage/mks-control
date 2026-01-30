@@ -30,7 +30,12 @@ export default boot(({ router }) => {
     });
 
     // If a user is currently logged in, log them out and stop processing
+    // UNLESS we're in tag assignment mode (e.g., adding tags in EditMemberPage)
     if (userStore.isAuthenticated) {
+      if (authEventSource.isInTagAssignmentMode()) {
+        console.log('[auth-boot] User logged in, but in tag assignment mode - skipping logout');
+        return;
+      }
       console.log('[auth-boot] User currently logged in, logging out');
       // First, clear all authentication state
       userStore.logout();

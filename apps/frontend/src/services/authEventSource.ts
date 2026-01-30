@@ -44,6 +44,8 @@ export interface AuthEventSource {
   onStatus(cb: (status: ConnectionStatus) => void): void;
   onUnknownTag(callback: (event: TagEvent) => void): void;
   emitUnknownTag(event: TagEvent): void;
+  setTagAssignmentMode(enabled: boolean): void;
+  isInTagAssignmentMode(): boolean;
 }
 
 const resolveWsUrl = (): string => {
@@ -117,6 +119,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private reconnectTimer: number | null = null;
   private retryCount = 0;
   private shouldReconnect = true;
+  private isTagAssignmentMode = false;
   private readonly tagListeners: Array<(event: TagEvent) => void> = [];
   private readonly readerListeners: Array<(event: ReaderEvent) => void> = [];
   private readonly heartbeatListeners: Array<(event: HeartbeatEvent) => void> = [];
@@ -259,6 +262,15 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+  }
+
+  public setTagAssignmentMode(enabled: boolean): void {
+    this.isTagAssignmentMode = enabled;
+    console.log('[authEventSource] Tag assignment mode:', enabled);
+  }
+
+  public isInTagAssignmentMode(): boolean {
+    return this.isTagAssignmentMode;
   }
 }
 

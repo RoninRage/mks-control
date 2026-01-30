@@ -1,4 +1,14 @@
-﻿export interface Member {
+﻿export interface Tag {
+  _id?: string;
+  _rev?: string;
+  id: string;
+  tagUid: string;
+  memberId: string;
+  createdAt: string;
+  isActive: boolean;
+}
+
+export interface Member {
   _id?: string;
   _rev?: string;
   id: string;
@@ -10,11 +20,17 @@
   roles: string[];
   joinDate: string;
   isActive: boolean;
+  tags?: Tag[];
 }
 
 interface MemberResponse {
   ok: boolean;
   data: Member[];
+}
+
+interface TagResponse {
+  ok: boolean;
+  data: Tag[];
 }
 
 const resolveApiUrl = (): string => {
@@ -75,6 +91,73 @@ export const memberService = {
       }
     } catch (error) {
       console.error('[memberService] Error deleting member:', error);
+      throw error;
+    }
+  },
+
+  async addTag(memberId: string, tagUid: string): Promise<Tag> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}/tags`;
+      console.log('[memberService] Adding tag:', tagUid, 'to member:', memberId);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tagUid }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add tag');
+      }
+
+      const data = (await response.json()) as { ok: boolean; data: Tag };
+      return data.data;
+    } catch (error) {
+      console.error('[memberService] Error adding tag:', error);
+      throw error;
+    }
+  },
+
+  async getTags(memberId: string): Promise<Tag[]> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}/tags`;
+      console.log('[memberService] Fetching tags for member:', memberId);
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tags: ' + response.statusText);
+      }
+
+      const data = (await response.json()) as TagResponse;
+      return data.data || [];
+    } catch (error) {
+      console.error('[memberService] Error fetching tags:', error);
+      throw error;
+    }
+  },
+
+  async removeTag(tagId: string): Promise<void> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/tags/${tagId}`;
+      console.log('[memberService] Removing tag:', tagId);
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove tag');
+      }
+    } catch (error) {
+      console.error('[memberService] Error removing tag:', error);
       throw error;
     }
   },

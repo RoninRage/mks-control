@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { AuthEvent, TagEvent, TagEventSource } from '../types/auth';
-import { getDatabase } from '../db/couchdb';
+import { getDatabase, getTagDatabase } from '../db/couchdb';
 import { Member } from '../types/member';
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
@@ -70,20 +70,29 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     // Check if this is an admin tag (environment variable)
     const isAdminByEnv = adminTagUids.includes(event.uid);
 
-    // Look up member by tag UID
+    // Look up member by tag UID using tags collection
     let member: Member | null = null;
     try {
-      const db = getDatabase();
-      const result = await db.find({
-        selector: { tagUid: { $eq: event.uid } },
+      const tagDb = getTagDatabase();
+      const tagResult = await tagDb.find({
+        selector: { tagUid: { $eq: event.uid }, isActive: { $eq: true } },
         limit: 1,
       });
 
-      if (result.docs.length > 0) {
-        member = result.docs[0];
-        console.log(
-          `[auth-routes] Member found: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}`
-        );
+      if (tagResult.docs.length > 0) {
+        const tag = tagResult.docs[0];
+        const db = getDatabase();
+        const memberResult = await db.find({
+          selector: { id: { $eq: tag.memberId } },
+          limit: 1,
+        });
+
+        if (memberResult.docs.length > 0) {
+          member = memberResult.docs[0];
+          console.log(
+            `[auth-routes] Member found via tag: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}`
+          );
+        }
       }
     } catch (err) {
       console.error(`[auth-routes] Error looking up member: ${(err as Error).message}`);

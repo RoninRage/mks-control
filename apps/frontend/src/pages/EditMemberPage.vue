@@ -85,18 +85,6 @@
           />
         </div>
 
-        <!-- Tag UID -->
-        <div class="col-12 col-sm-6">
-          <q-input
-            v-model="member.tagUid"
-            label="Tag UID"
-            outlined
-            readonly
-            dense
-            class="full-width"
-          />
-        </div>
-
         <!-- Join Date -->
         <div class="col-12 col-sm-6">
           <q-input
@@ -132,6 +120,40 @@
             class="full-width"
           />
         </div>
+
+        <!-- Tags Section -->
+        <div class="col-12">
+          <div class="q-mb-md">
+            <h3 class="q-mb-md q-mt-lg">Tags verwalten</h3>
+            <p class="text-caption text-grey">
+              Scanne einen NFC-Tag um ihn diesem Mitglied zuzuweisen
+            </p>
+          </div>
+
+          <!-- Assigned Tags List -->
+          <div v-if="tags.length > 0" class="q-mb-lg">
+            <div class="text-subtitle2 q-mb-md">Zugewiesene Tags ({{ tags.length }})</div>
+            <div class="row q-gutter-md">
+              <div v-for="tag in tags" :key="tag.id" class="tag-chip">
+                <q-chip removable @remove="removeTag(tag.id)" class="full-width">
+                  <q-icon name="nfc" size="sm" class="q-mr-sm" />
+                  {{ tag.tagUid }}
+                </q-chip>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-caption text-grey q-mb-lg">Noch keine Tags zugewiesen</div>
+
+          <!-- Add Tag Button -->
+          <q-btn
+            :loading="scanningTag"
+            label="Tag Scannen"
+            color="primary"
+            icon="nfc"
+            @click="startTagScanning"
+            class="touch-target"
+          />
+        </div>
       </div>
 
       <!-- Footer with action buttons -->
@@ -145,8 +167,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import type { Member } from 'src/services/memberService';
+import { useQuasar } from 'quasar';
+import type { Member, Tag } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
+import { authEventSource } from 'src/services/authEventSource';
 
 defineOptions({
   name: 'EditMemberPage',
@@ -154,9 +178,12 @@ defineOptions({
 
 const router = useRouter();
 const route = useRoute();
+const $q = useQuasar();
 const member = ref<Member | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const tags = ref<Tag[]>([]);
+const scanningTag = ref(false);
 
 const memberId = computed(() => route.params.id as string);
 
@@ -184,11 +211,119 @@ async function loadMember() {
       return;
     }
     member.value = foundMember;
+    await loadTags();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Mitglieds';
     console.error('Error loading member:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadTags() {
+  try {
+    const fetchedTags = await memberService.getTags(memberId.value);
+    tags.value = fetchedTags.sort((a, b) => {
+      const aTime = Date.parse(a.createdAt);
+      const bTime = Date.parse(b.createdAt);
+      if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+        return a.createdAt.localeCompare(b.createdAt);
+      }
+      return aTime - bTime;
+    });
+  } catch (err) {
+    console.error('Error loading tags:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Laden der Tags',
+    });
+  }
+}
+
+function startTagScanning() {
+  scanningTag.value = true;
+  let tagReceived = false;
+
+  // Enable tag assignment mode to prevent logout during scanning
+  authEventSource.setTagAssignmentMode(true);
+
+  const handleTag = (event: { uid: string }) => {
+    if (tagReceived) return; // Ignore additional scans
+    tagReceived = true;
+    console.log('[EditMemberPage] Tag scanned:', event.uid);
+    handleTagScanned(event.uid);
+  };
+
+  authEventSource.onTag(handleTag);
+
+  // Set timeout for scanning (30 seconds)
+  const scanTimeout = setTimeout(() => {
+    scanningTag.value = false;
+    authEventSource.setTagAssignmentMode(false); // Disable tag assignment mode on timeout
+    if (!tagReceived) {
+      $q.notify({
+        type: 'info',
+        message: 'Tag-Scan abgebrochen',
+      });
+    }
+  }, 30000);
+}
+
+async function handleTagScanned(tagUid: string) {
+  try {
+    scanningTag.value = true;
+    console.log('[EditMemberPage] Adding tag:', tagUid, 'to member:', memberId.value);
+    await memberService.addTag(memberId.value, tagUid);
+    await loadTags();
+    $q.notify({
+      type: 'positive',
+      message: 'Tag erfolgreich zugewiesen',
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Fehler beim Zuweisen des Tags';
+    console.error('Error adding tag:', err);
+    $q.notify({
+      type: 'negative',
+      message: errorMessage,
+    });
+  } finally {
+    scanningTag.value = false;
+    authEventSource.setTagAssignmentMode(false); // Disable tag assignment mode after handling
+  }
+}
+
+async function removeTag(tagId: string) {
+  try {
+    $q.dialog({
+      title: 'Tag entfernen',
+      message: 'Möchten Sie diesen Tag wirklich entfernen?',
+      cancel: {
+        flat: true,
+        label: 'Abbrechen',
+      },
+      ok: {
+        flat: true,
+        label: 'Entfernen',
+        color: 'negative',
+      },
+    }).onOk(async () => {
+      try {
+        await memberService.removeTag(tagId);
+        await loadTags();
+        $q.notify({
+          type: 'positive',
+          message: 'Tag entfernt',
+        });
+      } catch (err) {
+        console.error('Error removing tag:', err);
+        $q.notify({
+          type: 'negative',
+          message: 'Fehler beim Entfernen des Tags',
+        });
+      }
+    });
+  } catch (err) {
+    console.error('Error in removeTag:', err);
   }
 }
 
@@ -206,5 +341,9 @@ onMounted(() => {
   min-height: 48px;
   min-width: 48px;
   padding: 12px 24px;
+}
+
+.tag-chip {
+  max-width: 200px;
 }
 </style>
