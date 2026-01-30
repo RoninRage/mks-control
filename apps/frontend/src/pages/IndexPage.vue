@@ -30,6 +30,7 @@ import { useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
+import { useUserStore } from 'src/stores/user-store';
 import RfidIcon from 'components/RfidIcon.vue';
 
 defineOptions({
@@ -39,6 +40,7 @@ defineOptions({
 const router = useRouter();
 const $q = useQuasar();
 const authStore = useAuthStore();
+const userStore = useUserStore();
 const status = ref<ConnectionStatus>('connecting');
 
 const statusLabel = computed((): string => {
@@ -104,7 +106,8 @@ const statusColor = computed((): string => {
 });
 
 function simulateLogin() {
-  router.push('/role-selection');
+  userStore.setRole('mitglied', 'Mitglied');
+  router.push('/dashboard');
 }
 
 onMounted(() => {

@@ -59,26 +59,37 @@ export default boot(({ router }) => {
     console.log('[auth-boot] No user logged in, processing tag');
     store.unlock(event);
 
-    // Auto-login admin tags
+    const rolePriority = ['admin', 'vorstand', 'bereichsleitung', 'mitglied'] as const;
+    const roleNameMap: Record<string, string> = {
+      admin: 'Admin',
+      vorstand: 'Vorstand',
+      bereichsleitung: 'Bereichsleitung',
+      mitglied: 'Mitglied',
+    };
+
+    const memberRoles = event.member?.roles ?? [];
+    const resolvedRoleId =
+      rolePriority.find((roleId) => memberRoles.includes(roleId)) ?? 'mitglied';
+    const resolvedRoleName = roleNameMap[resolvedRoleId] ?? 'Mitglied';
+
     if (event.isAdmin) {
       console.log('[auth-boot] Admin tag detected, auto-logging in as admin');
       const memberId = event.member?.id;
       userStore.setRole('admin', 'Admin', memberId);
-      console.log('[auth-boot] isAuthenticated:', userStore.isAuthenticated);
-      console.log('[auth-boot] selectedRole:', userStore.selectedRole);
-      // Use setTimeout to ensure state is committed before navigation
-      setTimeout(() => {
-        console.log('[auth-boot] Navigating to dashboard');
-        console.log('[auth-boot] router exists:', !!router);
-        void router.push('/dashboard');
-      }, 0);
     } else {
-      console.log('[auth-boot] Non-admin tag, proceeding to role selection');
-      // Redirect to role selection page
-      setTimeout(() => {
-        void router.push('/role-selection');
-      }, 0);
+      console.log('[auth-boot] Assigning role based on permissions:', resolvedRoleId);
+      const memberId = event.member?.id;
+      userStore.setRole(resolvedRoleId, resolvedRoleName, memberId);
     }
+
+    console.log('[auth-boot] isAuthenticated:', userStore.isAuthenticated);
+    console.log('[auth-boot] selectedRole:', userStore.selectedRole);
+    // Use setTimeout to ensure state is committed before navigation
+    setTimeout(() => {
+      console.log('[auth-boot] Navigating to dashboard');
+      console.log('[auth-boot] router exists:', !!router);
+      void router.push('/dashboard');
+    }, 0);
   });
 
   authEventSource.onHeartbeat((event: HeartbeatEvent): void => {
