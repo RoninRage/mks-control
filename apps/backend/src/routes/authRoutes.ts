@@ -92,6 +92,14 @@ const normalizeReaderEvent = (req: Request): ReaderNormalizationResult => {
 export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router => {
   const router = Router();
 
+  // Load admin tag UIDs from environment variable
+  const adminTagUids = (process.env.ADMIN_TAG_UIDS || '')
+    .split(',')
+    .map(uid => uid.trim())
+    .filter(uid => uid.length > 0);
+
+  console.log(`[auth-routes] Admin tags configured:`, adminTagUids);
+
   router.post('/tag', (req: Request, res: Response) => {
     const { event, error } = normalizeTagEvent(req);
 
@@ -100,7 +108,13 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       return;
     }
 
-    broadcast(event);
+    // Check if this is an admin tag
+    const isAdmin = adminTagUids.includes(event.uid);
+    const enrichedEvent = { ...event, isAdmin };
+
+    console.log(`[auth-routes] Tag received: ${event.uid}, isAdmin: ${isAdmin}`);
+
+    broadcast(enrichedEvent);
     res.status(202).json({ ok: true });
   });
 

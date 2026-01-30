@@ -10,6 +10,7 @@ export interface TagEvent {
   ts: string;
   source: TagEventSource;
   device: string;
+  isAdmin?: boolean;
 }
 
 export interface ReaderEvent {
@@ -68,6 +69,7 @@ const isTagEvent = (value: unknown): value is TagEvent => {
     typeof event.ts === 'string' &&
     typeof event.source === 'string' &&
     typeof event.device === 'string'
+    // isAdmin is optional, so we don't check it
   );
 };
 

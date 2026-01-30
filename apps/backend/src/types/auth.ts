@@ -8,6 +8,7 @@ export interface TagEvent {
   ts: string;
   source: TagEventSource;
   device: string;
+  isAdmin?: boolean;
 }
 
 export interface ReaderEvent {
