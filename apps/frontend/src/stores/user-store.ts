@@ -96,7 +96,7 @@ export const useUserStore = defineStore('user', {
       // Clear localStorage immediately to ensure state is persisted
       localStorage.removeItem('userRole');
       localStorage.removeItem('isAuthenticated');
-      
+
       // Force flush by reading back
       const userRoleExists = localStorage.getItem('userRole');
       const isAuthExists = localStorage.getItem('isAuthenticated');
