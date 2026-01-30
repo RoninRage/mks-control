@@ -23,7 +23,10 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'profile',
-        component: () => import('pages/ProfilePage.vue'),
+        redirect: () => {
+          const memberId = localStorage.getItem('memberId');
+          return memberId ? `/members/${memberId}/edit` : '/';
+        },
         meta: { requiresAuth: true },
       },
       { path: 'theme', component: () => import('pages/ThemeShowcasePage.vue') },
