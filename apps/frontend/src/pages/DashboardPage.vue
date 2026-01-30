@@ -21,6 +21,23 @@
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
             </q-card-actions>
           </q-card>
+
+          <q-card flat bordered class="action-card">
+            <q-card-section>
+              <q-icon name="people" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Mitglieder verwalten</div>
+              <div class="text-body2 text-grey-7">Alle Mitglieder verwalten</div>
+            </q-card-section>
+            <q-card-actions>
+              <q-btn
+                flat
+                color="primary"
+                label="Öffnen"
+                class="action-card__button"
+                to="/members"
+              />
+            </q-card-actions>
+          </q-card>
         </div>
       </div>
 
@@ -36,6 +53,23 @@
             </q-card-section>
             <q-card-actions>
               <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+            </q-card-actions>
+          </q-card>
+
+          <q-card flat bordered class="action-card">
+            <q-card-section>
+              <q-icon name="people" size="48px" color="primary" />
+              <div class="text-h6 q-mt-md">Mitglieder verwalten</div>
+              <div class="text-body2 text-grey-7">Alle Mitglieder verwalten</div>
+            </q-card-section>
+            <q-card-actions>
+              <q-btn
+                flat
+                color="primary"
+                label="Öffnen"
+                class="action-card__button"
+                to="/members"
+              />
             </q-card-actions>
           </q-card>
         </div>
