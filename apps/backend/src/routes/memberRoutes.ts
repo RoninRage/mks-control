@@ -153,15 +153,15 @@ export const createMemberRoutes = (): Router => {
       const { id } = req.params;
       const currentUserId = req.headers['x-user-id'] as string;
       const currentUserRole = req.headers['x-user-role'] as string;
-      
+
       log(`Deleting member: ${id}, requested by: ${currentUserId} (${currentUserRole})`);
-      
+
       // Check if user is trying to delete themselves
       if (currentUserId === id) {
         res.status(403).json({ ok: false, error: 'Sie können sich nicht selbst löschen' });
         return;
       }
-      
+
       const db = getDatabase();
 
       // Find existing member
@@ -176,13 +176,15 @@ export const createMemberRoutes = (): Router => {
       }
 
       const member = result.docs[0];
-      
+
       // Check if trying to delete an admin user
       const isTargetAdmin = member.roles && member.roles.includes('admin');
       const isCurrentUserAdmin = currentUserRole === 'admin';
-      
+
       if (isTargetAdmin && !isCurrentUserAdmin) {
-        res.status(403).json({ ok: false, error: 'Nur Administratoren können andere Administratoren löschen' });
+        res
+          .status(403)
+          .json({ ok: false, error: 'Nur Administratoren können andere Administratoren löschen' });
         return;
       }
 
