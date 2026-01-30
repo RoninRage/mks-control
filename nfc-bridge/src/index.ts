@@ -4,6 +4,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { HeartbeatEvent, ReaderEvent, ReaderStatus, TagEvent } from './types';
 
+// Enforce monorepo dev entry point
+if (process.env.MONOREPO_DEV !== 'true') {
+  console.error('❌ ERROR: NFC Bridge must be started via: npm run dev');
+  console.error('Do not run NFC Bridge directly');
+  process.exit(1);
+}
+
 interface BridgeConfig {
   gatewayUrl: string;
   postPath: string;

@@ -9,11 +9,12 @@
     "nfc-bridge"
   ],
   "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:reset": "node scripts/dev.js --reset",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
-    "clean": "npm run clean --workspaces && rm -rf node_modules",
-    "dev": "npm run dev --workspaces --if-present"
+    "clean": "npm run clean --workspaces && rm -rf node_modules"
   },
   "devDependencies": {
     "typescript": "^5.3.3"

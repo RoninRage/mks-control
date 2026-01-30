@@ -6,6 +6,13 @@ import { createAuthRoutes } from './routes/authRoutes';
 import { createMemberRoutes } from './routes/memberRoutes';
 import { setupAuthWs } from './ws/authWs';
 
+// Enforce monorepo dev entry point
+if (process.env.MONOREPO_DEV !== 'true') {
+  console.error('❌ ERROR: Backend must be started via: npm run dev');
+  console.error('Do not run backend directly');
+  process.exit(1);
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '64kb' }));

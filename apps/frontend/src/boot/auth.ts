@@ -8,6 +8,13 @@ import {
 import { useAuthStore } from 'src/stores/auth';
 import { useUserStore } from 'src/stores/user-store';
 
+// Enforce monorepo dev entry point - check port instead of env var (works in browser)
+if (typeof window !== 'undefined' && window.location.port && window.location.port !== '9000') {
+  console.error('❌ ERROR: Frontend must be started via: npm run dev');
+  console.error('Do not run frontend directly. Expected port 9000, got ' + window.location.port);
+  window.location.href = 'about:blank';
+}
+
 export default boot(({ router }) => {
   const store = useAuthStore();
   const userStore = useUserStore();
