@@ -9,9 +9,11 @@
           icon="arrow_back"
           color="primary"
           @click="goBack"
-          size="md"
+          size="lg"
           padding="md"
-          min-width="44px"
+          min-width="48px"
+          min-height="48px"
+          aria-label="Go back"
         />
       </div>
     </div>
@@ -43,24 +45,26 @@
         </template>
 
         <template #body-cell-actions="props">
-          <q-td :props="props">
+          <q-td :props="props" class="action-cell">
             <q-btn
               flat
-              dense
               round
               icon="edit"
               color="primary"
-              size="sm"
+              size="md"
               @click="editMember(props.row)"
+              class="touch-button"
+              aria-label="Edit member"
             />
             <q-btn
               flat
-              dense
               round
               icon="delete"
               color="negative"
-              size="sm"
+              size="md"
               @click="deleteMember(props.row.id)"
+              class="touch-button"
+              aria-label="Delete member"
             />
           </q-td>
         </template>
@@ -166,6 +170,55 @@ onMounted(() => {
 .members-table {
   :deep(.q-table__card) {
     border-radius: 16px;
+  }
+
+  :deep(.q-table thead tr),
+  :deep(.q-table tbody td) {
+    height: 56px;
+  }
+}
+
+.action-cell {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+
+  .touch-button {
+    min-width: 48px !important;
+    min-height: 48px !important;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+// Dark mode support
+:deep(.body--dark) {
+  .members-table {
+    background: var(--ms-surface);
+
+    :deep(.q-table__card) {
+      background: var(--ms-surface);
+      border-color: var(--ms-border);
+    }
+
+    :deep(thead) {
+      background: var(--ms-surface-2);
+      color: #ffffff;
+    }
+
+    :deep(tbody tr) {
+      background: var(--ms-surface);
+      border-color: var(--ms-border);
+
+      &:hover {
+        background: var(--ms-surface-2);
+      }
+    }
+
+    :deep(.q-table__card) {
+      color: #ffffff;
+    }
   }
 }
 </style>
