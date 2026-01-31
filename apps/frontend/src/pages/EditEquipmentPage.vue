@@ -85,7 +85,7 @@
             v-model="equipment.configuration"
             label="Konfiguration (optional)"
             type="textarea"
-            autogrow
+            :rows="10"
             outlined
             dense
             :disable="loading || saving"
