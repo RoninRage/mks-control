@@ -141,11 +141,7 @@ function goBack() {
 }
 
 function createArea() {
-  $q.notify({
-    type: 'info',
-    message: 'Bereich erstellen - Funktion noch nicht implementiert',
-    position: 'top',
-  });
+  router.push('/areas/create');
 }
 
 function editArea(area: Area) {

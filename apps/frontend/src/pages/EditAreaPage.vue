@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="ms-section">
       <div class="row items-center justify-between q-mb-lg">
-        <h1 class="text-h3 q-mb-none">Bereich bearbeiten</h1>
+        <h1 class="text-h3 q-mb-none">{{ pageTitle }}</h1>
         <q-btn
           flat
           icon="arrow_back"
@@ -49,7 +49,7 @@
         </div>
 
         <!-- ID (for reference) -->
-        <div class="col-12 col-sm-6">
+        <div v-if="!isCreate" class="col-12 col-sm-6">
           <q-input
             v-model="area.id"
             label="Bereichs-ID"
@@ -79,7 +79,7 @@
       <div class="row q-mt-lg q-gutter-md">
         <q-btn
           :loading="saving"
-          label="Speichern"
+          :label="saveLabel"
           color="primary"
           @click="saveArea"
           class="touch-target"
@@ -109,13 +109,24 @@ const error = ref<string | null>(null);
 const area = ref<Area | null>(null);
 const saving = ref(false);
 
-const areaId = computed(() => route.params.id as string);
+const areaId = computed(() => route.params.id as string | undefined);
+const isCreate = computed(() => !areaId.value);
+const pageTitle = computed(() => (isCreate.value ? 'Bereich erstellen' : 'Bereich bearbeiten'));
+const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
 
 async function loadArea() {
+  if (isCreate.value) {
+    area.value = {
+      id: '',
+      name: '',
+      description: '',
+    };
+    return;
+  }
   loading.value = true;
   error.value = null;
   try {
-    area.value = await areaService.getArea(areaId.value);
+    area.value = await areaService.getArea(areaId.value as string);
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Bereichs';
     console.error('Error loading area:', err);
@@ -132,7 +143,22 @@ async function saveArea() {
   if (!area.value) return;
   saving.value = true;
   try {
-    const updated = await areaService.updateArea(areaId.value, {
+    if (isCreate.value) {
+      const created = await areaService.createArea({
+        id: area.value.id,
+        name: area.value.name,
+        description: area.value.description,
+      });
+      area.value = { ...area.value, ...created };
+      $q.notify({
+        type: 'positive',
+        message: 'Bereich erstellt',
+        position: 'top',
+      });
+      await router.push('/areas');
+      return;
+    }
+    const updated = await areaService.updateArea(areaId.value as string, {
       id: area.value.id,
       name: area.value.name,
       description: area.value.description,
