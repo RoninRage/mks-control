@@ -149,11 +149,7 @@ function createArea() {
 }
 
 function editArea(area: Area) {
-  $q.notify({
-    type: 'info',
-    message: `Bereich "${area.name}" bearbeiten - Funktion noch nicht implementiert`,
-    position: 'top',
-  });
+  router.push(`/areas/${area.id}/edit`);
 }
 
 function deleteArea(id: string) {
