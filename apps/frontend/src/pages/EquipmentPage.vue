@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { equipmentService, type Equipment } from 'src/services/equipmentService';
@@ -231,6 +231,10 @@ function deleteEquipment(id: string) {
 }
 
 onMounted(async () => {
+  await fetchEquipment();
+});
+
+onActivated(async () => {
   await fetchEquipment();
 });
 </script>

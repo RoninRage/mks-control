@@ -50,14 +50,23 @@
 
         <!-- Area -->
         <div class="col-12 col-sm-6">
-          <q-input
+          <q-select
             v-model="equipment.area"
+            :options="areaOptions"
             label="Bereich"
             outlined
-            :disable="loading || saving"
             dense
+            emit-value
+            map-options
+            clearable
+            behavior="dialog"
+            :disable="loading || saving"
             class="full-width"
-          />
+          >
+            <template #prepend>
+              <q-icon name="category" />
+            </template>
+          </q-select>
         </div>
 
         <!-- Availability -->
@@ -103,6 +112,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { equipmentService, type Equipment } from 'src/services/equipmentService';
+import { areaService, type Area } from 'src/services/areaService';
 
 defineOptions({
   name: 'EditEquipmentPage',
@@ -116,6 +126,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const equipment = ref<Equipment | null>(null);
 const saving = ref(false);
+const areas = ref<Area[]>([]);
 
 const equipmentId = computed(() => route.params.id as string | undefined);
 const isCreate = computed(() => !equipmentId.value);
@@ -123,6 +134,9 @@ const pageTitle = computed(() =>
   isCreate.value ? 'Ausstattung hinzufügen' : 'Ausstattung bearbeiten'
 );
 const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
+const areaOptions = computed(() =>
+  areas.value.map((area) => ({ label: area.name, value: area.name }))
+);
 
 async function loadEquipment() {
   if (isCreate.value) {
@@ -144,6 +158,19 @@ async function loadEquipment() {
     console.error('Error loading equipment:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadAreas() {
+  try {
+    areas.value = await areaService.getAreas();
+  } catch (err) {
+    console.error('Error loading areas:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Laden der Bereiche',
+      position: 'top',
+    });
   }
 }
 
@@ -196,8 +223,8 @@ async function saveEquipment() {
   }
 }
 
-onMounted(() => {
-  loadEquipment();
+onMounted(async () => {
+  await Promise.all([loadAreas(), loadEquipment()]);
 });
 </script>
 
