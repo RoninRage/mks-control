@@ -73,6 +73,77 @@
             class="full-width"
           />
         </div>
+
+        <!-- Bereichsleiter Management -->
+        <div class="col-12">
+          <div class="q-mb-md">
+            <h3 class="q-mb-md q-mt-lg">Bereichsleitung zuweisen</h3>
+            <p class="text-caption text-grey">
+              Wählen Sie Mitglieder aus, die als Bereichsleitung für diesen Bereich verantwortlich
+              sind
+            </p>
+          </div>
+
+          <!-- Assigned Bereichsleiter -->
+          <div v-if="assignedBereichsleiter.length > 0" class="q-mb-lg">
+            <div class="text-subtitle2 q-mb-md">
+              Zugewiesene Bereichsleiter ({{ assignedBereichsleiter.length }})
+            </div>
+            <div class="row q-gutter-md">
+              <div
+                v-for="member in assignedBereichsleiter"
+                :key="member.id"
+                class="bereichsleiter-chip"
+              >
+                <q-chip
+                  removable
+                  @remove="removeBereichsleiter(member.id)"
+                  class="full-width"
+                  :disable="loading || saving"
+                >
+                  <q-avatar>
+                    <q-icon name="person" />
+                  </q-avatar>
+                  {{ member.firstName }} {{ member.lastName }}
+                </q-chip>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-caption text-grey q-mb-lg">
+            Noch keine Bereichsleiter zugewiesen
+          </div>
+
+          <!-- Add Bereichsleiter -->
+          <q-select
+            v-model="selectedMember"
+            :options="availableMembers"
+            label="Bereichsleiter hinzufügen"
+            outlined
+            dense
+            emit-value
+            map-options
+            clearable
+            behavior="dialog"
+            :disable="loading || saving"
+            @update:model-value="addBereichsleiter"
+            class="full-width"
+          >
+            <template #prepend>
+              <q-icon name="person_add" />
+            </template>
+            <template #option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section avatar>
+                  <q-icon name="person" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                  <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+        </div>
       </div>
 
       <!-- Footer with action buttons -->
@@ -95,6 +166,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { areaService, type Area } from 'src/services/areaService';
+import { memberService, type Member } from 'src/services/memberService';
 
 defineOptions({
   name: 'EditAreaPage',
@@ -108,11 +180,29 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const area = ref<Area | null>(null);
 const saving = ref(false);
+const members = ref<Member[]>([]);
+const selectedMember = ref<string | null>(null);
 
 const areaId = computed(() => route.params.id as string | undefined);
 const isCreate = computed(() => !areaId.value);
 const pageTitle = computed(() => (isCreate.value ? 'Bereich erstellen' : 'Bereich bearbeiten'));
 const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
+
+const assignedBereichsleiter = computed(() => {
+  if (!area.value?.bereichsleiterIds || members.value.length === 0) return [];
+  return members.value.filter((m) => area.value?.bereichsleiterIds?.includes(m.id));
+});
+
+const availableMembers = computed(() => {
+  const assignedIds = area.value?.bereichsleiterIds || [];
+  return members.value
+    .filter((m) => !assignedIds.includes(m.id))
+    .map((m) => ({
+      label: `${m.firstName} ${m.lastName}`,
+      value: m.id,
+      email: m.email || '',
+    }));
+});
 
 async function loadArea() {
   if (isCreate.value) {
@@ -120,6 +210,7 @@ async function loadArea() {
       id: '',
       name: '',
       description: '',
+      bereichsleiterIds: [],
     };
     return;
   }
@@ -127,6 +218,9 @@ async function loadArea() {
   error.value = null;
   try {
     area.value = await areaService.getArea(areaId.value as string);
+    if (!area.value.bereichsleiterIds) {
+      area.value.bereichsleiterIds = [];
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Bereichs';
     console.error('Error loading area:', err);
@@ -135,8 +229,37 @@ async function loadArea() {
   }
 }
 
+async function loadMembers() {
+  try {
+    members.value = await memberService.getMembers();
+  } catch (err) {
+    console.error('Error loading members:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Laden der Mitglieder',
+      position: 'top',
+    });
+  }
+}
+
 function goBack() {
   router.back();
+}
+
+function addBereichsleiter(memberId: string | null) {
+  if (!memberId || !area.value) return;
+  if (!area.value.bereichsleiterIds) {
+    area.value.bereichsleiterIds = [];
+  }
+  if (!area.value.bereichsleiterIds.includes(memberId)) {
+    area.value.bereichsleiterIds.push(memberId);
+  }
+  selectedMember.value = null;
+}
+
+function removeBereichsleiter(memberId: string) {
+  if (!area.value?.bereichsleiterIds) return;
+  area.value.bereichsleiterIds = area.value.bereichsleiterIds.filter((id) => id !== memberId);
 }
 
 async function saveArea() {
@@ -148,6 +271,7 @@ async function saveArea() {
         id: area.value.id,
         name: area.value.name,
         description: area.value.description,
+        bereichsleiterIds: area.value.bereichsleiterIds,
       });
       area.value = { ...area.value, ...created };
       $q.notify({
@@ -162,6 +286,7 @@ async function saveArea() {
       id: area.value.id,
       name: area.value.name,
       description: area.value.description,
+      bereichsleiterIds: area.value.bereichsleiterIds,
     });
     area.value = { ...area.value, ...updated };
     $q.notify({
@@ -181,8 +306,8 @@ async function saveArea() {
   }
 }
 
-onMounted(() => {
-  loadArea();
+onMounted(async () => {
+  await Promise.all([loadMembers(), loadArea()]);
 });
 </script>
 
@@ -191,5 +316,9 @@ onMounted(() => {
   min-height: 48px;
   min-width: 48px;
   padding: 12px 24px;
+}
+
+.bereichsleiter-chip {
+  max-width: 300px;
 }
 </style>
