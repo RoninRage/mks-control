@@ -43,7 +43,14 @@
 
         <!-- ID (for reference) -->
         <div class="col-12 col-sm-6">
-          <q-input v-model="area.id" label="Bereichs-ID" outlined readonly dense class="full-width" />
+          <q-input
+            v-model="area.id"
+            label="Bereichs-ID"
+            outlined
+            readonly
+            dense
+            class="full-width"
+          />
         </div>
 
         <!-- Description -->
