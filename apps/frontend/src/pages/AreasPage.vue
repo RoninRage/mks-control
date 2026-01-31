@@ -74,7 +74,6 @@
             <p v-if="area.description" class="text-body2 text-grey-7 q-mb-md">
               {{ area.description }}
             </p>
-            <q-badge color="primary" :label="`${area.equipmentCount || 0} Geräte`" />
           </q-card-section>
 
           <q-card-actions>
@@ -122,13 +121,11 @@ const areas = ref([
     id: '1',
     name: 'Elektronik',
     description: 'Bereich für elektronische Projekte',
-    equipmentCount: 5,
   },
   {
     id: '2',
     name: '3D Druck',
     description: 'Bereich für 3D-Drucker',
-    equipmentCount: 2,
   },
 ]);
 
