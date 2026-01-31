@@ -38,7 +38,14 @@
       <div class="row q-col-gutter-lg">
         <!-- Name -->
         <div class="col-12 col-sm-6">
-          <q-input v-model="area.name" label="Name" outlined readonly dense class="full-width" />
+          <q-input
+            v-model="area.name"
+            label="Name"
+            outlined
+            :disable="loading || saving"
+            dense
+            class="full-width"
+          />
         </div>
 
         <!-- ID (for reference) -->
@@ -61,7 +68,7 @@
             type="textarea"
             autogrow
             outlined
-            readonly
+            :disable="loading || saving"
             dense
             class="full-width"
           />
@@ -70,6 +77,13 @@
 
       <!-- Footer with action buttons -->
       <div class="row q-mt-lg q-gutter-md">
+        <q-btn
+          :loading="saving"
+          label="Speichern"
+          color="primary"
+          @click="saveArea"
+          class="touch-target"
+        />
         <q-btn flat label="Zurück" color="primary" @click="goBack" class="touch-target" />
       </div>
     </div>
@@ -79,6 +93,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { areaService, type Area } from 'src/services/areaService';
 
 defineOptions({
@@ -87,10 +102,12 @@ defineOptions({
 
 const router = useRouter();
 const route = useRoute();
+const $q = useQuasar();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
 const area = ref<Area | null>(null);
+const saving = ref(false);
 
 const areaId = computed(() => route.params.id as string);
 
@@ -109,6 +126,33 @@ async function loadArea() {
 
 function goBack() {
   router.back();
+}
+
+async function saveArea() {
+  if (!area.value) return;
+  saving.value = true;
+  try {
+    const updated = await areaService.updateArea(areaId.value, {
+      id: area.value.id,
+      name: area.value.name,
+      description: area.value.description,
+    });
+    area.value = { ...area.value, ...updated };
+    $q.notify({
+      type: 'positive',
+      message: 'Bereich gespeichert',
+      position: 'top',
+    });
+  } catch (err) {
+    console.error('Error saving area:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Speichern des Bereichs',
+      position: 'top',
+    });
+  } finally {
+    saving.value = false;
+  }
 }
 
 onMounted(() => {
