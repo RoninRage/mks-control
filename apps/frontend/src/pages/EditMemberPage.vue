@@ -140,6 +140,83 @@
           </q-select>
         </div>
 
+        <!-- Rolle zuweisen Section -->
+        <div v-if="userStore.canAssignRoles" class="col-12 q-mt-lg">
+          <div class="q-mb-md">
+            <h3 class="q-mb-md">Rolle zuweisen</h3>
+            <p class="text-caption text-grey">
+              Nur Administratoren und Vorstand können Rollen zuweisen
+            </p>
+          </div>
+
+          <!-- Current Roles Display -->
+          <div class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Aktuelle Rollen:</div>
+            <div class="row q-gutter-xs">
+              <q-badge
+                v-for="role in member.roles"
+                :key="role"
+                :color="getRoleColor(role)"
+                class="q-pa-sm role-badge"
+              >
+                <role-icon :role-id="role" class="role-badge-icon" />
+                <span class="q-ml-xs">{{ getRoleLabel(role) }}</span>
+                <q-icon
+                  v-if="
+                    role !== 'mitglied' &&
+                    userStore.canAssignRoles &&
+                    member.id !== userStore.memberId
+                  "
+                  name="close"
+                  size="14px"
+                  class="q-ml-xs cursor-pointer role-remove-icon"
+                  @click="removeRole(role)"
+                />
+              </q-badge>
+              <q-badge v-if="member.roles.length === 0" color="grey" label="Keine Rollen" />
+            </div>
+          </div>
+
+          <!-- Role Selection -->
+          <q-select
+            v-if="availableRoleOptions.length > 0"
+            v-model="selectedRoles"
+            :options="availableRoleOptions"
+            multiple
+            outlined
+            dense
+            label="Rolle wählen"
+            emit-value
+            map-options
+            :loading="isSavingRoles"
+            :disable="member.id === userStore.memberId || isSavingRoles"
+            @update:model-value="updateRoles"
+            class="full-width"
+          >
+            <template #prepend>
+              <q-icon name="admin_panel_settings" />
+            </template>
+            <template #selected>
+              <span class="text-grey">Rolle wählen</span>
+            </template>
+            <template #option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section avatar>
+                  <role-icon :role-id="scope.opt.value" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+
+          <div v-if="member.id === userStore.memberId" class="text-caption text-warning q-mt-sm">
+            <q-icon name="warning" size="xs" class="q-mr-xs" />
+            Sie können Ihre eigenen Rollen nicht ändern
+          </div>
+        </div>
+
         <!-- Tags Section -->
         <div class="col-12">
           <div class="q-mb-md">
@@ -191,6 +268,7 @@ import type { Member, Tag } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
 import { authEventSource } from 'src/services/authEventSource';
 import { useUserStore } from 'stores/user-store';
+import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
   name: 'EditMemberPage',
@@ -206,12 +284,26 @@ const error = ref<string | null>(null);
 const tags = ref<Tag[]>([]);
 const scanningTag = ref(false);
 const themePreference = ref<'light' | 'dark' | 'auto'>('auto');
+const selectedRoles = ref<string[]>([]);
+const isSavingRoles = ref(false);
 
 const themeOptions = [
   { label: 'Hell', value: 'light' },
   { label: 'Dunkel', value: 'dark' },
   { label: 'Automatisch', value: 'auto' },
 ];
+
+const roleOptions = [
+  { label: 'Admin', value: 'admin' },
+  { label: 'Vorstand', value: 'vorstand' },
+  { label: 'Bereichsleitung', value: 'bereichsleitung' },
+  { label: 'Mitglied', value: 'mitglied' },
+];
+
+const availableRoleOptions = computed(() => {
+  if (!member.value) return [];
+  return roleOptions.filter((option) => !member.value.roles.includes(option.value));
+});
 
 const memberId = computed(() => route.params.id as string);
 
@@ -258,6 +350,117 @@ const statusLabel = computed(() => {
   return member.value?.isActive ? 'Aktiv' : 'Inaktiv';
 });
 
+function getRoleColor(role: string): string {
+  const roleColors: Record<string, string> = {
+    admin: 'negative',
+    vorstand: 'info',
+    bereichsleitung: 'warning',
+    mitglied: 'primary',
+  };
+  return roleColors[role] || 'grey';
+}
+
+function getRoleLabel(role: string): string {
+  const roleLabels: Record<string, string> = {
+    admin: 'Admin',
+    vorstand: 'Vorstand',
+    bereichsleitung: 'Bereichsleitung',
+    mitglied: 'Mitglied',
+  };
+  return roleLabels[role] || role;
+}
+
+async function updateRoles(newRoles: string[]) {
+  if (!member.value || !userStore.memberId || !userStore.selectedRole?.id) {
+    return;
+  }
+
+  // Ensure 'mitglied' role is always included
+  if (!newRoles.includes('mitglied')) {
+    $q.notify({
+      type: 'warning',
+      message: 'Die Rolle "Mitglied" kann nicht entfernt werden',
+    });
+    // Revert to current roles
+    selectedRoles.value = member.value.roles;
+    return;
+  }
+
+  isSavingRoles.value = true;
+
+  try {
+    const updatedMember = await memberService.updateMemberRoles(
+      memberId.value,
+      newRoles,
+      userStore.memberId,
+      userStore.selectedRole.id
+    );
+
+    // Update local member data
+    member.value.roles = updatedMember.roles;
+    selectedRoles.value = updatedMember.roles;
+
+    $q.notify({
+      type: 'positive',
+      message: 'Rollen erfolgreich aktualisiert',
+    });
+  } catch (err) {
+    console.error('Error updating roles:', err);
+    const errorMessage =
+      err instanceof Error ? err.message : 'Fehler beim Aktualisieren der Rollen';
+
+    // Display specific error messages
+    let notificationMessage = errorMessage;
+    let notificationType: 'negative' | 'warning' = 'negative';
+
+    if (errorMessage.includes('eigenen Rollen')) {
+      notificationMessage = 'Sie können Ihre eigenen Rollen nicht ändern';
+      notificationType = 'warning';
+    } else if (errorMessage.includes('Administrator muss erhalten bleiben')) {
+      notificationMessage = 'Mindestens ein Administrator muss erhalten bleiben';
+      notificationType = 'warning';
+    } else if (errorMessage.includes('Keine Berechtigung')) {
+      notificationMessage = 'Sie haben keine Berechtigung zum Ändern von Rollen';
+      notificationType = 'warning';
+    } else if (errorMessage.includes('Mitglied') && errorMessage.includes('entfernt')) {
+      notificationMessage = 'Die Rolle "Mitglied" kann nicht entfernt werden';
+      notificationType = 'warning';
+    }
+
+    $q.notify({
+      type: notificationType,
+      message: notificationMessage,
+    });
+
+    // Revert to current roles
+    selectedRoles.value = member.value.roles;
+  } finally {
+    isSavingRoles.value = false;
+  }
+}
+
+async function removeRole(roleToRemove: string) {
+  if (!member.value) return;
+
+  // Prevent removing 'mitglied' role
+  if (roleToRemove === 'mitglied') {
+    $q.notify({
+      type: 'warning',
+      message: 'Die Rolle "Mitglied" kann nicht entfernt werden',
+    });
+    return;
+  }
+
+  // Check if removing last admin
+  if (roleToRemove === 'admin') {
+    const newRoles = member.value.roles.filter((r) => r !== roleToRemove);
+    await updateRoles(newRoles);
+  } else {
+    const newRoles = member.value.roles.filter((r) => r !== roleToRemove);
+    await updateRoles(newRoles);
+  }
+}
+
 async function loadMember() {
   loading.value = true;
   error.value = null;
@@ -270,6 +473,7 @@ async function loadMember() {
     }
     member.value = foundMember;
     themePreference.value = foundMember.preferredTheme || 'auto';
+    selectedRoles.value = foundMember.roles || [];
     await loadTags();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Mitglieds';
@@ -404,5 +608,24 @@ onMounted(() => {
 
 .tag-chip {
   max-width: 200px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+}
+
+.role-badge-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.role-remove-icon {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 </style>

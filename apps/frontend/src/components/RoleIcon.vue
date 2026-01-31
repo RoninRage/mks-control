@@ -51,8 +51,10 @@ const roleName = computed(() => {
 
 <style scoped lang="scss">
 .role-icon {
-  width: 100%;
-  height: 100%;
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  vertical-align: middle;
   filter: none; // Black icon in light mode (default)
 }
 

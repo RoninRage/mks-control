@@ -87,6 +87,16 @@ export const createMemberRoutes = (): Router => {
       const allMembers = await db.list({ include_docs: false });
       const newId = (allMembers.rows.length + 1).toString();
 
+      // Ensure 'mitglied' role is always present (default role for all users)
+      let roles = memberData.roles || [];
+      if (!roles.includes('mitglied')) {
+        roles = [...roles, 'mitglied'];
+      }
+      // If no roles provided at all, default to ['mitglied']
+      if (roles.length === 0) {
+        roles = ['mitglied'];
+      }
+
       const newMember: Omit<Member, '_id' | '_rev'> = {
         id: newId,
         firstName: memberData.firstName,
@@ -94,13 +104,13 @@ export const createMemberRoutes = (): Router => {
         tagUid: memberData.tagUid,
         email: memberData.email,
         phone: memberData.phone,
-        roles: memberData.roles ?? ['mitglied'],
+        roles: roles,
         joinDate: new Date().toISOString().split('T')[0],
         isActive: true,
       };
 
       const result = await db.insert(newMember);
-      log(`Member created with ID: ${newId}`);
+      log(`Member created with ID: ${newId} with roles: ${roles.join(', ')}`);
 
       res.status(201).json({ ok: true, data: { ...newMember, _id: result.id, _rev: result.rev } });
     } catch (err) {
@@ -114,7 +124,10 @@ export const createMemberRoutes = (): Router => {
     try {
       const { id } = req.params;
       const updates: UpdateMemberRequest = req.body;
-      log(`Updating member: ${id}`);
+      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserRole = req.headers['x-user-role'] as string;
+
+      log(`Updating member: ${id}, requested by: ${currentUserId} (${currentUserRole})`);
       const db = getDatabase();
 
       // Find existing member
@@ -129,6 +142,63 @@ export const createMemberRoutes = (): Router => {
       }
 
       const existingMember = result.docs[0];
+
+      // Special authorization checks for role updates
+      if (updates.roles !== undefined) {
+        // Only admin and vorstand can assign roles
+        if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
+          res.status(403).json({ ok: false, error: 'Keine Berechtigung zum Ändern von Rollen' });
+          return;
+        }
+
+        // Validate role IDs
+        const allowedRoles = ['admin', 'vorstand', 'bereichsleitung', 'mitglied'];
+        const invalidRoles = updates.roles.filter((role) => !allowedRoles.includes(role));
+        if (invalidRoles.length > 0) {
+          res
+            .status(400)
+            .json({ ok: false, error: `Ungültige Rollen: ${invalidRoles.join(', ')}` });
+          return;
+        }
+
+        // Ensure 'mitglied' role is always present (default role)
+        if (!updates.roles.includes('mitglied')) {
+          res
+            .status(400)
+            .json({ ok: false, error: 'Die Rolle "Mitglied" kann nicht entfernt werden' });
+          return;
+        }
+
+        // Prevent users from modifying their own roles
+        if (currentUserId === id) {
+          res.status(403).json({ ok: false, error: 'Sie können Ihre eigenen Rollen nicht ändern' });
+          return;
+        }
+
+        // Check if removing last admin
+        const wasAdmin = existingMember.roles && existingMember.roles.includes('admin');
+        const willBeAdmin = updates.roles.includes('admin');
+
+        if (wasAdmin && !willBeAdmin) {
+          // Query all active members with admin role
+          const activeAdmins = await db.find({
+            selector: {
+              isActive: { $eq: true },
+              roles: { $elemMatch: { $eq: 'admin' } },
+            },
+          });
+
+          const adminCount = activeAdmins.docs.length;
+
+          if (adminCount <= 1) {
+            res
+              .status(400)
+              .json({ ok: false, error: 'Mindestens ein Administrator muss erhalten bleiben' });
+            return;
+          }
+        }
+      }
+
       const updatedMember: Member = {
         ...existingMember,
         ...updates,

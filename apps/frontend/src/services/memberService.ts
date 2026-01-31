@@ -191,4 +191,37 @@ export const memberService = {
       throw error;
     }
   },
+
+  async updateMemberRoles(
+    memberId: string,
+    roles: string[],
+    currentUserId: string,
+    currentUserRole: string
+  ): Promise<Member> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}`;
+      console.log('[memberService] Updating roles for member:', memberId, 'to:', roles);
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId,
+          'x-user-role': currentUserRole,
+        },
+        body: JSON.stringify({ roles }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update roles');
+      }
+
+      const data = (await response.json()) as { ok: boolean; data: Member };
+      return data.data;
+    } catch (error) {
+      console.error('[memberService] Error updating roles:', error);
+      throw error;
+    }
+  },
 };
