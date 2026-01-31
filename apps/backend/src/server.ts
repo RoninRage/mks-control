@@ -5,9 +5,11 @@ import cors from 'cors';
 import { createAuthRoutes } from './routes/authRoutes';
 import { createMemberRoutes } from './routes/memberRoutes';
 import { createTagRoutes } from './routes/tagRoutes';
+import areaRoutes from './routes/areaRoutes';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
+import { seedAreas } from './db/seedAreas';
 import { migrateTagsToCollection } from './db/migrations';
 
 // Enforce monorepo dev entry point
@@ -20,6 +22,7 @@ if (process.env.MONOREPO_DEV !== 'true') {
 const startServer = async (): Promise<void> => {
   // Initialize database
   await initializeDatabase();
+  await seedAreas();
   await seedMembers();
   await migrateTagsToCollection();
 
@@ -33,8 +36,9 @@ const startServer = async (): Promise<void> => {
   app.use('/api/auth', createAuthRoutes(broadcast));
   app.use('/api', createMemberRoutes());
   app.use('/api', createTagRoutes());
+  app.use('/api/areas', areaRoutes);
 
-  console.log('[server] Routes registered: /api/auth, /api/members, /api/tags');
+  console.log('[server] Routes registered: /api/auth, /api/members, /api/tags, /api/areas');
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });

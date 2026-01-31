@@ -103,9 +103,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { areaService, type Area } from 'src/services/areaService';
 
 defineOptions({
   name: 'AreasPage',
@@ -116,18 +117,24 @@ const $q = useQuasar();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
-const areas = ref([
-  {
-    id: '1',
-    name: 'Elektronik',
-    description: 'Bereich für elektronische Projekte',
-  },
-  {
-    id: '2',
-    name: '3D Druck',
-    description: 'Bereich für 3D-Drucker',
-  },
-]);
+const areas = ref<Area[]>([]);
+
+onMounted(async () => {
+  await fetchAreas();
+});
+
+async function fetchAreas() {
+  loading.value = true;
+  error.value = null;
+  try {
+    areas.value = await areaService.getAreas();
+  } catch (err) {
+    error.value = 'Fehler beim Laden der Bereiche';
+    console.error('Error fetching areas:', err);
+  } finally {
+    loading.value = false;
+  }
+}
 
 function goBack() {
   router.back();
@@ -141,7 +148,7 @@ function createArea() {
   });
 }
 
-function editArea(area: (typeof areas.value)[0]) {
+function editArea(area: Area) {
   $q.notify({
     type: 'info',
     message: `Bereich "${area.name}" bearbeiten - Funktion noch nicht implementiert`,
@@ -163,12 +170,23 @@ function deleteArea(id: string) {
       color: 'negative',
     },
     persistent: true,
-  }).onOk(() => {
-    $q.notify({
-      type: 'info',
-      message: 'Bereich löschen - Funktion noch nicht implementiert',
-      position: 'top',
-    });
+  }).onOk(async () => {
+    try {
+      await areaService.deleteArea(id);
+      $q.notify({
+        type: 'positive',
+        message: 'Bereich gelöscht',
+        position: 'top',
+      });
+      await fetchAreas();
+    } catch (err) {
+      $q.notify({
+        type: 'negative',
+        message: 'Fehler beim Löschen des Bereichs',
+        position: 'top',
+      });
+      console.error('Error deleting area:', err);
+    }
   });
 }
 </script>

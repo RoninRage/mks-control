@@ -133,11 +133,11 @@ export const initializeDatabase = async (): Promise<void> => {
   }
 };
 
-export const getDatabase = (): nano.DocumentScope<Member> => {
+export const getDatabase = <T = Member>(): nano.DocumentScope<T> => {
   if (!dbInstance) {
     throw new Error('Database not initialized. Call initializeDatabase() first.');
   }
-  return dbInstance;
+  return dbInstance as unknown as nano.DocumentScope<T>;
 };
 
 export const getTagDatabase = (): nano.DocumentScope<Tag> => {
