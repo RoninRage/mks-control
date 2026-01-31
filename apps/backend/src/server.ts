@@ -6,10 +6,12 @@ import { createAuthRoutes } from './routes/authRoutes';
 import { createMemberRoutes } from './routes/memberRoutes';
 import { createTagRoutes } from './routes/tagRoutes';
 import areaRoutes from './routes/areaRoutes';
+import equipmentRoutes from './routes/equipmentRoutes';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
 import { seedAreas } from './db/seedAreas';
+import { seedEquipment } from './db/seedEquipment';
 import { migrateTagsToCollection } from './db/migrations';
 
 // Enforce monorepo dev entry point
@@ -23,6 +25,7 @@ const startServer = async (): Promise<void> => {
   // Initialize database
   await initializeDatabase();
   await seedAreas();
+  await seedEquipment();
   await seedMembers();
   await migrateTagsToCollection();
 
@@ -37,8 +40,11 @@ const startServer = async (): Promise<void> => {
   app.use('/api', createMemberRoutes());
   app.use('/api', createTagRoutes());
   app.use('/api/areas', areaRoutes);
+  app.use('/api/equipment', equipmentRoutes);
 
-  console.log('[server] Routes registered: /api/auth, /api/members, /api/tags, /api/areas');
+  console.log(
+    '[server] Routes registered: /api/auth, /api/members, /api/tags, /api/areas, /api/equipment'
+  );
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });

@@ -83,12 +83,6 @@
           </q-td>
         </template>
 
-        <template #body-cell-category="props">
-          <q-td :props="props">
-            <q-badge color="primary" :label="props.row.category" />
-          </q-td>
-        </template>
-
         <template #body-cell-area="props">
           <q-td :props="props">
             <span class="text-body2">{{ props.row.area || '—' }}</span>
@@ -134,9 +128,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { equipmentService, type Equipment } from 'src/services/equipmentService';
 
 defineOptions({
   name: 'EquipmentPage',
@@ -147,50 +142,13 @@ const $q = useQuasar();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
-
-interface Equipment {
-  id: string;
-  name: string;
-  category: string;
-  area: string;
-  isAvailable: boolean;
-}
-
-const equipment = ref<Equipment[]>([
-  {
-    id: '1',
-    name: 'Lötstation',
-    category: 'Elektronik',
-    area: 'Elektronik',
-    isAvailable: true,
-  },
-  {
-    id: '2',
-    name: '3D-Drucker Prusa i3',
-    category: '3D Druck',
-    area: '3D Druck',
-    isAvailable: true,
-  },
-  {
-    id: '3',
-    name: 'CNC-Fräsmaschine',
-    category: 'CNC',
-    area: 'Werkstatt',
-    isAvailable: false,
-  },
-]);
+const equipment = ref<Equipment[]>([]);
 
 const columns = [
   {
     name: 'name',
     label: 'Name',
     field: 'name',
-    align: 'left',
-  },
-  {
-    name: 'category',
-    label: 'Kategorie',
-    field: 'category',
     align: 'left',
   },
   {
@@ -217,20 +175,25 @@ function goBack() {
   router.back();
 }
 
+async function fetchEquipment() {
+  loading.value = true;
+  error.value = null;
+  try {
+    equipment.value = await equipmentService.getEquipment();
+  } catch (err) {
+    error.value = 'Fehler beim Laden der Ausstattung';
+    console.error('Error fetching equipment:', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
 function createEquipment() {
-  $q.notify({
-    type: 'info',
-    message: 'Ausstattung hinzufügen - Funktion noch nicht implementiert',
-    position: 'top',
-  });
+  router.push('/equipment/create');
 }
 
 function editEquipment(item: Equipment) {
-  $q.notify({
-    type: 'info',
-    message: `"${item.name}" bearbeiten - Funktion noch nicht implementiert`,
-    position: 'top',
-  });
+  router.push(`/equipment/${item.id}/edit`);
 }
 
 function deleteEquipment(id: string) {
@@ -247,19 +210,39 @@ function deleteEquipment(id: string) {
       color: 'negative',
     },
     persistent: true,
-  }).onOk(() => {
-    $q.notify({
-      type: 'info',
-      message: 'Ausstattung löschen - Funktion noch nicht implementiert',
-      position: 'top',
-    });
+  }).onOk(async () => {
+    try {
+      await equipmentService.deleteEquipment(id);
+      $q.notify({
+        type: 'positive',
+        message: 'Ausstattung gelöscht',
+        position: 'top',
+      });
+      await fetchEquipment();
+    } catch (err) {
+      $q.notify({
+        type: 'negative',
+        message: 'Fehler beim Löschen der Ausstattung',
+        position: 'top',
+      });
+      console.error('Error deleting equipment:', err);
+    }
   });
 }
+
+onMounted(async () => {
+  await fetchEquipment();
+});
 </script>
 
 <style scoped lang="scss">
 .equipment-table {
   border-radius: 16px;
+
+  .q-table__container,
+  .q-table__middle {
+    overflow: visible;
+  }
 
   .action-cell {
     display: flex;
