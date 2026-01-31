@@ -4,6 +4,7 @@ export interface Area {
   id: string;
   name: string;
   description: string;
+  bereichsleiterIds?: string[];
 }
 
 export interface AreaWithMeta extends Area {

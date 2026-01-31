@@ -56,7 +56,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, bereichsleiterIds } = req.body;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
@@ -67,6 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
       id: Date.now().toString(),
       name,
       description: description || '',
+      bereichsleiterIds: bereichsleiterIds || [],
     };
 
     const db = getDatabase<Area>();
@@ -89,7 +90,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, bereichsleiterIds } = req.body;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
@@ -113,6 +114,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       ...existingArea,
       name,
       description: description || '',
+      bereichsleiterIds: bereichsleiterIds || existingArea.bereichsleiterIds || [],
     };
 
     const result = await db.insert(updatedArea);
