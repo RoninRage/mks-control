@@ -3,6 +3,7 @@ export interface Equipment {
   _rev?: string;
   id: string;
   name: string;
+  configuration?: string;
   area?: string;
   isAvailable: boolean;
 }

@@ -9,18 +9,21 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
   {
     id: '1',
     name: 'Lötstation',
+    configuration: 'Temperaturregelung, 60W Leistung',
     area: 'Elektronik',
     isAvailable: true,
   },
   {
     id: '2',
     name: '3D-Drucker Prusa i3',
+    configuration: '0.4mm Düse, PLA/ABS',
     area: '3D Druck',
     isAvailable: true,
   },
   {
     id: '3',
     name: 'CNC-Fräsmaschine',
+    configuration: 'Arbeitsbereich 600x400mm',
     area: 'Werkstatt',
     isAvailable: false,
   },

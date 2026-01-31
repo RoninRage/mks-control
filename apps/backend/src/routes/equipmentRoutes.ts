@@ -56,16 +56,22 @@ router.get('/:id', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, area, isAvailable } = req.body as Equipment;
+    const { name, area, isAvailable, configuration } = req.body as Equipment;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
       return;
     }
 
+    if (configuration && configuration.length > 4096) {
+      res.status(400).json({ error: 'Configuration must be 4096 characters or fewer' });
+      return;
+    }
+
     const newEquipment: Equipment = {
       id: Date.now().toString(),
       name,
+      configuration: configuration || '',
       area: area || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
     };
@@ -90,10 +96,15 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { name, area, isAvailable } = req.body as Equipment;
+    const { name, area, isAvailable, configuration } = req.body as Equipment;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
+    if (configuration && configuration.length > 4096) {
+      res.status(400).json({ error: 'Configuration must be 4096 characters or fewer' });
       return;
     }
 
@@ -113,6 +124,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const updatedEquipment: EquipmentWithMeta = {
       ...existingEquipment,
       name,
+      configuration: configuration || '',
       area: area || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
     };

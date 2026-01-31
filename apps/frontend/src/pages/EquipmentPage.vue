@@ -89,6 +89,12 @@
           </q-td>
         </template>
 
+        <template #body-cell-configuration="props">
+          <q-td :props="props">
+            <span class="text-body2">{{ props.row.configuration || '—' }}</span>
+          </q-td>
+        </template>
+
         <template #body-cell-status="props">
           <q-td :props="props">
             <q-badge
@@ -155,6 +161,12 @@ const columns = [
     name: 'area',
     label: 'Bereich',
     field: 'area',
+    align: 'left',
+  },
+  {
+    name: 'configuration',
+    label: 'Konfiguration',
+    field: 'configuration',
     align: 'left',
   },
   {

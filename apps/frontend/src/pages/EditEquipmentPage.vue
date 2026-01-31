@@ -79,6 +79,22 @@
           />
         </div>
 
+        <!-- Configuration -->
+        <div class="col-12">
+          <q-input
+            v-model="equipment.configuration"
+            label="Konfiguration (optional)"
+            type="textarea"
+            autogrow
+            outlined
+            dense
+            :disable="loading || saving"
+            :maxlength="4096"
+            counter
+            class="full-width"
+          />
+        </div>
+
         <!-- ID (for reference) -->
         <div v-if="!isCreate" class="col-12 col-sm-6">
           <q-input
@@ -145,6 +161,7 @@ async function loadEquipment() {
       name: '',
       area: '',
       isAvailable: true,
+      configuration: '',
     };
     return;
   }
@@ -188,6 +205,7 @@ async function saveEquipment() {
         name: equipment.value.name,
         area: equipment.value.area,
         isAvailable: equipment.value.isAvailable,
+        configuration: equipment.value.configuration,
       });
       equipment.value = { ...equipment.value, ...created };
       $q.notify({
@@ -204,6 +222,7 @@ async function saveEquipment() {
       name: equipment.value.name,
       area: equipment.value.area,
       isAvailable: equipment.value.isAvailable,
+      configuration: equipment.value.configuration,
     });
     equipment.value = { ...equipment.value, ...updated };
     $q.notify({
