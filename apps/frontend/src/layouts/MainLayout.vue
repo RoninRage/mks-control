@@ -19,7 +19,7 @@
     </q-header>
 
     <q-page-container>
-      <user-header v-if="userStore.isAuthenticated" />
+      <user-header v-if="userStore.isAuthenticated && $route.path !== '/'" />
       <router-view />
     </q-page-container>
   </q-layout>
@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { useQuasar } from 'quasar';
+import { useRoute } from 'vue-router';
 import MakerSpaceLogoA from 'components/MakerSpaceLogoA.vue';
 import UserHeader from 'components/UserHeader.vue';
 import { useUserStore } from 'stores/user-store';
@@ -36,6 +37,7 @@ defineOptions({
 });
 
 const $q = useQuasar();
+const $route = useRoute();
 const userStore = useUserStore();
 
 function toggleDarkMode() {

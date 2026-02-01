@@ -30,7 +30,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '3',
     firstName: 'Max',
     lastName: 'Mustermann',
-    tagUid: '11223344',
     email: 'max.mustermann@example.com',
     phone: '+49 123 456789',
     roles: ['mitglied'],
@@ -41,7 +40,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '4',
     firstName: 'Erika',
     lastName: 'Musterfrau',
-    tagUid: '55667788',
     email: 'erika.musterfrau@example.com',
     roles: ['bereichsleitung', 'mitglied'],
     joinDate: '2024-02-10',
@@ -51,7 +49,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '5',
     firstName: 'Hans',
     lastName: 'Schmidt',
-    tagUid: '99aabbcc',
     email: 'hans.schmidt@example.com',
     roles: ['mitglied'],
     joinDate: '2024-04-20',
@@ -61,7 +58,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '6',
     firstName: 'Maria',
     lastName: 'Müller',
-    tagUid: 'ddeeff00',
     email: 'maria.mueller@example.com',
     roles: ['vorstand', 'mitglied'],
     joinDate: '2024-01-05',
@@ -71,7 +67,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '7',
     firstName: 'Klaus',
     lastName: 'Weber',
-    tagUid: '1a2b3c4d',
     email: 'klaus.weber@example.com',
     roles: ['mitglied'],
     joinDate: '2024-05-12',
@@ -81,7 +76,6 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     id: '8',
     firstName: 'Anna',
     lastName: 'Meyer',
-    tagUid: '5e6f7g8h',
     email: 'anna.meyer@example.com',
     roles: ['mitglied'],
     joinDate: '2024-06-08',
@@ -89,9 +83,53 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
   },
 ];
 
+const adminSeedMembers: Omit<Member, '_id' | '_rev'>[] = defaultMembers.filter((member) =>
+  member.roles.includes('admin')
+);
+
+const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<void> => {
+  const adminPromises = adminSeedMembers.map(async (member) => {
+    try {
+      const existing = await db.find({
+        selector: { id: { $eq: member.id } },
+        limit: 1,
+      });
+
+      if (existing.docs.length > 0) {
+        const existingMember = existing.docs[0] as Member;
+        const updatedMember: Member = {
+          ...existingMember,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          tagUid: member.tagUid,
+          email: member.email,
+          roles: member.roles,
+          isActive: true,
+        };
+
+        await db.insert(updatedMember);
+        log(`Updated admin member: ${member.firstName} ${member.lastName}`);
+        return;
+      }
+
+      await db.insert(member);
+      log(`Inserted admin member: ${member.firstName} ${member.lastName} (${member.tagUid})`);
+    } catch (err) {
+      log(
+        `Failed to upsert admin ${member.firstName} ${member.lastName}: ${(err as Error).message}`
+      );
+    }
+  });
+
+  await Promise.all(adminPromises);
+};
+
 export const seedMembers = async (): Promise<void> => {
   try {
     const db = getDatabase();
+
+    // Ensure admin members always exist and are active
+    await ensureAdminMembers(db);
 
     // Check if members already exist by looking for actual member documents
     try {
