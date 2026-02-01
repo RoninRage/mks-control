@@ -99,13 +99,12 @@
 
         <!-- Status -->
         <div class="col-12 col-sm-6">
-          <q-input
-            :model-value="statusLabel"
-            label="Status"
-            outlined
-            readonly
-            dense
-            class="full-width"
+          <q-toggle
+            v-model="member.isActive"
+            label="Aktiv"
+            color="primary"
+            :disable="loading || savingStatus"
+            @update:model-value="updateStatus"
           />
         </div>
 
@@ -315,6 +314,7 @@ const scanningTag = ref(false);
 const themePreference = ref<'light' | 'dark' | 'auto'>('auto');
 const selectedRoles = ref<string[]>([]);
 const isSavingRoles = ref(false);
+const savingStatus = ref(false);
 const areas = ref<Area[]>([]);
 
 const themeOptions = [
@@ -350,6 +350,30 @@ const formattedJoinDate = computed(() => {
     return member.value.joinDate;
   }
 });
+
+async function updateStatus(isActive: boolean) {
+  if (!member.value) return;
+
+  savingStatus.value = true;
+  try {
+    await memberService.updateMember(memberId.value, { isActive });
+    member.value.isActive = isActive;
+    $q.notify({
+      type: 'positive',
+      message: isActive ? 'Mitglied aktiviert' : 'Mitglied deaktiviert',
+    });
+  } catch (err) {
+    console.error('Error updating status:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Aktualisieren des Status',
+    });
+    // Revert the toggle
+    member.value.isActive = !isActive;
+  } finally {
+    savingStatus.value = false;
+  }
+}
 
 async function updateThemePreference(theme: 'light' | 'dark' | 'auto') {
   try {
@@ -488,12 +512,31 @@ async function removeRole(roleToRemove: string) {
 
   // Check if removing last admin
   if (roleToRemove === 'admin') {
-    const newRoles = member.value.roles.filter((r) => r !== roleToRemove);
-    await updateRoles(newRoles);
-  } else {
-    const newRoles = member.value.roles.filter((r) => r !== roleToRemove);
-    await updateRoles(newRoles);
+    try {
+      const allMembers = await memberService.getMembers();
+      const activeAdmins = allMembers.filter(
+        (m) => m.isActive && m.roles.includes('admin') && m.id !== member.value?.id
+      );
+
+      if (activeAdmins.length === 0) {
+        $q.notify({
+          type: 'warning',
+          message: 'Mindestens ein aktiver Administrator muss erhalten bleiben',
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking for other admins:', err);
+      $q.notify({
+        type: 'negative',
+        message: 'Fehler beim Überprüfen der Administratoren',
+      });
+      return;
+    }
   }
+
+  const newRoles = member.value.roles.filter((r) => r !== roleToRemove);
+  await updateRoles(newRoles);
 }
 
 async function loadMember() {

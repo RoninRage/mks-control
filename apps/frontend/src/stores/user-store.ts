@@ -50,10 +50,8 @@ export const useUserStore = defineStore('user', {
     roleId: (state): string | null => state.selectedRole?.id || null,
     roleName: (state): string | null => state.selectedRole?.name || null,
     fullName: (state): string => {
-      if (state.firstName && state.lastName) {
-        return `${state.firstName} ${state.lastName}`;
-      }
-      return state.firstName || state.lastName || 'Unbekannter Benutzer';
+      const parts = [state.firstName, state.lastName].filter(Boolean);
+      return parts.length > 0 ? parts.join(' ') : 'Unbekannter Benutzer';
     },
 
     // Legacy permission checks (kept for backward compatibility)

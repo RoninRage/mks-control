@@ -163,6 +163,32 @@ export const memberService = {
     }
   },
 
+  async updateMember(memberId: string, updates: Partial<Member>): Promise<Member> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const url = `${apiUrl}/members/${memberId}`;
+      console.log('[memberService] Updating member:', memberId, 'with:', updates);
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update member');
+      }
+
+      const data = (await response.json()) as { ok: boolean; data: Member };
+      return data.data;
+    } catch (error) {
+      console.error('[memberService] Error updating member:', error);
+      throw error;
+    }
+  },
+
   async updateMemberTheme(
     memberId: string,
     preferredTheme: 'light' | 'dark' | 'auto'
