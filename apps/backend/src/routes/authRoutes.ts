@@ -54,7 +54,7 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
   // Load admin tag UIDs from environment variable
   const adminTagUids = (process.env.ADMIN_TAG_UIDS || '')
     .split(',')
-    .map((uid) => uid.trim())
+    .map((uid) => uid.trim().toLowerCase())
     .filter((uid) => uid.length > 0);
 
   console.log(`[auth-routes] Admin tags configured:`, adminTagUids);
@@ -68,7 +68,7 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     }
 
     // Check if this is an admin tag (environment variable)
-    const isAdminByEnv = adminTagUids.includes(event.uid);
+    const isAdminByEnv = adminTagUids.includes(event.uid.toLowerCase());
 
     // Look up member by tag UID using tags collection
     let member: Member | null = null;
