@@ -678,7 +678,14 @@ async function removeTag(tagId: string) {
 }
 
 function goBack() {
-  router.back();
+  const sourceValue = Array.isArray(route.query.source)
+    ? route.query.source[0]
+    : route.query.source;
+  if (sourceValue === 'profile') {
+    router.replace('/dashboard');
+    return;
+  }
+  router.replace('/members');
 }
 
 onMounted(() => {

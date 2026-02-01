@@ -10,7 +10,7 @@
           flat
           bordered
           class="action-card"
-          @click="$router.push('/ausstattung')"
+          @click="$router.replace('/ausstattung')"
         >
           <q-card-section>
             <q-icon name="admin_panel_settings" size="48px" color="primary" />
@@ -27,7 +27,7 @@
           flat
           bordered
           class="action-card"
-          @click="$router.push('/equipment')"
+          @click="$router.replace('/equipment')"
         >
           <q-card-section>
             <q-icon name="build" size="48px" color="primary" />
@@ -44,7 +44,7 @@
           flat
           bordered
           class="action-card"
-          @click="$router.push('/areas')"
+          @click="$router.replace('/areas')"
         >
           <q-card-section>
             <q-icon name="category" size="48px" color="primary" />
@@ -61,7 +61,7 @@
           flat
           bordered
           class="action-card"
-          @click="$router.push('/members')"
+          @click="$router.replace('/members')"
         >
           <q-card-section>
             <q-icon name="people" size="48px" color="primary" />
@@ -78,7 +78,7 @@
           flat
           bordered
           class="action-card"
-          @click="$router.push('/profile')"
+          @click="$router.replace('/profile')"
         >
           <q-card-section>
             <q-icon name="account_circle" size="48px" color="primary" />
@@ -90,7 +90,7 @@
           </q-card-actions>
         </q-card>
 
-        <q-card flat bordered class="action-card" @click="$router.push('/about')">
+        <q-card flat bordered class="action-card" @click="$router.replace('/about')">
           <q-card-section>
             <q-icon name="info" size="48px" color="primary" />
             <div class="text-h6 q-mt-md">Über</div>
@@ -150,7 +150,7 @@ function handleLogout() {
     persistent: true,
   }).onOk(() => {
     userStore.logout();
-    router.push('/');
+    router.replace('/');
   });
 }
 </script>

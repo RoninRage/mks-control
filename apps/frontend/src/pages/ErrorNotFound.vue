@@ -5,7 +5,7 @@
 
       <div class="text-h5 ms-muted">Oops. Nothing here...</div>
 
-      <q-btn color="primary" label="Go Home" icon="home" to="/" size="lg" />
+      <q-btn color="primary" label="Go Home" icon="home" size="lg" @click="$router.replace('/')" />
     </div>
   </q-page>
 </template>

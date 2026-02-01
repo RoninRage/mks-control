@@ -42,7 +42,7 @@ const userStore = useUserStore();
 
 function handleLogout() {
   userStore.logout();
-  router.push('/');
+  router.replace('/');
 }
 </script>
 

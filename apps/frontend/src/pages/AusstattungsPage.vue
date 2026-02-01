@@ -294,7 +294,7 @@ const displayedAreas = computed(() => {
 });
 
 const goBack = () => {
-  router.back();
+  router.replace('/dashboard');
 };
 
 const selectAreaMobile = (areaId: string) => {

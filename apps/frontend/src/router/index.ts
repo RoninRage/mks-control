@@ -54,7 +54,7 @@ export default route(function (/* { store, ssrContext } */) {
 
     if (requiresAuth && !isAuthenticated) {
       console.log(`[router-guard] Redirecting to / - user not authenticated`);
-      next('/');
+      next({ path: '/', replace: true });
     } else {
       next();
     }

@@ -187,7 +187,7 @@ const columns = [
 ];
 
 function goBack() {
-  router.back();
+  router.replace('/dashboard');
 }
 
 async function fetchEquipment() {
@@ -218,11 +218,11 @@ function getAreaName(areaId?: string) {
 }
 
 function createEquipment() {
-  router.push('/equipment/create');
+  router.replace('/equipment/create');
 }
 
 function editEquipment(item: Equipment) {
-  router.push(`/equipment/${item.id}/edit`);
+  router.replace(`/equipment/${item.id}/edit`);
 }
 
 function deleteEquipment(id: string) {

@@ -60,7 +60,7 @@ const routes: RouteRecordRaw[] = [
         path: 'profile',
         redirect: () => {
           const memberId = localStorage.getItem('memberId');
-          return memberId ? `/members/${memberId}/edit` : '/';
+          return memberId ? `/members/${memberId}/edit?source=profile` : '/';
         },
         meta: { requiresAuth: true },
       },

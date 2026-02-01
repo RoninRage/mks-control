@@ -178,7 +178,7 @@ async function loadMembers() {
 }
 
 function goBack() {
-  router.back();
+  router.replace('/dashboard');
 }
 
 function getRoleColor(role: string): string {
@@ -202,7 +202,10 @@ function getRoleLabel(role: string): string {
 }
 
 function editMember(member: Member) {
-  router.push(`/members/${member.id}/edit`);
+  router.replace({
+    path: `/members/${member.id}/edit`,
+    query: { source: 'members' },
+  });
 }
 
 function deleteMember(id: string) {

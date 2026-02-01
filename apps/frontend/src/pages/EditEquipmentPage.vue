@@ -225,7 +225,7 @@ async function loadEquipmentList(): Promise<void> {
 }
 
 function goBack() {
-  router.back();
+  router.replace('/equipment');
 }
 
 function markNameTouched(): void {
@@ -262,7 +262,7 @@ async function saveEquipment() {
         message: 'Ausstattung erstellt',
         position: 'top',
       });
-      await router.push('/equipment');
+      await router.replace('/equipment');
       return;
     }
 

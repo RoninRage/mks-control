@@ -50,7 +50,7 @@ export default boot(({ router }) => {
         store.lock();
         console.log('[auth-boot] Logout complete, state cleared');
         // Navigate to home/login page
-        void router.push('/');
+        void router.replace('/');
         // Don't process the tag further - just logout
         return;
       }
@@ -117,9 +117,9 @@ export default boot(({ router }) => {
     setTimeout(() => {
       console.log('[auth-boot] Navigating to dashboard');
       console.log('[auth-boot] router exists:', !!router);
-      console.log('[auth-boot] About to call router.push');
+      console.log('[auth-boot] About to call router.replace');
       router
-        .push('/dashboard')
+        .replace('/dashboard')
         .then(() => {
           console.log('[auth-boot] Navigation to dashboard successful');
         })

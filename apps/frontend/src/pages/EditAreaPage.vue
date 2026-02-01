@@ -281,7 +281,7 @@ async function loadAreas(): Promise<void> {
 }
 
 function goBack() {
-  router.back();
+  router.replace('/areas');
 }
 
 function markNameTouched(): void {
@@ -333,7 +333,7 @@ async function saveArea() {
         message: 'Bereich erstellt',
         position: 'top',
       });
-      await router.push('/areas');
+      await router.replace('/areas');
       return;
     }
     const updated = await areaService.updateArea(areaId.value as string, {

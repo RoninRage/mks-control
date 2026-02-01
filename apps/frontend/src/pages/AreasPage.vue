@@ -137,15 +137,15 @@ async function fetchAreas() {
 }
 
 function goBack() {
-  router.back();
+  router.replace('/dashboard');
 }
 
 function createArea() {
-  router.push('/areas/create');
+  router.replace('/areas/create');
 }
 
 function editArea(area: Area) {
-  router.push(`/areas/${area.id}/edit`);
+  router.replace(`/areas/${area.id}/edit`);
 }
 
 function deleteArea(id: string) {

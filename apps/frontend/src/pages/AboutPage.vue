@@ -181,7 +181,6 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { useUserStore } from 'stores/user-store';
 import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
@@ -189,16 +188,9 @@ defineOptions({
 });
 
 const router = useRouter();
-const userStore = useUserStore();
 
 function goBack() {
-  // If user is authenticated (has a role), go back to dashboard
-  // Otherwise go to index page
-  if (userStore.isAuthenticated) {
-    router.push('/dashboard');
-  } else {
-    router.push('/');
-  }
+  router.replace('/dashboard');
 }
 </script>
 
