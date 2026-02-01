@@ -8,6 +8,7 @@ export interface TagEvent {
   device: string;
   isAdmin?: boolean;
   memberFound?: boolean;
+  isInactive?: boolean;
 }
 
 export interface HeartbeatEvent {

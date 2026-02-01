@@ -12,6 +12,7 @@ export interface TagEvent {
   device: string;
   isAdmin?: boolean;
   memberFound?: boolean;
+  isInactive?: boolean;
   member?: {
     id: string;
     firstName: string;
@@ -53,7 +54,9 @@ export interface AuthEventSource {
   onReaderError(callback: (event: ReaderErrorEvent) => void): void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
   onUnknownTag(callback: (event: TagEvent) => void): void;
+  onInactiveUser(callback: (event: TagEvent) => void): void;
   emitUnknownTag(event: TagEvent): void;
+  emitInactiveUser(event: TagEvent): void;
   setTagAssignmentMode(enabled: boolean): void;
   isInTagAssignmentMode(): boolean;
 }
@@ -151,6 +154,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly readerErrorListeners: Array<(event: ReaderErrorEvent) => void> = [];
   private readonly statusListeners: Array<(status: ConnectionStatus) => void> = [];
   private readonly unknownTagListeners: Array<(event: TagEvent) => void> = [];
+  private readonly inactiveUserListeners: Array<(event: TagEvent) => void> = [];
 
   public constructor(private readonly url: string) {}
 
@@ -253,8 +257,16 @@ export class ServerWsAuthEventSource implements AuthEventSource {
     this.unknownTagListeners.push(cb);
   }
 
+  public onInactiveUser(cb: (event: TagEvent) => void): void {
+    this.inactiveUserListeners.push(cb);
+  }
+
   public emitUnknownTag(event: TagEvent): void {
     this.unknownTagListeners.forEach((listener: (event: TagEvent) => void) => listener(event));
+  }
+
+  public emitInactiveUser(event: TagEvent): void {
+    this.inactiveUserListeners.forEach((listener: (event: TagEvent) => void) => listener(event));
   }
 
   private emitTag(event: TagEvent): void {

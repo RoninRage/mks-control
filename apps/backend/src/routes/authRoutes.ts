@@ -70,14 +70,24 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     // Check if this is an admin tag (environment variable)
     const isAdminByEnv = adminTagUids.includes(event.uid.toLowerCase());
 
-    // Look up member by tag UID using tags collection
+    // Look up member by tag UID using tags collection (including inactive tags)
     let member: Member | null = null;
+    let isInactive = false;
     try {
       const tagDb = getTagDatabase();
-      const tagResult = await tagDb.find({
+      // First try to find an active tag
+      let tagResult = await tagDb.find({
         selector: { tagUid: { $eq: event.uid }, isActive: { $eq: true } },
         limit: 1,
       });
+
+      // If no active tag found, try to find an inactive tag (to detect inactive members)
+      if (tagResult.docs.length === 0) {
+        tagResult = await tagDb.find({
+          selector: { tagUid: { $eq: event.uid } },
+          limit: 1,
+        });
+      }
 
       if (tagResult.docs.length > 0) {
         const tag = tagResult.docs[0];
@@ -89,8 +99,9 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
 
         if (memberResult.docs.length > 0) {
           member = memberResult.docs[0];
+          isInactive = member.isActive === false;
           console.log(
-            `[auth-routes] Member found via tag: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}`
+            `[auth-routes] Member found via tag: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}, isActive: ${member.isActive}`
           );
         }
       }
@@ -105,7 +116,8 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     const enrichedEvent: AuthEvent = {
       ...event,
       isAdmin,
-      memberFound: member !== null,
+      memberFound: member !== null && !isInactive,
+      isInactive: isInactive && member !== null,
     } as any;
 
     // Attach member info (not part of AuthEvent interface but will be sent)

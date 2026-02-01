@@ -133,6 +133,18 @@ onMounted(() => {
       badgeStyle: 'display: none;',
     });
   });
+
+  authEventSource.onInactiveUser((event: TagEvent): void => {
+    console.log('[IndexPage] Inactive user detected:', event);
+    q.notify({
+      type: 'negative',
+      message: 'Benutzer deaktiviert',
+      position: 'center',
+      timeout: 5000,
+      badgeClass: 'hidden',
+      badgeStyle: 'display: none;',
+    });
+  });
 });
 </script>
 

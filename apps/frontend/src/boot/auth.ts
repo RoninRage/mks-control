@@ -56,6 +56,13 @@ export default boot(({ router }) => {
       }
     }
 
+    // Check for inactive user first (before unknown user check)
+    if (event.isInactive === true) {
+      console.log('[auth-boot] Inactive user detected');
+      authEventSource.emitInactiveUser(event);
+      return;
+    }
+
     // Check for unknown user (tag not found in database and not admin)
     if (event.memberFound === false && event.isAdmin !== true) {
       console.log('[auth-boot] Unknown tag detected - member not found and not admin');
