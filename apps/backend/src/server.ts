@@ -13,6 +13,7 @@ import { seedMembers } from './db/seedMembers';
 import { seedAreas } from './db/seedAreas';
 import { seedEquipment } from './db/seedEquipment';
 import { migrateTagsToCollection } from './db/migrations';
+import { migrateBackupAdmin } from './db/migrateBackupAdmin';
 
 // Enforce monorepo dev entry point
 if (process.env.MONOREPO_DEV !== 'true') {
@@ -24,6 +25,7 @@ if (process.env.MONOREPO_DEV !== 'true') {
 const startServer = async (): Promise<void> => {
   // Initialize database
   await initializeDatabase();
+  await migrateBackupAdmin();
   await seedAreas();
   await seedEquipment();
   await seedMembers();

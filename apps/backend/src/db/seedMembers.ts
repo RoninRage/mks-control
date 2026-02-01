@@ -18,7 +18,7 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
   },
   {
     id: '2',
-    firstName: 'BackupAdmin',
+    firstName: 'Backupadmin',
     lastName: 'System',
     tagUid: 'ab9c423e',
     email: 'backup@makerspace.local',
