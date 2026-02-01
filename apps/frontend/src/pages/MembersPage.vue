@@ -57,7 +57,7 @@
               :key="role"
               :color="getRoleColor(role)"
               :label="getRoleLabel(role)"
-              class="q-mr-xs"
+              class="q-mr-xs ms-badge"
             />
           </q-td>
         </template>
@@ -67,6 +67,7 @@
             <q-badge
               :color="props.row.isActive ? 'positive' : 'grey'"
               :label="props.row.isActive ? 'Aktiv' : 'Inaktiv'"
+              class="ms-badge"
             />
           </q-td>
         </template>

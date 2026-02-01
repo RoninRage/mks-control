@@ -119,7 +119,7 @@
             <q-card-section>
               <div class="text-h6 q-mb-sm">Status Card</div>
               <div class="row items-center q-gutter-sm">
-                <q-badge color="positive" label="Active" />
+                <q-badge color="positive" label="Active" class="ms-badge" />
                 <span class="ms-muted">System operational</span>
               </div>
             </q-card-section>
@@ -192,6 +192,7 @@
             <q-badge
               :color="props.row.status === 'Active' ? 'positive' : 'muted'"
               :label="props.row.status"
+              class="ms-badge"
             />
           </q-td>
         </template>

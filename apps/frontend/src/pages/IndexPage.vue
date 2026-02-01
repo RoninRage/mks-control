@@ -12,7 +12,7 @@
           <q-card-section>
             <div class="column q-gutter-sm">
               <div class="row items-center q-gutter-sm">
-                <q-badge :color="statusColor" :label="statusLabel" />
+                <q-badge :color="statusColor" :label="statusLabel" class="ms-badge" />
                 <span class="status-card__label">Gateway Connection</span>
               </div>
             </div>

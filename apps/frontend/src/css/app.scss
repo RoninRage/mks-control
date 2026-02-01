@@ -172,6 +172,11 @@ a {
       }
     }
   }
+
+  &.bg-primary {
+    background: #111111 !important;
+    color: #ffffff !important;
+  }
 }
 
 // Icon - Enhanced visibility in dark/light mode
@@ -206,6 +211,11 @@ body.body--dark {
           background-color: rgba(255, 255, 255, 0.08);
         }
       }
+    }
+
+    &.bg-primary {
+      background: #2f2f2f !important;
+      color: #ffffff !important;
     }
   }
 
@@ -257,4 +267,21 @@ body.body--dark {
 
 .ms-muted {
   color: var(--ms-muted);
+}
+
+// Badge - Primary style with dark mode override
+.ms-badge {
+  &.bg-primary {
+    background: #111111 !important;
+    color: #ffffff !important;
+  }
+}
+
+body.body--dark {
+  .ms-badge {
+    &.bg-primary {
+      background: #2f2f2f !important;
+      color: #ffffff !important;
+    }
+  }
 }

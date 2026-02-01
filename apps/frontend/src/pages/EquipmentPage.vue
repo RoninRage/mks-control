@@ -100,6 +100,7 @@
             <q-badge
               :color="props.row.isAvailable ? 'positive' : 'grey'"
               :label="props.row.isAvailable ? 'Verfügbar' : 'Nicht verfügbar'"
+              class="ms-badge"
             />
           </q-td>
         </template>

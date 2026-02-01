@@ -157,7 +157,7 @@
                 v-for="role in member.roles"
                 :key="role"
                 :color="getRoleColor(role)"
-                class="q-pa-sm role-badge"
+                class="q-pa-sm role-badge ms-badge"
               >
                 <role-icon :role-id="role" class="role-badge-icon" />
                 <span class="q-ml-xs">{{ getRoleLabel(role) }}</span>
@@ -173,7 +173,12 @@
                   @click="removeRole(role)"
                 />
               </q-badge>
-              <q-badge v-if="member.roles.length === 0" color="grey" label="Keine Rollen" />
+              <q-badge
+                v-if="member.roles.length === 0"
+                color="grey"
+                label="Keine Rollen"
+                class="ms-badge"
+              />
             </div>
           </div>
 
@@ -214,6 +219,29 @@
           <div v-if="member.id === userStore.memberId" class="text-caption text-warning q-mt-sm">
             <q-icon name="warning" size="xs" class="q-mr-xs" />
             Sie können Ihre eigenen Rollen nicht ändern
+          </div>
+        </div>
+
+        <!-- Bereichsleitung Areas Section -->
+        <div v-if="member.roles.includes('bereichsleitung')" class="col-12 q-mt-lg">
+          <div class="q-mb-md">
+            <h3 class="q-mb-md">Bereiche (Bereichsleitung)</h3>
+            <p class="text-caption text-grey">Zugewiesene Bereiche für diese Bereichsleitung</p>
+          </div>
+
+          <q-card v-if="managedAreas.length === 0" flat bordered class="q-pa-md">
+            <div class="text-caption text-grey">Keine Bereiche zugewiesen</div>
+          </q-card>
+
+          <div v-else class="row q-gutter-xs">
+            <q-badge
+              v-for="area in managedAreas"
+              :key="area.id"
+              color="primary"
+              class="q-pa-sm ms-badge"
+            >
+              {{ area.name }}
+            </q-badge>
           </div>
         </div>
 
@@ -266,6 +294,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import type { Member, Tag } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
+import { areaService, type Area } from 'src/services/areaService';
 import { authEventSource } from 'src/services/authEventSource';
 import { useUserStore } from 'stores/user-store';
 import RoleIcon from 'components/RoleIcon.vue';
@@ -286,6 +315,7 @@ const scanningTag = ref(false);
 const themePreference = ref<'light' | 'dark' | 'auto'>('auto');
 const selectedRoles = ref<string[]>([]);
 const isSavingRoles = ref(false);
+const areas = ref<Area[]>([]);
 
 const themeOptions = [
   { label: 'Hell', value: 'light' },
@@ -306,6 +336,11 @@ const availableRoleOptions = computed(() => {
 });
 
 const memberId = computed(() => route.params.id as string);
+
+const managedAreas = computed(() => {
+  if (!member.value) return [];
+  return areas.value.filter((area) => area.bereichsleiterIds?.includes(member.value?.id || ''));
+});
 
 const formattedJoinDate = computed(() => {
   if (!member.value?.joinDate) return '';
@@ -474,12 +509,21 @@ async function loadMember() {
     member.value = foundMember;
     themePreference.value = foundMember.preferredTheme || 'auto';
     selectedRoles.value = foundMember.roles || [];
+    await loadAreas();
     await loadTags();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Fehler beim Laden des Mitglieds';
     console.error('Error loading member:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadAreas() {
+  try {
+    areas.value = await areaService.getAreas();
+  } catch (err) {
+    console.error('Error loading areas:', err);
   }
 }
 
