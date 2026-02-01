@@ -4,6 +4,8 @@ import { Area, AreaWithMeta } from '../types/area';
 
 const router = Router();
 
+const normalizeName = (value: string): string => value.trim().toLowerCase();
+
 /**
  * GET /api/areas
  * Get all areas
@@ -63,15 +65,35 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedName = normalizeName(name);
+
+    if (!normalizedName) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
+    const db = getDatabase<AreaWithMeta>();
+    const existingByName = await db.find({
+      selector: { type: { $eq: 'area' } },
+    });
+
+    const duplicate = existingByName.docs.find(
+      (area) => normalizeName(area.name) === normalizedName
+    );
+
+    if (duplicate) {
+      res.status(409).json({ error: 'Area name already exists' });
+      return;
+    }
+
     const newArea: Area = {
       type: 'area',
       id: Date.now().toString(),
-      name,
+      name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || [],
     };
 
-    const db = getDatabase<Area>();
     const result = await db.insert(newArea);
 
     res.status(201).json({
@@ -98,6 +120,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedName = normalizeName(name);
+
+    if (!normalizedName) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
     const db = getDatabase<AreaWithMeta>();
     const existingResult = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
@@ -111,10 +140,23 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const existingArea = existingResult.docs[0];
 
+    const existingByName = await db.find({
+      selector: { type: { $eq: 'area' } },
+    });
+
+    const duplicate = existingByName.docs.find(
+      (area) => area.id !== existingArea.id && normalizeName(area.name) === normalizedName
+    );
+
+    if (duplicate) {
+      res.status(409).json({ error: 'Area name already exists' });
+      return;
+    }
+
     const updatedArea: AreaWithMeta = {
       ...existingArea,
       type: 'area',
-      name,
+      name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || existingArea.bereichsleiterIds || [],
     };

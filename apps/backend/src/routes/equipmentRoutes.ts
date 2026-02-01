@@ -4,6 +4,8 @@ import { Equipment, EquipmentWithMeta } from '../types/equipment';
 
 const router = Router();
 
+const normalizeName = (value: string): string => value.trim().toLowerCase();
+
 /**
  * GET /api/equipment
  * Get all equipment
@@ -63,21 +65,40 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedName = normalizeName(name);
+
+    if (!normalizedName) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
     if (configuration && configuration.length > 4096) {
       res.status(400).json({ error: 'Configuration must be 4096 characters or fewer' });
+      return;
+    }
+
+    const db = getDatabase<EquipmentWithMeta>();
+    const existingByName = await db.find({
+      selector: { type: { $eq: 'equipment' } },
+    });
+
+    const duplicate = existingByName.docs.find(
+      (equipment) => normalizeName(equipment.name) === normalizedName
+    );
+
+    if (duplicate) {
+      res.status(409).json({ error: 'Equipment name already exists' });
       return;
     }
 
     const newEquipment: Equipment = {
       type: 'equipment',
       id: Date.now().toString(),
-      name,
+      name: name.trim(),
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
     };
-
-    const db = getDatabase<Equipment>();
     const result = await db.insert(newEquipment);
 
     res.status(201).json({
@@ -104,6 +125,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedName = normalizeName(name);
+
+    if (!normalizedName) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
     if (configuration && configuration.length > 4096) {
       res.status(400).json({ error: 'Configuration must be 4096 characters or fewer' });
       return;
@@ -122,10 +150,24 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const existingEquipment = existingResult.docs[0];
 
+    const existingByName = await db.find({
+      selector: { type: { $eq: 'equipment' } },
+    });
+
+    const duplicate = existingByName.docs.find(
+      (equipment) =>
+        equipment.id !== existingEquipment.id && normalizeName(equipment.name) === normalizedName
+    );
+
+    if (duplicate) {
+      res.status(409).json({ error: 'Equipment name already exists' });
+      return;
+    }
+
     const updatedEquipment: EquipmentWithMeta = {
       ...existingEquipment,
       type: 'equipment',
-      name,
+      name: name.trim(),
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,

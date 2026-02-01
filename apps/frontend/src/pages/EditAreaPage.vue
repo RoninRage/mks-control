@@ -43,6 +43,9 @@
             label="Name"
             outlined
             :disable="loading || saving"
+            :error="hasNameError"
+            :error-message="nameError"
+            @blur="markNameTouched"
             dense
             class="full-width"
           />
@@ -181,12 +184,29 @@ const error = ref<string | null>(null);
 const area = ref<Area | null>(null);
 const saving = ref(false);
 const members = ref<Member[]>([]);
+const areas = ref<Area[]>([]);
 const selectedMember = ref<string | null>(null);
+const nameTouched = ref(false);
 
 const areaId = computed(() => route.params.id as string | undefined);
 const isCreate = computed(() => !areaId.value);
 const pageTitle = computed(() => (isCreate.value ? 'Bereich erstellen' : 'Bereich bearbeiten'));
 const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
+
+const normalizeName = (value: string): string => value.trim().toLowerCase();
+
+const nameError = computed<string>(() => {
+  if (!nameTouched.value) return '';
+  const currentName = area.value?.name ?? '';
+  const normalized = normalizeName(currentName);
+  if (!normalized) return 'Name ist erforderlich';
+  const duplicate = areas.value.find(
+    (item) => normalizeName(item.name) === normalized && item.id !== area.value?.id
+  );
+  return duplicate ? 'Name bereits vergeben' : '';
+});
+
+const hasNameError = computed<boolean>(() => nameError.value.length > 0);
 
 const isBereichsleitungOnly = (member: Member): boolean =>
   member.roles.includes('bereichsleitung') && !member.roles.includes('admin');
@@ -247,8 +267,25 @@ async function loadMembers() {
   }
 }
 
+async function loadAreas(): Promise<void> {
+  try {
+    areas.value = await areaService.getAreas();
+  } catch (err) {
+    console.error('Error loading areas:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Laden der Bereiche',
+      position: 'top',
+    });
+  }
+}
+
 function goBack() {
   router.back();
+}
+
+function markNameTouched(): void {
+  nameTouched.value = true;
 }
 
 function addBereichsleiter(memberId: string | null) {
@@ -269,12 +306,24 @@ function removeBereichsleiter(memberId: string) {
 
 async function saveArea() {
   if (!area.value) return;
+  nameTouched.value = true;
+
+  if (hasNameError.value) {
+    $q.notify({
+      type: 'negative',
+      message: nameError.value,
+      position: 'top',
+    });
+    return;
+  }
+
   saving.value = true;
   try {
+    const trimmedName = area.value.name.trim();
     if (isCreate.value) {
       const created = await areaService.createArea({
         id: area.value.id,
-        name: area.value.name,
+        name: trimmedName,
         description: area.value.description,
         bereichsleiterIds: area.value.bereichsleiterIds,
       });
@@ -289,7 +338,7 @@ async function saveArea() {
     }
     const updated = await areaService.updateArea(areaId.value as string, {
       id: area.value.id,
-      name: area.value.name,
+      name: trimmedName,
       description: area.value.description,
       bereichsleiterIds: area.value.bereichsleiterIds,
     });
@@ -303,7 +352,10 @@ async function saveArea() {
     console.error('Error saving area:', err);
     $q.notify({
       type: 'negative',
-      message: 'Fehler beim Speichern des Bereichs',
+      message:
+        err instanceof Error && err.message.includes('name already exists')
+          ? 'Name bereits vergeben'
+          : 'Fehler beim Speichern des Bereichs',
       position: 'top',
     });
   } finally {
@@ -312,7 +364,7 @@ async function saveArea() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadMembers(), loadArea()]);
+  await Promise.all([loadMembers(), loadArea(), loadAreas()]);
 });
 </script>
 

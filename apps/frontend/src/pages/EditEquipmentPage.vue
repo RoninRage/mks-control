@@ -43,6 +43,9 @@
             label="Name"
             outlined
             :disable="loading || saving"
+            :error="hasNameError"
+            :error-message="nameError"
+            @blur="markNameTouched"
             dense
             class="full-width"
           />
@@ -143,6 +146,8 @@ const error = ref<string | null>(null);
 const equipment = ref<Equipment | null>(null);
 const saving = ref(false);
 const areas = ref<Area[]>([]);
+const equipmentList = ref<Equipment[]>([]);
+const nameTouched = ref(false);
 
 const equipmentId = computed(() => route.params.id as string | undefined);
 const isCreate = computed(() => !equipmentId.value);
@@ -153,6 +158,21 @@ const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
 const areaOptions = computed(() =>
   areas.value.map((area) => ({ label: area.name, value: area.id }))
 );
+
+const normalizeName = (value: string): string => value.trim().toLowerCase();
+
+const nameError = computed<string>(() => {
+  if (!nameTouched.value) return '';
+  const currentName = equipment.value?.name ?? '';
+  const normalized = normalizeName(currentName);
+  if (!normalized) return 'Name ist erforderlich';
+  const duplicate = equipmentList.value.find(
+    (item) => normalizeName(item.name) === normalized && item.id !== equipment.value?.id
+  );
+  return duplicate ? 'Name bereits vergeben' : '';
+});
+
+const hasNameError = computed<boolean>(() => nameError.value.length > 0);
 
 async function loadEquipment() {
   if (isCreate.value) {
@@ -191,18 +211,47 @@ async function loadAreas() {
   }
 }
 
+async function loadEquipmentList(): Promise<void> {
+  try {
+    equipmentList.value = await equipmentService.getEquipment();
+  } catch (err) {
+    console.error('Error loading equipment list:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Fehler beim Laden der Ausstattungsliste',
+      position: 'top',
+    });
+  }
+}
+
 function goBack() {
   router.back();
 }
 
+function markNameTouched(): void {
+  nameTouched.value = true;
+}
+
 async function saveEquipment() {
   if (!equipment.value) return;
+  nameTouched.value = true;
+
+  if (hasNameError.value) {
+    $q.notify({
+      type: 'negative',
+      message: nameError.value,
+      position: 'top',
+    });
+    return;
+  }
+
   saving.value = true;
   try {
+    const trimmedName = equipment.value.name.trim();
     if (isCreate.value) {
       const created = await equipmentService.createEquipment({
         id: equipment.value.id,
-        name: equipment.value.name,
+        name: trimmedName,
         areaId: equipment.value.areaId,
         isAvailable: equipment.value.isAvailable,
         configuration: equipment.value.configuration,
@@ -219,7 +268,7 @@ async function saveEquipment() {
 
     const updated = await equipmentService.updateEquipment(equipmentId.value as string, {
       id: equipment.value.id,
-      name: equipment.value.name,
+      name: trimmedName,
       areaId: equipment.value.areaId,
       isAvailable: equipment.value.isAvailable,
       configuration: equipment.value.configuration,
@@ -234,7 +283,10 @@ async function saveEquipment() {
     console.error('Error saving equipment:', err);
     $q.notify({
       type: 'negative',
-      message: 'Fehler beim Speichern der Ausstattung',
+      message:
+        err instanceof Error && err.message.includes('name already exists')
+          ? 'Name bereits vergeben'
+          : 'Fehler beim Speichern der Ausstattung',
       position: 'top',
     });
   } finally {
@@ -243,7 +295,7 @@ async function saveEquipment() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadAreas(), loadEquipment()]);
+  await Promise.all([loadAreas(), loadEquipment(), loadEquipmentList()]);
 });
 </script>
 
