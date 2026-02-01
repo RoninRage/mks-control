@@ -65,7 +65,6 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       { path: 'theme', component: () => import('pages/ThemeShowcasePage.vue') },
-      { path: 'about', component: () => import('pages/AboutPage.vue') },
     ],
   },
 
