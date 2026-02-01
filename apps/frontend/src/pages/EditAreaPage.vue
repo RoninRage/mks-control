@@ -188,15 +188,20 @@ const isCreate = computed(() => !areaId.value);
 const pageTitle = computed(() => (isCreate.value ? 'Bereich erstellen' : 'Bereich bearbeiten'));
 const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
 
+const isBereichsleitungOnly = (member: Member): boolean =>
+  member.roles.includes('bereichsleitung') && !member.roles.includes('admin');
+
 const assignedBereichsleiter = computed(() => {
   if (!area.value?.bereichsleiterIds || members.value.length === 0) return [];
-  return members.value.filter((m) => area.value?.bereichsleiterIds?.includes(m.id));
+  return members.value.filter(
+    (m) => isBereichsleitungOnly(m) && area.value?.bereichsleiterIds?.includes(m.id)
+  );
 });
 
 const availableMembers = computed(() => {
   const assignedIds = area.value?.bereichsleiterIds || [];
   return members.value
-    .filter((m) => !assignedIds.includes(m.id))
+    .filter((m) => isBereichsleitungOnly(m) && !assignedIds.includes(m.id))
     .map((m) => ({
       label: `${m.firstName} ${m.lastName}`,
       value: m.id,

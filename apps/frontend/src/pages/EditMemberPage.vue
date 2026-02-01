@@ -224,7 +224,7 @@
         <!-- Bereichsleitung Areas Section -->
         <div v-if="member.roles.includes('bereichsleitung')" class="col-12 q-mt-lg">
           <div class="q-mb-md">
-            <h3 class="q-mb-md">Bereiche (Bereichsleitung)</h3>
+            <h3 class="q-mb-md">Bereichsleitung</h3>
             <p class="text-caption text-grey">Zugewiesene Bereiche für diese Bereichsleitung</p>
           </div>
 
