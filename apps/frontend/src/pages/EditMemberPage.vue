@@ -600,7 +600,6 @@ function startTagScanning() {
   const handleTag = (event: { uid: string }) => {
     if (tagReceived) return; // Ignore additional scans
     tagReceived = true;
-    console.log('[EditMemberPage] Tag scanned:', event.uid);
     handleTagScanned(event.uid);
   };
 
@@ -622,7 +621,6 @@ function startTagScanning() {
 async function handleTagScanned(tagUid: string) {
   try {
     scanningTag.value = true;
-    console.log('[EditMemberPage] Adding tag:', tagUid, 'to member:', memberId.value);
     await memberService.addTag(memberId.value, tagUid);
     await loadTags();
     $q.notify({

@@ -48,12 +48,7 @@ export default route(function (/* { store, ssrContext } */) {
     const requiresAuth = to.meta.requiresAuth === true;
     const isAuthenticated = userStore.isAuthenticated;
 
-    console.log(
-      `[router-guard] Navigating to ${to.path}, requiresAuth: ${requiresAuth}, isAuthenticated: ${isAuthenticated}`
-    );
-
     if (requiresAuth && !isAuthenticated) {
-      console.log(`[router-guard] Redirecting to / - user not authenticated`);
       next({ path: '/', replace: true });
     } else {
       next();

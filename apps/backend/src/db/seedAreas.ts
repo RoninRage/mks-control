@@ -1,10 +1,6 @@
 import { getDatabase } from './couchdb';
 import { Area } from '../types/area';
 
-const log = (message: string): void => {
-  console.log(`[seed] ${message}`);
-};
-
 const defaultAreas: Omit<Area, '_id' | '_rev'>[] = [
   {
     type: 'area',
@@ -37,17 +33,13 @@ export const seedAreas = async (): Promise<void> => {
     });
 
     if (result.docs.length > 0) {
-      log('Areas already seeded');
       return;
     }
 
     for (const area of defaultAreas) {
       await db.insert(area);
     }
-
-    log(`Successfully seeded ${defaultAreas.length} areas`);
   } catch (error) {
-    log(`Error seeding areas: ${(error as Error).message}`);
     throw error;
   }
 };

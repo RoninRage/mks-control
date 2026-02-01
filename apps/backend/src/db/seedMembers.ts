@@ -1,10 +1,6 @@
 import { getDatabase } from './couchdb';
 import { Member } from '../types/member';
 
-const log = (message: string): void => {
-  console.log(`[seed] ${message}`);
-};
-
 const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
   {
     id: '1',
@@ -108,16 +104,12 @@ const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<v
         };
 
         await db.insert(updatedMember);
-        log(`Updated admin member: ${member.firstName} ${member.lastName}`);
         return;
       }
 
       await db.insert(member);
-      log(`Inserted admin member: ${member.firstName} ${member.lastName} (${member.tagUid})`);
     } catch (err) {
-      log(
-        `Failed to upsert admin ${member.firstName} ${member.lastName}: ${(err as Error).message}`
-      );
+      // Failed to upsert admin member
     }
   });
 
@@ -139,18 +131,13 @@ export const seedMembers = async (): Promise<void> => {
       );
 
       if (actualMembers.length >= defaultMembers.length) {
-        log(`Database already seeded with ${actualMembers.length} members`);
         return;
       } else if (actualMembers.length > 0) {
-        log(
-          `Found ${actualMembers.length} existing members, expected ${defaultMembers.length}. Re-seeding missing members...`
-        );
+        // Found existing members, re-seeding missing members
       }
     } catch (err) {
       // Continue with seeding
     }
-
-    log('Seeding default members...');
 
     // Insert all members
     const insertPromises = defaultMembers.map(async (member) => {
@@ -162,20 +149,16 @@ export const seedMembers = async (): Promise<void> => {
         });
 
         if (existing.docs.length > 0) {
-          log(`Member already exists: ${member.firstName} ${member.lastName}`);
           return;
         }
 
         await db.insert(member);
-        log(`Inserted member: ${member.firstName} ${member.lastName} (${member.tagUid})`);
       } catch (err) {
-        log(`Failed to insert ${member.firstName} ${member.lastName}: ${(err as Error).message}`);
+        // Failed to insert member, continue with others
       }
     });
 
     await Promise.all(insertPromises);
-
-    log(`Seeding completed. ${defaultMembers.length} members processed.`);
   } catch (err) {
     console.error(`[seed] ERROR: Failed to seed members: ${(err as Error).message}`);
     throw err;

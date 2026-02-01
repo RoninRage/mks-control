@@ -31,10 +31,8 @@ export const setupAuthWs = (server: http.Server): AuthWsContext => {
       ws.isAlive = true;
     });
 
-    console.log(`[auth-ws] client connected (${getClientCount()})`);
-
     ws.on('close', () => {
-      console.log(`[auth-ws] client disconnected (${getClientCount()})`);
+      // Client disconnected
     });
   });
 

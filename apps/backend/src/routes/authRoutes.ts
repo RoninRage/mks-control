@@ -57,8 +57,6 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     .map((uid) => uid.trim().toLowerCase())
     .filter((uid) => uid.length > 0);
 
-  console.log(`[auth-routes] Admin tags configured:`, adminTagUids);
-
   router.post('/tag', async (req: Request, res: Response) => {
     const { event, error } = normalizeTagEvent(req);
 
@@ -100,9 +98,6 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
         if (memberResult.docs.length > 0) {
           member = memberResult.docs[0];
           isInactive = member.isActive === false;
-          console.log(
-            `[auth-routes] Member found via tag: ${member.firstName} ${member.lastName}, roles: ${member.roles.join(', ')}, isActive: ${member.isActive}`
-          );
         }
       }
     } catch (err) {
@@ -131,10 +126,6 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       };
     }
 
-    console.log(
-      `[auth-routes] Tag received: ${event.uid}, isAdmin: ${isAdmin}, member: ${member ? `${member.firstName} ${member.lastName}` : 'not found'}`
-    );
-
     broadcast(enrichedEvent);
     res.status(202).json({ ok: true });
   });
@@ -147,7 +138,6 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       source: (body.source as import('../types/auth').TagEventSource) || 'manual',
       device: typeof body.device === 'string' ? body.device : 'unknown',
     };
-    console.log('[authRoutes] Heartbeat event:', event);
     broadcast(event);
     res.status(202).json({ ok: true });
   });
@@ -161,7 +151,6 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       device: typeof body.device === 'string' ? body.device : 'unknown',
       error: typeof body.error === 'string' ? body.error : 'Unknown reader error',
     };
-    console.log('[authRoutes] Reader error event:', event);
     broadcast(event);
     res.status(202).json({ ok: true });
   });

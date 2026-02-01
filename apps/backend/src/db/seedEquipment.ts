@@ -1,10 +1,6 @@
 import { getDatabase } from './couchdb';
 import { Equipment } from '../types/equipment';
 
-const log = (message: string): void => {
-  console.log(`[seed] ${message}`);
-};
-
 const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
   {
     type: 'equipment',
@@ -42,17 +38,13 @@ export const seedEquipment = async (): Promise<void> => {
     });
 
     if (result.docs.length > 0) {
-      log('Equipment already seeded');
       return;
     }
 
     for (const item of defaultEquipment) {
       await db.insert(item);
     }
-
-    log(`Successfully seeded ${defaultEquipment.length} equipment items`);
   } catch (error) {
-    log(`Error seeding equipment: ${(error as Error).message}`);
     throw error;
   }
 };

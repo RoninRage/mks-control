@@ -111,7 +111,6 @@ onMounted(() => {
   });
 
   authEventSource.onUnknownTag((event: TagEvent): void => {
-    console.log('[IndexPage] Unknown tag detected:', event);
     q.notify({
       type: 'negative',
       message: 'Unbekannter Benutzer',
@@ -123,7 +122,6 @@ onMounted(() => {
   });
 
   authEventSource.onReaderError((event): void => {
-    console.log('[IndexPage] Reader error:', event);
     q.notify({
       type: 'negative',
       message: 'Fehler beim Lesen der Karte',
@@ -135,7 +133,6 @@ onMounted(() => {
   });
 
   authEventSource.onInactiveUser((event: TagEvent): void => {
-    console.log('[IndexPage] Inactive user detected:', event);
     q.notify({
       type: 'negative',
       message: 'Benutzer deaktiviert',

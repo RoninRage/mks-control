@@ -62,7 +62,15 @@ export default configure((ctx) => {
       // polyfillModulePreload: true,
       // distDir
 
-      // extendViteConf (viteConf) {},
+      extendViteConf(viteConf, ctx) {
+        if (!ctx.dev) {
+          // Strip console.log in production builds
+          viteConf.esbuild = {
+            ...viteConf.esbuild,
+            drop: ['console'],
+          };
+        }
+      },
       // viteVuePluginOptions: {},
 
       // vitePlugins: [

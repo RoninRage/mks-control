@@ -2,10 +2,6 @@ import nano, { ServerScope } from 'nano';
 import { Member } from '../types/member';
 import { Tag } from '../types/tag';
 
-const log = (message: string): void => {
-  console.log(`[couchdb] ${message}`);
-};
-
 const error = (message: string): void => {
   console.error(`[couchdb] ERROR: ${message}`);
 };
@@ -45,20 +41,12 @@ export const initializeDatabase = async (): Promise<void> => {
     // Check if members database exists
     const dbList = await nanoInstance.db.list();
     if (!dbList.includes(config.dbName)) {
-      log(`Creating database: ${config.dbName}`);
       await nanoInstance.db.create(config.dbName);
-      log(`Database created: ${config.dbName}`);
-    } else {
-      log(`Database already exists: ${config.dbName}`);
     }
 
     // Check if tags database exists
     if (!dbList.includes(config.tagsDbName)) {
-      log(`Creating database: ${config.tagsDbName}`);
       await nanoInstance.db.create(config.tagsDbName);
-      log(`Database created: ${config.tagsDbName}`);
-    } else {
-      log(`Database already exists: ${config.tagsDbName}`);
     }
 
     dbInstance = nanoInstance.use<Member>(config.dbName);
@@ -72,7 +60,6 @@ export const initializeDatabase = async (): Promise<void> => {
         },
         name: 'tag-uid-index',
       });
-      log('Created index: tag-uid-index');
     } catch (err) {
       // Index might already exist
     }
@@ -84,7 +71,6 @@ export const initializeDatabase = async (): Promise<void> => {
         },
         name: 'active-status-index',
       });
-      log('Created index: active-status-index');
     } catch (err) {
       // Index might already exist
     }
@@ -97,7 +83,6 @@ export const initializeDatabase = async (): Promise<void> => {
         },
         name: 'tag-uid-index',
       });
-      log('Created index for tags: tag-uid-index');
     } catch (err) {
       // Index might already exist
     }
@@ -109,7 +94,6 @@ export const initializeDatabase = async (): Promise<void> => {
         },
         name: 'member-id-index',
       });
-      log('Created index for tags: member-id-index');
     } catch (err) {
       // Index might already exist
     }
@@ -121,12 +105,9 @@ export const initializeDatabase = async (): Promise<void> => {
         },
         name: 'active-status-index',
       });
-      log('Created index for tags: active-status-index');
     } catch (err) {
       // Index might already exist
     }
-
-    log('Database initialized successfully');
   } catch (err) {
     error(`Failed to initialize database: ${(err as Error).message}`);
     throw err;

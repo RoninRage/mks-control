@@ -4,10 +4,6 @@ import { getTagDatabase, getDatabase } from '../db/couchdb';
 import { Tag, CreateTagRequest } from '../types/tag';
 import { Member } from '../types/member';
 
-const log = (message: string): void => {
-  console.log(`[tag-routes] ${message}`);
-};
-
 export const createTagRoutes = (): Router => {
   const router = Router();
 
@@ -21,8 +17,6 @@ export const createTagRoutes = (): Router => {
         res.status(400).json({ ok: false, error: 'Tag-UID ist erforderlich' });
         return;
       }
-
-      log(`Adding tag ${tagUid} to member ${memberId}`);
 
       const db = getDatabase();
       const tagDb = getTagDatabase();
@@ -69,10 +63,8 @@ export const createTagRoutes = (): Router => {
       };
 
       await tagDb.insert(newTag);
-      log(`Tag added: ${tagId}`);
       res.status(201).json({ ok: true, data: newTag });
     } catch (err) {
-      log(`Error adding tag: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Fehler beim Hinzufügen des Tags' });
     }
   });
@@ -81,7 +73,6 @@ export const createTagRoutes = (): Router => {
   router.get('/members/:memberId/tags', async (req: Request, res: Response) => {
     try {
       const { memberId } = req.params;
-      log(`Fetching tags for member: ${memberId}`);
 
       const tagDb = getTagDatabase();
       const result = await tagDb.find({
@@ -89,10 +80,8 @@ export const createTagRoutes = (): Router => {
       });
 
       const tags = result.docs as Tag[];
-      log(`Found ${tags.length} tags for member ${memberId}`);
       res.status(200).json({ ok: true, data: tags });
     } catch (err) {
-      log(`Error fetching tags: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Fehler beim Abrufen der Tags' });
     }
   });
@@ -101,7 +90,6 @@ export const createTagRoutes = (): Router => {
   router.delete('/tags/:tagId', async (req: Request, res: Response) => {
     try {
       const { tagId } = req.params;
-      log(`Deleting tag: ${tagId}`);
 
       const tagDb = getTagDatabase();
       const result = await tagDb.find({
@@ -118,10 +106,8 @@ export const createTagRoutes = (): Router => {
       tag.isActive = false;
       await tagDb.insert(tag);
 
-      log(`Tag soft deleted: ${tagId}`);
       res.status(200).json({ ok: true, message: 'Tag deleted' });
     } catch (err) {
-      log(`Error deleting tag: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Fehler beim Löschen des Tags' });
     }
   });
@@ -130,7 +116,6 @@ export const createTagRoutes = (): Router => {
   router.get('/tags/by-uid/:tagUid', async (req: Request, res: Response) => {
     try {
       const { tagUid } = req.params;
-      log(`Looking up tag by UID: ${tagUid}`);
 
       const tagDb = getTagDatabase();
       const result = await tagDb.find({
@@ -163,7 +148,6 @@ export const createTagRoutes = (): Router => {
         data: { tag, member: memberResult.docs[0] },
       });
     } catch (err) {
-      log(`Error looking up tag: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Fehler beim Nachschlagen des Tags', found: false });
     }
   });

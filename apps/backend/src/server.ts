@@ -45,10 +45,6 @@ const startServer = async (): Promise<void> => {
   app.use('/api/areas', areaRoutes);
   app.use('/api/equipment', equipmentRoutes);
 
-  console.log(
-    '[server] Routes registered: /api/auth, /api/members, /api/tags, /api/areas, /api/equipment'
-  );
-
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });
   });
@@ -56,8 +52,7 @@ const startServer = async (): Promise<void> => {
   const port = Number(process.env.PORT ?? 3000);
 
   server.listen(port, () => {
-    console.log(`[auth-gateway] listening on http://localhost:${port}`);
-    console.log(`[auth-gateway] ws clients: ${getClientCount()}`);
+    // Server started
   });
 };
 

@@ -189,7 +189,6 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       try {
         const parsed = JSON.parse(data) as unknown;
         if (isTagEvent(parsed)) {
-          console.log('[authEventSource] Tag event received:', parsed);
           this.emitTag(parsed);
           return;
         }
@@ -318,7 +317,6 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
   public setTagAssignmentMode(enabled: boolean): void {
     this.isTagAssignmentMode = enabled;
-    console.log('[authEventSource] Tag assignment mode:', enabled);
   }
 
   public isInTagAssignmentMode(): boolean {

@@ -3,13 +3,8 @@ import { nanoid } from 'nanoid';
 import { Member } from '../types/member';
 import { Tag } from '../types/tag';
 
-const log = (message: string): void => {
-  console.log(`[migration] ${message}`);
-};
-
 export const migrateTagsToCollection = async (): Promise<void> => {
   try {
-    log('Starting tag migration from members.tagUid to tags collection...');
     const db = getDatabase();
     const tagDb = getTagDatabase();
 
@@ -23,11 +18,8 @@ export const migrateTagsToCollection = async (): Promise<void> => {
     );
 
     if (membersWithTags.length === 0) {
-      log('No members with tagUid found, skipping migration');
       return;
     }
-
-    log(`Found ${membersWithTags.length} members with tagUid, migrating...`);
 
     // Migrate each tagUid to tags collection
     let migratedCount = 0;
@@ -40,7 +32,6 @@ export const migrateTagsToCollection = async (): Promise<void> => {
         });
 
         if (existingTag.docs.length > 0) {
-          log(`Tag ${member.tagUid} already migrated for member ${member.id}`);
           continue;
         }
 
@@ -55,14 +46,11 @@ export const migrateTagsToCollection = async (): Promise<void> => {
         };
 
         await tagDb.insert(newTag);
-        log(`Migrated tag ${member.tagUid} for member ${member.firstName} ${member.lastName}`);
         migratedCount++;
       } catch (err) {
         console.error(`Error migrating tag for member ${member.id}: ${(err as Error).message}`);
       }
     }
-
-    log(`Migration completed: ${migratedCount} tags migrated to collection`);
   } catch (err) {
     console.error(`Error during tag migration: ${(err as Error).message}`);
     throw err;
@@ -71,7 +59,6 @@ export const migrateTagsToCollection = async (): Promise<void> => {
 
 export const migrateDocTypes = async (): Promise<void> => {
   try {
-    log('Starting migration to add doc types for areas and equipment...');
     const db = getDatabase();
 
     const result = await db.find({
@@ -79,7 +66,6 @@ export const migrateDocTypes = async (): Promise<void> => {
     });
 
     if (result.docs.length === 0) {
-      log('No documents without type found, skipping doc type migration');
       return;
     }
 
@@ -106,8 +92,6 @@ export const migrateDocTypes = async (): Promise<void> => {
       await db.insert(doc as Record<string, unknown>);
       updatedCount += 1;
     }
-
-    log(`Doc type migration completed: ${updatedCount} documents updated`);
   } catch (err) {
     console.error(`Error during doc type migration: ${(err as Error).message}`);
     throw err;

@@ -1,12 +1,8 @@
-﻿import { Request, Response, Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { Member, CreateMemberRequest, UpdateMemberRequest } from '../types/member';
 import { Equipment } from '../types/equipment';
 import { Area } from '../types/area';
-
-const log = (message: string): void => {
-  console.log(`[member-routes] ${message}`);
-};
 
 /**
  * Auto-grant equipment permissions when member is assigned bereichsleitung role
@@ -30,12 +26,8 @@ const autoGrantEquipmentPermissions = async (
       }
     }
 
-    log(
-      `Auto-granted permissions for member ${memberId} to ${Object.keys(permissions).length} equipment`
-    );
     return permissions;
   } catch (error) {
-    log(`Warning: Failed to auto-grant permissions: ${(error as Error).message}`);
     return {};
   }
 };
@@ -52,9 +44,6 @@ export const createMemberRoutes = (): Router => {
       const pageLimit = Math.min(Math.max(parseInt(limit as string) || 50, 1), 100);
       const pageOffset = Math.max(parseInt(offset as string) || 0, 0);
 
-      log(
-        `Fetching members with search="${searchQuery}", areaId="${areaIdFilter}", limit=${pageLimit}, offset=${pageOffset}`
-      );
       const db = getDatabase();
       const result = await db.list({ include_docs: true });
 
@@ -81,7 +70,6 @@ export const createMemberRoutes = (): Router => {
       const totalCount = allMembers.length;
       const paginatedMembers = allMembers.slice(pageOffset, pageOffset + pageLimit);
 
-      log(`Found ${totalCount} members total, returning ${paginatedMembers.length} members`);
       res.status(200).json({
         ok: true,
         data: paginatedMembers,
@@ -93,7 +81,6 @@ export const createMemberRoutes = (): Router => {
         },
       });
     } catch (err) {
-      log(`Error fetching members: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to fetch members' });
     }
   });
@@ -102,7 +89,6 @@ export const createMemberRoutes = (): Router => {
   router.get('/members/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      log(`Fetching member: ${id}`);
       const db = getDatabase();
 
       // Find member by id field (not _id)
@@ -118,7 +104,6 @@ export const createMemberRoutes = (): Router => {
 
       res.status(200).json({ ok: true, data: result.docs[0] });
     } catch (err) {
-      log(`Error fetching member: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to fetch member' });
     }
   });
@@ -127,7 +112,6 @@ export const createMemberRoutes = (): Router => {
   router.get('/members/by-tag/:tagUid', async (req: Request, res: Response) => {
     try {
       const { tagUid } = req.params;
-      log(`Fetching member by tag: ${tagUid}`);
       const db = getDatabase();
 
       const result = await db.find({
@@ -142,7 +126,6 @@ export const createMemberRoutes = (): Router => {
 
       res.status(200).json({ ok: true, data: result.docs[0] });
     } catch (err) {
-      log(`Error fetching member by tag: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to fetch member' });
     }
   });
@@ -151,7 +134,6 @@ export const createMemberRoutes = (): Router => {
   router.post('/members', async (req: Request, res: Response) => {
     try {
       const memberData: CreateMemberRequest = req.body;
-      log(`Creating member: ${memberData.firstName} ${memberData.lastName}`);
       const db = getDatabase();
 
       // Generate new ID
@@ -181,11 +163,8 @@ export const createMemberRoutes = (): Router => {
       };
 
       const result = await db.insert(newMember);
-      log(`Member created with ID: ${newId} with roles: ${roles.join(', ')}`);
-
       res.status(201).json({ ok: true, data: { ...newMember, _id: result.id, _rev: result.rev } });
     } catch (err) {
-      log(`Error creating member: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to create member' });
     }
   });
@@ -198,7 +177,6 @@ export const createMemberRoutes = (): Router => {
       const currentUserId = req.headers['x-user-id'] as string;
       const currentUserRole = req.headers['x-user-role'] as string;
 
-      log(`Updating member: ${id}, requested by: ${currentUserId} (${currentUserRole})`);
       const db = getDatabase();
 
       // Find existing member
@@ -294,16 +272,12 @@ export const createMemberRoutes = (): Router => {
             ...updatedMember.equipmentPermissions,
             ...autoGrantedPermissions,
           };
-          log(`Auto-granted equipment permissions for new Bereichsleiter ${id}`);
         }
       }
 
       const updateResult = await db.insert(updatedMember);
-      log(`Member updated: ${id}`);
-
       res.status(200).json({ ok: true, data: { ...updatedMember, _rev: updateResult.rev } });
     } catch (err) {
-      log(`Error updating member: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to update member' });
     }
   });
@@ -314,8 +288,6 @@ export const createMemberRoutes = (): Router => {
       const { id } = req.params;
       const currentUserId = req.headers['x-user-id'] as string;
       const currentUserRole = req.headers['x-user-role'] as string;
-
-      log(`Deleting member: ${id}, requested by: ${currentUserId} (${currentUserRole})`);
 
       // Check if user is trying to delete themselves
       if (currentUserId === id) {
@@ -353,10 +325,8 @@ export const createMemberRoutes = (): Router => {
       member.isActive = false;
       await db.insert(member);
 
-      log(`Member soft deleted: ${id}`);
       res.status(200).json({ ok: true, message: 'Member deleted' });
     } catch (err) {
-      log(`Error deleting member: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to delete member' });
     }
   });
@@ -370,8 +340,6 @@ export const createMemberRoutes = (): Router => {
         const { allowed } = req.body as { allowed: boolean };
         const currentUserId = req.headers['x-user-id'] as string;
         const currentUserRole = req.headers['x-user-role'] as string;
-
-        log(`Setting permission for member ${id} to equipment ${equipmentId}: ${allowed}`);
 
         // Check authorization
         if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
@@ -413,12 +381,10 @@ export const createMemberRoutes = (): Router => {
               return;
             }
           } else {
-            res
-              .status(403)
-              .json({
-                ok: false,
-                error: 'Keine Berechtigung zum Ändern von Ausrüstungsberechtigungen',
-              });
+            res.status(403).json({
+              ok: false,
+              error: 'Keine Berechtigung zum Ändern von Ausrüstungsberechtigungen',
+            });
             return;
           }
         }
@@ -447,11 +413,8 @@ export const createMemberRoutes = (): Router => {
         };
 
         const result = await db.insert(updatedMember);
-        log(`Equipment permission updated for member ${id} on equipment ${equipmentId}`);
-
         res.status(200).json({ ok: true, data: { ...updatedMember, _rev: result.rev } });
       } catch (err) {
-        log(`Error updating equipment permission: ${(err as Error).message}`);
         res.status(500).json({ ok: false, error: 'Failed to update equipment permission' });
       }
     }

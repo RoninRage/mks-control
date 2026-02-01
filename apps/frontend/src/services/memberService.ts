@@ -1,4 +1,4 @@
-﻿export interface Tag {
+export interface Tag {
   _id?: string;
   _rev?: string;
   id: string;
@@ -54,9 +54,7 @@ export const memberService = {
   async getMembers(): Promise<Member[]> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = apiUrl + '/members';
-      console.log('[memberService] Fetching members from:', url);
-      const response = await fetch(url);
+      const url = apiUrl + '/members';const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch members: ' + response.statusText);
       }
@@ -75,9 +73,7 @@ export const memberService = {
   ): Promise<void> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;
-      console.log('[memberService] Deleting member:', memberId);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -99,9 +95,7 @@ export const memberService = {
   async addTag(memberId: string, tagUid: string): Promise<Tag> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}/tags`;
-      console.log('[memberService] Adding tag:', tagUid, 'to member:', memberId);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}/tags`;const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,9 +119,7 @@ export const memberService = {
   async getTags(memberId: string): Promise<Tag[]> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}/tags`;
-      console.log('[memberService] Fetching tags for member:', memberId);
-      const response = await fetch(url);
+      const url = `${apiUrl}/members/${memberId}/tags`;const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch tags: ' + response.statusText);
@@ -144,9 +136,7 @@ export const memberService = {
   async removeTag(tagId: string): Promise<void> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/tags/${tagId}`;
-      console.log('[memberService] Removing tag:', tagId);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/tags/${tagId}`;const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -166,9 +156,7 @@ export const memberService = {
   async updateMember(memberId: string, updates: Partial<Member>): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;
-      console.log('[memberService] Updating member:', memberId, 'with:', updates);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -195,9 +183,7 @@ export const memberService = {
   ): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;
-      console.log('[memberService] Updating theme for member:', memberId, 'to:', preferredTheme);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -226,9 +212,7 @@ export const memberService = {
   ): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;
-      console.log('[memberService] Updating roles for member:', memberId, 'to:', roles);
-      const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
