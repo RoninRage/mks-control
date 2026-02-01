@@ -85,7 +85,7 @@
 
         <template #body-cell-area="props">
           <q-td :props="props">
-            <span class="text-body2">{{ props.row.area || '—' }}</span>
+            <span class="text-body2">{{ getAreaName(props.row.areaId) }}</span>
           </q-td>
         </template>
 
@@ -138,6 +138,7 @@ import { onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { equipmentService, type Equipment } from 'src/services/equipmentService';
+import { areaService, type Area } from 'src/services/areaService';
 
 defineOptions({
   name: 'EquipmentPage',
@@ -149,6 +150,7 @@ const $q = useQuasar();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const equipment = ref<Equipment[]>([]);
+const areas = ref<Area[]>([]);
 
 const columns = [
   {
@@ -160,7 +162,7 @@ const columns = [
   {
     name: 'area',
     label: 'Bereich',
-    field: 'area',
+    field: 'areaId',
     align: 'left',
   },
   {
@@ -198,6 +200,20 @@ async function fetchEquipment() {
   } finally {
     loading.value = false;
   }
+}
+
+async function fetchAreas() {
+  try {
+    areas.value = await areaService.getAreas();
+  } catch (err) {
+    console.error('Error fetching areas:', err);
+  }
+}
+
+function getAreaName(areaId?: string) {
+  if (!areaId) return '—';
+  const area = areas.value.find((item) => item.id === areaId);
+  return area?.name || '—';
 }
 
 function createEquipment() {
@@ -243,11 +259,11 @@ function deleteEquipment(id: string) {
 }
 
 onMounted(async () => {
-  await fetchEquipment();
+  await Promise.all([fetchAreas(), fetchEquipment()]);
 });
 
 onActivated(async () => {
-  await fetchEquipment();
+  await Promise.all([fetchAreas(), fetchEquipment()]);
 });
 </script>
 

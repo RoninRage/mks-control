@@ -56,7 +56,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, area, isAvailable, configuration } = req.body as Equipment;
+    const { name, areaId, isAvailable, configuration } = req.body as Equipment;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
@@ -72,7 +72,7 @@ router.post('/', async (req: Request, res: Response) => {
       id: Date.now().toString(),
       name,
       configuration: configuration || '',
-      area: area || '',
+      areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
     };
 
@@ -96,7 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { name, area, isAvailable, configuration } = req.body as Equipment;
+    const { name, areaId, isAvailable, configuration } = req.body as Equipment;
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
@@ -125,7 +125,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       ...existingEquipment,
       name,
       configuration: configuration || '',
-      area: area || '',
+      areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
     };
 

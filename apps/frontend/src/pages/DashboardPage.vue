@@ -47,11 +47,17 @@
         <q-card v-if="canShowPermissions" flat bordered class="action-card">
           <q-card-section>
             <q-icon name="admin_panel_settings" size="48px" color="primary" />
-            <div class="text-h6 q-mt-md">Berechtigungen</div>
+            <div class="text-h6 q-mt-md">Ausstattungsberechtigungen</div>
             <div class="text-body2 text-grey-7">{{ permissionsSubtitle }}</div>
           </q-card-section>
           <q-card-actions>
-            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+            <q-btn
+              flat
+              color="primary"
+              label="Öffnen"
+              class="action-card__button"
+              to="/ausstattung"
+            />
           </q-card-actions>
         </q-card>
 

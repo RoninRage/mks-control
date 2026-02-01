@@ -11,6 +11,7 @@ export interface Member {
   joinDate: string;
   isActive: boolean;
   preferredTheme?: 'light' | 'dark' | 'auto';
+  equipmentPermissions?: Record<string, boolean>;
 }
 
 export interface CreateMemberRequest {
@@ -31,4 +32,5 @@ export interface UpdateMemberRequest {
   roles?: string[];
   preferredTheme?: 'light' | 'dark' | 'auto';
   isActive?: boolean;
+  equipmentPermissions?: Record<string, boolean>;
 }

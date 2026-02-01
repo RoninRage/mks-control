@@ -1,26 +1,97 @@
 ﻿import { Request, Response, Router } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { Member, CreateMemberRequest, UpdateMemberRequest } from '../types/member';
+import { Equipment } from '../types/equipment';
+import { Area } from '../types/area';
 
 const log = (message: string): void => {
   console.log(`[member-routes] ${message}`);
+};
+
+/**
+ * Auto-grant equipment permissions when member is assigned bereichsleitung role
+ * Queries all equipment in the specified area and grants access to the member
+ */
+const autoGrantEquipmentPermissions = async (
+  memberId: string,
+  areaIds: string[]
+): Promise<Record<string, boolean>> => {
+  try {
+    const equipmentDb = getDatabase<Equipment>();
+    const permissions: Record<string, boolean> = {};
+
+    for (const areaId of areaIds) {
+      const result = await equipmentDb.find({
+        selector: { areaId: { $eq: areaId } },
+      });
+
+      for (const equipment of result.docs) {
+        permissions[equipment.id] = true;
+      }
+    }
+
+    log(
+      `Auto-granted permissions for member ${memberId} to ${Object.keys(permissions).length} equipment`
+    );
+    return permissions;
+  } catch (error) {
+    log(`Warning: Failed to auto-grant permissions: ${(error as Error).message}`);
+    return {};
+  }
 };
 
 export const createMemberRoutes = (): Router => {
   const router = Router();
 
   // GET /members - Get all members
-  router.get('/members', async (_req: Request, res: Response) => {
+  router.get('/members', async (req: Request, res: Response) => {
     try {
-      log('Fetching all members');
+      const { search, areaId, limit = '50', offset = '0' } = req.query;
+      const searchQuery = (search as string) || '';
+      const areaIdFilter = (areaId as string) || '';
+      const pageLimit = Math.min(Math.max(parseInt(limit as string) || 50, 1), 100);
+      const pageOffset = Math.max(parseInt(offset as string) || 0, 0);
+
+      log(
+        `Fetching members with search="${searchQuery}", areaId="${areaIdFilter}", limit=${pageLimit}, offset=${pageOffset}`
+      );
       const db = getDatabase();
       const result = await db.list({ include_docs: true });
-      const members = result.rows
+
+      let allMembers = result.rows
         .filter((row) => row.doc && !row.id.startsWith('_design') && row.doc.firstName)
         .map((row) => row.doc as Member);
 
-      log(`Found ${members.length} members`);
-      res.status(200).json({ ok: true, data: members });
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        allMembers = allMembers.filter(
+          (member) =>
+            member.firstName.toLowerCase().includes(query) ||
+            member.lastName.toLowerCase().includes(query) ||
+            `${member.firstName} ${member.lastName}`.toLowerCase().includes(query) ||
+            (member.email?.toLowerCase().includes(query) ?? false)
+        );
+      }
+
+      // Note: Area-based filtering would require member→area mapping
+      // For now, we just provide the search results
+      // In a full implementation, you'd filter by members in a specific area
+
+      const totalCount = allMembers.length;
+      const paginatedMembers = allMembers.slice(pageOffset, pageOffset + pageLimit);
+
+      log(`Found ${totalCount} members total, returning ${paginatedMembers.length} members`);
+      res.status(200).json({
+        ok: true,
+        data: paginatedMembers,
+        pagination: {
+          total: totalCount,
+          limit: pageLimit,
+          offset: pageOffset,
+          hasMore: pageOffset + pageLimit < totalCount,
+        },
+      });
     } catch (err) {
       log(`Error fetching members: ${(err as Error).message}`);
       res.status(500).json({ ok: false, error: 'Failed to fetch members' });
@@ -207,6 +278,26 @@ export const createMemberRoutes = (): Router => {
         id: existingMember.id, // Prevent ID change
       };
 
+      // Auto-grant equipment permissions if assigning bereichsleitung role
+      if (updates.roles && updates.roles.includes('bereichsleitung')) {
+        // Find areas managed by this member (for now, we assume all areas if no specific mapping)
+        // In a full implementation, you'd query a mapping of members to areas they manage
+        const areaDb = getDatabase<Area>();
+        const areas = await areaDb.find({
+          selector: { bereichsleiterIds: { $elemMatch: { $eq: id } } },
+        });
+
+        if (areas.docs.length > 0) {
+          const areaIds = areas.docs.map((area) => area.id);
+          const autoGrantedPermissions = await autoGrantEquipmentPermissions(id, areaIds);
+          updatedMember.equipmentPermissions = {
+            ...updatedMember.equipmentPermissions,
+            ...autoGrantedPermissions,
+          };
+          log(`Auto-granted equipment permissions for new Bereichsleiter ${id}`);
+        }
+      }
+
       const updateResult = await db.insert(updatedMember);
       log(`Member updated: ${id}`);
 
@@ -269,6 +360,102 @@ export const createMemberRoutes = (): Router => {
       res.status(500).json({ ok: false, error: 'Failed to delete member' });
     }
   });
+
+  // PUT /members/:id/equipment-permissions/:equipmentId - Toggle equipment permission for a member
+  router.put(
+    '/members/:id/equipment-permissions/:equipmentId',
+    async (req: Request, res: Response) => {
+      try {
+        const { id, equipmentId } = req.params;
+        const { allowed } = req.body as { allowed: boolean };
+        const currentUserId = req.headers['x-user-id'] as string;
+        const currentUserRole = req.headers['x-user-role'] as string;
+
+        log(`Setting permission for member ${id} to equipment ${equipmentId}: ${allowed}`);
+
+        // Check authorization
+        if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
+          // For Bereichsleiter, verify they manage the area containing this equipment
+          if (currentUserRole === 'bereichsleitung') {
+            // Get equipment to find its area
+            const equipmentDb = getDatabase<Equipment>();
+            const equipmentResult = await equipmentDb.find({
+              selector: { id: { $eq: equipmentId } },
+              limit: 1,
+            });
+
+            if (equipmentResult.docs.length === 0) {
+              res.status(404).json({ ok: false, error: 'Equipment not found' });
+              return;
+            }
+
+            const equipment = equipmentResult.docs[0];
+            if (!equipment.areaId) {
+              res.status(400).json({ ok: false, error: 'Equipment has no assigned area' });
+              return;
+            }
+
+            // Check if current user manages this area
+            const areaDb = getDatabase<Area>();
+            const areaResult = await areaDb.find({
+              selector: { id: { $eq: equipment.areaId } },
+              limit: 1,
+            });
+
+            if (areaResult.docs.length === 0) {
+              res.status(404).json({ ok: false, error: 'Area not found' });
+              return;
+            }
+
+            const area = areaResult.docs[0];
+            if (!area.bereichsleiterIds?.includes(currentUserId)) {
+              res.status(403).json({ ok: false, error: 'Sie verwalten diese Fläche nicht' });
+              return;
+            }
+          } else {
+            res
+              .status(403)
+              .json({
+                ok: false,
+                error: 'Keine Berechtigung zum Ändern von Ausrüstungsberechtigungen',
+              });
+            return;
+          }
+        }
+
+        // Get the member
+        const db = getDatabase<Member>();
+        const memberResult = await db.find({
+          selector: { id: { $eq: id } },
+          limit: 1,
+        });
+
+        if (memberResult.docs.length === 0) {
+          res.status(404).json({ ok: false, error: 'Member not found' });
+          return;
+        }
+
+        const member = memberResult.docs[0];
+
+        // Update permissions
+        const permissions = member.equipmentPermissions || {};
+        permissions[equipmentId] = allowed;
+
+        const updatedMember: Member = {
+          ...member,
+          equipmentPermissions: permissions,
+        };
+
+        const result = await db.insert(updatedMember);
+        log(`Equipment permission updated for member ${id} on equipment ${equipmentId}`);
+
+        res.status(200).json({ ok: true, data: { ...updatedMember, _rev: result.rev } });
+      } catch (err) {
+        log(`Error updating equipment permission: ${(err as Error).message}`);
+        res.status(500).json({ ok: false, error: 'Failed to update equipment permission' });
+      }
+    }
+  );
 
   return router;
 };

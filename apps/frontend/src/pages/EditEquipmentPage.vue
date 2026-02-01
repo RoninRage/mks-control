@@ -51,7 +51,7 @@
         <!-- Area -->
         <div class="col-12 col-sm-6">
           <q-select
-            v-model="equipment.area"
+            v-model="equipment.areaId"
             :options="areaOptions"
             label="Bereich"
             outlined
@@ -151,7 +151,7 @@ const pageTitle = computed(() =>
 );
 const saveLabel = computed(() => (isCreate.value ? 'Erstellen' : 'Speichern'));
 const areaOptions = computed(() =>
-  areas.value.map((area) => ({ label: area.name, value: area.name }))
+  areas.value.map((area) => ({ label: area.name, value: area.id }))
 );
 
 async function loadEquipment() {
@@ -159,7 +159,7 @@ async function loadEquipment() {
     equipment.value = {
       id: '',
       name: '',
-      area: '',
+      areaId: '',
       isAvailable: true,
       configuration: '',
     };
@@ -203,7 +203,7 @@ async function saveEquipment() {
       const created = await equipmentService.createEquipment({
         id: equipment.value.id,
         name: equipment.value.name,
-        area: equipment.value.area,
+        areaId: equipment.value.areaId,
         isAvailable: equipment.value.isAvailable,
         configuration: equipment.value.configuration,
       });
@@ -220,7 +220,7 @@ async function saveEquipment() {
     const updated = await equipmentService.updateEquipment(equipmentId.value as string, {
       id: equipment.value.id,
       name: equipment.value.name,
-      area: equipment.value.area,
+      areaId: equipment.value.areaId,
       isAvailable: equipment.value.isAvailable,
       configuration: equipment.value.configuration,
     });

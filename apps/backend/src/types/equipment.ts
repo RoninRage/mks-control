@@ -4,7 +4,7 @@ export interface Equipment {
   id: string;
   name: string;
   configuration?: string;
-  area?: string;
+  areaId?: string;
   isAvailable: boolean;
 }
 
