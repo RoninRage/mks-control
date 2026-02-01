@@ -121,6 +121,18 @@ onMounted(() => {
       badgeStyle: 'display: none;',
     });
   });
+
+  authEventSource.onReaderError((event): void => {
+    console.log('[IndexPage] Reader error:', event);
+    q.notify({
+      type: 'negative',
+      message: 'Fehler beim Lesen der Karte',
+      position: 'center',
+      timeout: 5000,
+      badgeClass: 'hidden',
+      badgeStyle: 'display: none;',
+    });
+  });
 });
 </script>
 

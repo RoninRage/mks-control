@@ -36,12 +36,21 @@ export interface HeartbeatEvent {
   device: string;
 }
 
+export interface ReaderErrorEvent {
+  type: 'reader-error';
+  ts: string;
+  source: string;
+  device: string;
+  error: string;
+}
+
 export interface AuthEventSource {
   connect(): void;
   disconnect(): void;
   onTag(callback: (event: TagEvent) => void): void;
   onReader(callback: (event: ReaderEvent) => void): void;
   onHeartbeat(callback: (event: HeartbeatEvent) => void): void;
+  onReaderError(callback: (event: ReaderErrorEvent) => void): void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
   onUnknownTag(callback: (event: TagEvent) => void): void;
   emitUnknownTag(event: TagEvent): void;
@@ -100,6 +109,21 @@ const isReaderEvent = (value: unknown): value is ReaderEvent => {
   );
 };
 
+const isReaderErrorEvent = (value: unknown): value is ReaderErrorEvent => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as ReaderErrorEvent;
+  return (
+    event.type === 'reader-error' &&
+    typeof event.ts === 'string' &&
+    typeof event.source === 'string' &&
+    typeof event.device === 'string' &&
+    typeof event.error === 'string'
+  );
+};
+
 const isHeartbeatEvent = (value: unknown): value is HeartbeatEvent => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -124,6 +148,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly tagListeners: Array<(event: TagEvent) => void> = [];
   private readonly readerListeners: Array<(event: ReaderEvent) => void> = [];
   private readonly heartbeatListeners: Array<(event: HeartbeatEvent) => void> = [];
+  private readonly readerErrorListeners: Array<(event: ReaderErrorEvent) => void> = [];
   private readonly statusListeners: Array<(status: ConnectionStatus) => void> = [];
   private readonly unknownTagListeners: Array<(event: TagEvent) => void> = [];
 
@@ -166,6 +191,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
         }
         if (isReaderEvent(parsed)) {
           this.emitReader(parsed);
+          return;
+        }
+        if (isReaderErrorEvent(parsed)) {
+          this.emitReaderError(parsed);
           return;
         }
         if (isHeartbeatEvent(parsed)) {
@@ -211,6 +240,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
     this.heartbeatListeners.push(cb);
   }
 
+  public onReaderError(cb: (event: ReaderErrorEvent) => void): void {
+    this.readerErrorListeners.push(cb);
+  }
+
   public onStatus(cb: (status: ConnectionStatus) => void): void {
     this.statusListeners.push(cb);
     cb(this.status);
@@ -234,6 +267,12 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
   private emitHeartbeat(event: HeartbeatEvent): void {
     this.heartbeatListeners.forEach((listener: (event: HeartbeatEvent) => void) => listener(event));
+  }
+
+  private emitReaderError(event: ReaderErrorEvent): void {
+    this.readerErrorListeners.forEach((listener: (event: ReaderErrorEvent) => void) =>
+      listener(event)
+    );
   }
 
   private setStatus(status: ConnectionStatus): void {

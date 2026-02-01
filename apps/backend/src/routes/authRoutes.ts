@@ -140,5 +140,19 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
     res.status(202).json({ ok: true });
   });
 
+  router.post('/reader-error', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const event: import('../types/auth').ReaderErrorEvent = {
+      type: 'reader-error',
+      ts: typeof body.ts === 'string' ? body.ts : new Date().toISOString(),
+      source: (body.source as import('../types/auth').TagEventSource) || 'acr122u',
+      device: typeof body.device === 'string' ? body.device : 'unknown',
+      error: typeof body.error === 'string' ? body.error : 'Unknown reader error',
+    };
+    console.log('[authRoutes] Reader error event:', event);
+    broadcast(event);
+    res.status(202).json({ ok: true });
+  });
+
   return router;
 };

@@ -17,4 +17,12 @@ export interface HeartbeatEvent {
   device: string;
 }
 
-export type AuthEvent = TagEvent | HeartbeatEvent;
+export interface ReaderErrorEvent {
+  type: 'reader-error';
+  ts: string;
+  source: TagEventSource;
+  device: string;
+  error: string;
+}
+
+export type AuthEvent = TagEvent | HeartbeatEvent | ReaderErrorEvent;

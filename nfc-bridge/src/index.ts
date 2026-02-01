@@ -151,6 +151,36 @@ const postHeartbeat = async (): Promise<void> => {
   }
 };
 
+const postReaderError = async (errorMessage: string): Promise<void> => {
+  const event = {
+    type: 'reader-error' as const,
+    ts: new Date().toISOString(),
+    source: config.source,
+    device: config.deviceId,
+    error: errorMessage,
+  };
+
+  const url = `${config.gatewayUrl}/api/auth/reader-error`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-device-id': config.deviceId,
+      },
+      body: JSON.stringify(event),
+    });
+
+    if (!response.ok) {
+      log('warn', `reader error post failed ${response.status}`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
+    log('error', `reader error post error: ${message}`);
+  }
+};
+
 nfc.on('reader', (reader: Reader) => {
   activeReaders.add(reader);
   log('info', `reader attached ${reader.name}`);
@@ -173,6 +203,7 @@ nfc.on('reader', (reader: Reader) => {
 
   reader.on('error', (error: Error) => {
     log('error', `reader error ${reader.name}: ${error.message}`);
+    void postReaderError(error.message);
   });
 
   reader.on('end', () => {

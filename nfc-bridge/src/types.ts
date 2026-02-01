@@ -12,3 +12,11 @@ export interface HeartbeatEvent {
   source: 'acr122u';
   device: string;
 }
+
+export interface ReaderErrorEvent {
+  type: 'reader-error';
+  ts: string;
+  source: 'acr122u';
+  device: string;
+  error: string;
+}
