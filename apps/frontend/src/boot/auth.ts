@@ -30,30 +30,21 @@ export default boot(({ router }) => {
     });
 
     // If a user is currently logged in, log them out and stop processing
-    // UNLESS we're in tag assignment mode or scanning an admin tag
+    // UNLESS we're in tag assignment mode
     if (userStore.isAuthenticated) {
       if (authEventSource.isInTagAssignmentMode()) {
         console.log('[auth-boot] User logged in, but in tag assignment mode - skipping logout');
         return;
       }
-      // Allow admin tags to re-authenticate without requiring logout first
-      if (event.isAdmin) {
-        console.log('[auth-boot] Admin tag scanned while logged in - allowing re-authentication');
-        // Clear old auth state before re-authenticating
-        userStore.logout();
-        store.lock();
-        // Fall through to process the admin tag
-      } else {
-        console.log('[auth-boot] User currently logged in, logging out');
-        // First, clear all authentication state
-        userStore.logout();
-        store.lock();
-        console.log('[auth-boot] Logout complete, state cleared');
-        // Navigate to home/login page
-        void router.replace('/');
-        // Don't process the tag further - just logout
-        return;
-      }
+      console.log('[auth-boot] User currently logged in, logging out');
+      // Clear all authentication state
+      userStore.logout();
+      store.lock();
+      console.log('[auth-boot] Logout complete, state cleared');
+      // Navigate to home/login page
+      void router.replace('/');
+      // Don't process the tag further - just logout
+      return;
     }
 
     // Check for inactive user first (before unknown user check)
