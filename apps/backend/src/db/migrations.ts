@@ -68,3 +68,48 @@ export const migrateTagsToCollection = async (): Promise<void> => {
     throw err;
   }
 };
+
+export const migrateDocTypes = async (): Promise<void> => {
+  try {
+    log('Starting migration to add doc types for areas and equipment...');
+    const db = getDatabase();
+
+    const result = await db.find({
+      selector: { type: { $exists: false } },
+    });
+
+    if (result.docs.length === 0) {
+      log('No documents without type found, skipping doc type migration');
+      return;
+    }
+
+    let updatedCount = 0;
+
+    for (const doc of result.docs as Record<string, unknown>[]) {
+      const rawId = typeof doc._id === 'string' ? doc._id : '';
+      if (rawId.startsWith('_design') || rawId.startsWith('_local')) {
+        continue;
+      }
+
+      const hasIsAvailable = typeof doc.isAvailable === 'boolean';
+      const hasAreaId = typeof doc.areaId === 'string';
+      const hasDescription = typeof doc.description === 'string';
+
+      if (hasDescription) {
+        (doc as { type?: string }).type = 'area';
+      } else if (hasIsAvailable || hasAreaId) {
+        (doc as { type?: string }).type = 'equipment';
+      } else {
+        continue;
+      }
+
+      await db.insert(doc as Record<string, unknown>);
+      updatedCount += 1;
+    }
+
+    log(`Doc type migration completed: ${updatedCount} documents updated`);
+  } catch (err) {
+    console.error(`Error during doc type migration: ${(err as Error).message}`);
+    throw err;
+  }
+};

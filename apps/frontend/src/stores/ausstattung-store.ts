@@ -7,6 +7,7 @@ import { memberService } from '../services/memberService';
 export interface Area {
   _id?: string;
   _rev?: string;
+  type?: 'area';
   id: string;
   name: string;
   description: string;
@@ -16,6 +17,7 @@ export interface Area {
 export interface Equipment {
   _id?: string;
   _rev?: string;
+  type?: 'equipment';
   id: string;
   name: string;
   configuration?: string;
@@ -66,8 +68,11 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
   const filteredMembers = computed(() => {
     return members.value.filter((m) => {
       const query = searchQuery.value.toLowerCase();
+      const roleIds = m.roles.map((role) => role.toLowerCase());
+      const isPrivileged = roleIds.includes('admin') || roleIds.includes('vorstand');
       return (
         m.isActive &&
+        !isPrivileged &&
         (m.firstName.toLowerCase().includes(query) ||
           m.lastName.toLowerCase().includes(query) ||
           `${m.firstName} ${m.lastName}`.toLowerCase().includes(query) ||

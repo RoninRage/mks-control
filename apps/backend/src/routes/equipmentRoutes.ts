@@ -12,7 +12,7 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const db = getDatabase<EquipmentWithMeta>();
     const result = await db.find({
-      selector: { name: { $gt: null } },
+      selector: { type: { $eq: 'equipment' } },
     });
     const equipment: EquipmentWithMeta[] = result.docs as EquipmentWithMeta[];
     res.json(equipment);
@@ -30,7 +30,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<EquipmentWithMeta>();
     const result = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
     });
 
@@ -69,6 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const newEquipment: Equipment = {
+      type: 'equipment',
       id: Date.now().toString(),
       name,
       configuration: configuration || '',
@@ -110,7 +111,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const db = getDatabase<EquipmentWithMeta>();
     const existingResult = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
     });
 
@@ -123,6 +124,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const updatedEquipment: EquipmentWithMeta = {
       ...existingEquipment,
+      type: 'equipment',
       name,
       configuration: configuration || '',
       areaId: areaId || '',
@@ -153,7 +155,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<EquipmentWithMeta>();
     const result = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
     });
 

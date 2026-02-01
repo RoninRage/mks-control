@@ -7,16 +7,19 @@ const log = (message: string): void => {
 
 const defaultAreas: Omit<Area, '_id' | '_rev'>[] = [
   {
+    type: 'area',
     id: '1',
     name: 'Elektronik',
     description: 'Bereich für elektronische Projekte und Arbeiten',
   },
   {
+    type: 'area',
     id: '2',
     name: '3D Druck',
     description: 'Bereich für 3D-Drucker und additive Fertigung',
   },
   {
+    type: 'area',
     id: '3',
     name: 'Werkstatt',
     description: 'Allgemeine Werkstatt mit Hand- und Elektrowerkzeugen',
@@ -29,7 +32,7 @@ export const seedAreas = async (): Promise<void> => {
 
     // Check if areas already exist
     const result = await db.find({
-      selector: { name: { $gt: null }, description: { $gt: null } },
+      selector: { type: { $eq: 'area' } },
       limit: 1,
     });
 

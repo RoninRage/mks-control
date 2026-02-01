@@ -12,7 +12,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<AreaWithMeta>();
     const result = await db.find({
-      selector: { name: { $gt: null }, description: { $gt: null } },
+      selector: { type: { $eq: 'area' } },
     });
     const areas: AreaWithMeta[] = result.docs as AreaWithMeta[];
     res.json(areas);
@@ -30,7 +30,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<AreaWithMeta>();
     const result = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
     });
 
@@ -64,6 +64,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const newArea: Area = {
+      type: 'area',
       id: Date.now().toString(),
       name,
       description: description || '',
@@ -99,7 +100,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const db = getDatabase<AreaWithMeta>();
     const existingResult = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
     });
 
@@ -112,6 +113,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const updatedArea: AreaWithMeta = {
       ...existingArea,
+      type: 'area',
       name,
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || existingArea.bereichsleiterIds || [],
@@ -141,7 +143,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<AreaWithMeta>();
     const result = await db.find({
-      selector: { id: { $eq: req.params.id } },
+      selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
     });
 

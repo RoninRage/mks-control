@@ -1,6 +1,7 @@
 export interface Area {
   _id?: string;
   _rev?: string;
+  type?: 'area';
   id: string;
   name: string;
   description: string;

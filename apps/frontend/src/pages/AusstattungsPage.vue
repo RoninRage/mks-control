@@ -15,7 +15,7 @@
     </q-banner>
 
     <!-- No areas available -->
-    <q-card v-if="!store.loading && store.areas.length === 0" class="q-pa-lg text-center">
+    <q-card v-if="!store.loading && displayedAreas.length === 0" class="q-pa-lg text-center">
       <q-icon name="folder_off" size="48px" color="primary" class="q-mb-md" />
       <p class="text-h6">Keine Bereiche verfügbar</p>
       <p class="text-body2">
@@ -34,7 +34,7 @@
             <q-linear-progress v-if="store.loading" indeterminate class="q-mb-md" />
             <q-list bordered separator>
               <q-item
-                v-for="area in store.areas"
+                v-for="area in displayedAreas"
                 :key="area.id"
                 clickable
                 :active="store.selectedAreaId === area.id"
@@ -150,7 +150,7 @@
 
           <q-linear-progress v-if="store.loading" indeterminate class="q-mb-md" />
 
-          <q-card v-if="store.areas.length === 0" class="bg-info text-white">
+          <q-card v-if="displayedAreas.length === 0" class="bg-info text-white">
             <q-card-section>
               <p class="q-my-none">Keine Bereiche verfügbar</p>
             </q-card-section>
@@ -158,7 +158,7 @@
 
           <q-list v-else bordered separator>
             <q-item
-              v-for="area in store.areas"
+              v-for="area in displayedAreas"
               :key="area.id"
               clickable
               @click="selectAreaMobile(area.id)"
@@ -264,7 +264,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useAusstattungStore } from '../stores/ausstattung-store';
@@ -278,6 +278,20 @@ const store = useAusstattungStore();
 const userStore = useUserStore();
 
 const mobileStep = ref<'areas' | 'equipment' | 'members'>('areas');
+
+const displayedAreas = computed(() => {
+  const roleId = userStore.selectedRole?.id;
+  if (roleId === 'admin' || roleId === 'vorstand') {
+    return store.areas;
+  }
+
+  const memberId = userStore.memberId || localStorage.getItem('memberId');
+  if (!memberId) {
+    return [];
+  }
+
+  return store.areas.filter((area) => area.bereichsleiterIds?.includes(memberId));
+});
 
 const goBack = () => {
   router.back();

@@ -1,6 +1,7 @@
 export interface Equipment {
   _id?: string;
   _rev?: string;
+  type: 'equipment';
   id: string;
   name: string;
   configuration?: string;

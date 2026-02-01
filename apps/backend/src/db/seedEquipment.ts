@@ -7,6 +7,7 @@ const log = (message: string): void => {
 
 const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
   {
+    type: 'equipment',
     id: '1',
     name: 'Lötstation',
     configuration: 'Temperaturregelung, 60W Leistung',
@@ -14,6 +15,7 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
     isAvailable: true,
   },
   {
+    type: 'equipment',
     id: '2',
     name: '3D-Drucker Prusa i3',
     configuration: '0.4mm Düse, PLA/ABS',
@@ -21,6 +23,7 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
     isAvailable: true,
   },
   {
+    type: 'equipment',
     id: '3',
     name: 'CNC-Fräsmaschine',
     configuration: 'Arbeitsbereich 600x400mm',
@@ -34,7 +37,7 @@ export const seedEquipment = async (): Promise<void> => {
     const db = getDatabase<Equipment>();
 
     const result = await db.find({
-      selector: { name: { $gt: null }, isAvailable: { $exists: true } },
+      selector: { type: { $eq: 'equipment' } },
       limit: 1,
     });
 
