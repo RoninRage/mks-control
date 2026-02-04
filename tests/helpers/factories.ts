@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Member } from '../../apps/backend/src/types/member';
 import { Tag } from '../../apps/backend/src/types/tag';
+import { Area } from '../../apps/backend/src/types/area';
 
 /**
  * Factory functions to create test data with realistic German names and values
@@ -219,4 +220,31 @@ export function createTestUsers(
  */
 export function resetNameCounter(): void {
   nameCounter = 0;
+}
+
+/**
+ * Create a test area
+ */
+export function createTestArea(overrides: Partial<Area> = {}): Area {
+  const id = overrides.id || `area-${randomUUID()}`;
+  const name = overrides.name || `Bereich ${id.slice(0, 8)}`;
+
+  return {
+    type: 'area',
+    id,
+    name,
+    description: overrides.description || 'Testbereich für E2E',
+    bereichsleiterIds: overrides.bereichsleiterIds || [],
+    ...overrides,
+  };
+}
+
+/**
+ * Create multiple test areas
+ */
+export function createTestAreas(
+  count: number,
+  baseOverrides: Partial<Area> = {}
+): Area[] {
+  return Array.from({ length: count }, () => createTestArea(baseOverrides));
 }

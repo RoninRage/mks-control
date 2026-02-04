@@ -91,6 +91,11 @@ export async function createTestDatabases(
     name: 'idx-member-active',
   });
 
+  await membersDb.createIndex({
+    index: { fields: ['type'] },
+    name: 'idx-doc-type',
+  });
+
   await tagsDb.createIndex({
     index: { fields: ['tagUid', 'isActive'] },
     name: 'idx-tag-uid-active',
@@ -154,6 +159,33 @@ export async function seedDatabase<T extends { _id?: string }>(
   }
 
   console.log(`[test-db] Seeded ${documents.length} documents`);
+}
+
+/**
+ * Delete documents by type from a database
+ */
+export async function deleteDocumentsByType<T extends { _id?: string; _rev?: string; type?: string }>(
+  db: DocumentScope<T>,
+  type: string
+): Promise<void> {
+  const result = await db.find({
+    selector: { type: { $eq: type } },
+    limit: 1000,
+  });
+
+  if (result.docs.length === 0) return;
+
+  const toDelete = result.docs.map((doc) => ({
+    ...doc,
+    _deleted: true,
+  }));
+
+  const response = await db.bulk({ docs: toDelete });
+  const errors = response.filter((r) => !(r as any).ok);
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to delete documents: ${JSON.stringify(errors)}`);
+  }
 }
 
 /**

@@ -2,7 +2,12 @@ import { FullConfig } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createTestDatabases, seedDatabase } from './helpers/database';
-import { createTestAdminUser, createTestUser, resetNameCounter } from './helpers/factories';
+import {
+  createTestAdminUser,
+  createTestAreas,
+  createTestUser,
+  resetNameCounter,
+} from './helpers/factories';
 
 /**
  * Global setup for Playwright E2E tests
@@ -88,6 +93,12 @@ async function globalSetup(_config: FullConfig) {
 
     // Seed tags
     await seedDatabase(tagsDb, [adminUser.tag, regularUser.tag, inactiveUser.tag]);
+
+    // Seed areas in primary database
+    const areas = createTestAreas(3, {
+      description: 'Standardbereich für E2E',
+    });
+    await seedDatabase(membersDb, areas);
 
     console.log('✅ Test data seeded successfully\n');
 
