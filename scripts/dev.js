@@ -169,7 +169,7 @@ async function main() {
     log('\n📦 Starting all services...\n');
     const processes = await Promise.all(
       services
-        .filter(s => !(process.env.NODE_ENV === 'test' && s.name === 'NFC Bridge'))
+        .filter((s) => !(process.env.NODE_ENV === 'test' && s.name === 'NFC Bridge'))
         .map(startService)
     );
 
