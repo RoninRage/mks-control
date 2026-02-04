@@ -164,10 +164,9 @@ export async function seedDatabase<T extends { _id?: string }>(
 /**
  * Delete documents by type from a database
  */
-export async function deleteDocumentsByType<T extends { _id?: string; _rev?: string; type?: string }>(
-  db: DocumentScope<T>,
-  type: string
-): Promise<void> {
+export async function deleteDocumentsByType<
+  T extends { _id?: string; _rev?: string; type?: string },
+>(db: DocumentScope<T>, type: string): Promise<void> {
   const result = await db.find({
     selector: { type: { $eq: type } },
     limit: 1000,

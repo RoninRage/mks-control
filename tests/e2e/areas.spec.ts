@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { loginAsAdmin } from '../helpers/auth';
-import { deleteDocumentsByType, getTestDatabaseConnection, seedDatabase } from '../helpers/database';
+import {
+  deleteDocumentsByType,
+  getTestDatabaseConnection,
+  seedDatabase,
+} from '../helpers/database';
 import { createTestArea } from '../helpers/factories';
 
 test.describe('Areas Page', () => {

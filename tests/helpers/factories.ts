@@ -242,9 +242,6 @@ export function createTestArea(overrides: Partial<Area> = {}): Area {
 /**
  * Create multiple test areas
  */
-export function createTestAreas(
-  count: number,
-  baseOverrides: Partial<Area> = {}
-): Area[] {
+export function createTestAreas(count: number, baseOverrides: Partial<Area> = {}): Area[] {
   return Array.from({ length: count }, () => createTestArea(baseOverrides));
 }
