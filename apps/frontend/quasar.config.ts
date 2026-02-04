@@ -86,7 +86,7 @@ export default configure((ctx) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: true
-      open: true, // opens browser window automatically
+      open: process.env.NODE_ENV !== 'test' && !process.env.CI, // Don't open browser in test/CI mode
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

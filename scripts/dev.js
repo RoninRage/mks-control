@@ -85,15 +85,26 @@ async function startService(service) {
 
     const proc = spawn(service.cmd, service.args, {
       cwd: path.join(__dirname, '..', service.cwd),
-      stdio: 'inherit',
+      stdio: process.env.NODE_ENV === 'test' ? 'pipe' : 'inherit',
       shell: true,
       env: {
         ...process.env,
         ...service.env,
         MONOREPO_DEV: 'true',
         FRONTEND_URL: 'http://localhost:9000',
+        CI: process.env.CI || 'false',
       },
     });
+
+    // In test mode, log output with service prefix
+    if (process.env.NODE_ENV === 'test') {
+      proc.stdout?.on('data', (data) => {
+        console.log(`[${service.name}] ${data.toString().trim()}`);
+      });
+      proc.stderr?.on('data', (data) => {
+        console.error(`[${service.name}] ${data.toString().trim()}`);
+      });
+    }
 
     proc.on('error', (err) => {
       error('Failed to start ' + service.name + ': ' + err.message);
@@ -116,11 +127,6 @@ async function waitForServices() {
 
   for (const service of services) {
     try {
-      if (process.env.NODE_ENV === 'test' && service.name === 'Frontend') {
-        log('ℹ️  Skipping frontend readiness check in test mode');
-        continue;
-      }
-
       if (service.healthUrl) {
         await waitForEndpoint(service.healthUrl, 60000);
         success(service.name + ' ready at ' + service.healthUrl);
@@ -161,7 +167,11 @@ async function main() {
 
     // Start all services in parallel
     log('\n📦 Starting all services...\n');
-    const processes = await Promise.all(services.map(startService));
+    const processes = await Promise.all(
+      services
+        .filter(s => !(process.env.NODE_ENV === 'test' && s.name === 'NFC Bridge'))
+        .map(startService)
+    );
 
     // Wait for readiness
     await waitForServices();

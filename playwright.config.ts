@@ -55,13 +55,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev',
+    command: 'node scripts/dev-e2e.js',
     url: 'http://localhost:9000',
     reuseExistingServer: true,
     timeout: 120 * 1000, // 2 minutes for startup
-    env: {
-      // Set NODE_ENV so backend knows to load .env.test
-      NODE_ENV: 'test',
-    },
   },
 });
