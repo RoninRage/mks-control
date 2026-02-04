@@ -1,0 +1,129 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      couchdb:
+        image: couchdb:3
+        env:
+          COUCHDB_USER: admin
+          COUCHDB_PASSWORD: password
+        ports:
+          - 5984:5984
+        options: >-
+          --health-cmd "curl -f http://localhost:5984/_up || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      ADMIN_TAG_UIDS: test-admin-tag-001
+      COUCHDB_URL: http://localhost:5984
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: password
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install workspace dependencies
+        run: npm ci --workspaces
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for CouchDB to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://admin:password@localhost:5984/_up; do sleep 1; done'
+          echo "CouchDB is ready"
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/**/*.zip
+          retention-days: 7
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            let comment = '## 🎭 Playwright E2E Test Results\n\n';
+
+            try {
+              const resultsPath = 'test-results/results.json';
+              if (fs.existsSync(resultsPath)) {
+                const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+                const { stats } = results;
+                
+                comment += `- ✅ Passed: ${stats.passed || 0}\n`;
+                comment += `- ❌ Failed: ${stats.failed || 0}\n`;
+                comment += `- ⏭️ Skipped: ${stats.skipped || 0}\n`;
+                comment += `- ⏱️ Duration: ${Math.round(stats.duration / 1000)}s\n\n`;
+                
+                if (stats.failed > 0) {
+                  comment += '### Failed Tests\n\n';
+                  // Add failed test details if available
+                }
+              } else {
+                comment += '⚠️ Test results not found\n';
+              }
+            } catch (error) {
+              comment += `⚠️ Error reading test results: ${error.message}\n`;
+            }
+
+            comment += '\n📊 [View full report in artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

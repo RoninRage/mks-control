@@ -31,7 +31,7 @@ async function waitForEndpoint(url, timeout = 30000) {
   while (Date.now() - startTime < timeout) {
     try {
       const res = await fetch(url);
-      if (res.ok) return true;
+      if (res.status < 500) return true;
     } catch {
       await new Promise((r) => setTimeout(r, 500));
     }

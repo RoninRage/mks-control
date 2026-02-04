@@ -1,7 +1,9 @@
 ﻿const { spawn, execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
 const { runPreflight } = require('./preflight');
-const { waitForPort } = require('./wait-for');
+const { waitForPort, waitForEndpoint } = require('./wait-for');
 
 const RESET = process.argv.includes('--reset');
 const DEBUG = process.argv.includes('--debug');
@@ -15,6 +17,7 @@ const services = [
     name: 'CouchDB',
     type: 'docker',
     port: 5984,
+    healthUrl: 'http://localhost:5984/_up',
   },
   {
     name: 'Backend',
@@ -30,6 +33,7 @@ const services = [
     args: ['run', 'dev'],
     cwd: 'apps/frontend',
     port: 9000,
+    healthUrl: 'http://localhost:9000/',
     env: {},
   },
   {
@@ -112,7 +116,15 @@ async function waitForServices() {
 
   for (const service of services) {
     try {
-      if (service.port) {
+      if (process.env.NODE_ENV === 'test' && service.name === 'Frontend') {
+        log('ℹ️  Skipping frontend readiness check in test mode');
+        continue;
+      }
+
+      if (service.healthUrl) {
+        await waitForEndpoint(service.healthUrl, 60000);
+        success(service.name + ' ready at ' + service.healthUrl);
+      } else if (service.port) {
         await waitForPort(service.port, 60000);
         success(service.name + ' ready on port ' + service.port);
       } else {
@@ -133,6 +145,15 @@ async function main() {
     // Set default NODE_ENV
     if (!process.env.NODE_ENV) {
       process.env.NODE_ENV = 'development';
+    }
+
+    // If running tests, load .env.test into process.env so child services inherit it
+    if (process.env.NODE_ENV === 'test') {
+      const testEnvPath = path.join(__dirname, '..', '.env.test');
+      if (fs.existsSync(testEnvPath)) {
+        dotenv.config({ path: testEnvPath });
+        log('🧪 Loaded .env.test for E2E test run');
+      }
     }
 
     // Start Docker services

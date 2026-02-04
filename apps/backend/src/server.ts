@@ -1,4 +1,22 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
+
+// Auto-detect test environment by checking for .env.test file
+// This allows E2E tests to run without modifying production code
+const cwdTestEnvPath = resolve(process.cwd(), '.env.test');
+const repoRootTestEnvPath = resolve(__dirname, '..', '..', '..', '.env.test');
+const testEnvPath = existsSync(cwdTestEnvPath) ? cwdTestEnvPath : repoRootTestEnvPath;
+
+if (existsSync(testEnvPath)) {
+  dotenv.config({ path: testEnvPath });
+  process.env.NODE_ENV = 'test'; // Ensure NODE_ENV is set for test mode
+  console.log('[server] 🧪 Test mode detected - loaded .env.test');
+} else {
+  dotenv.config();
+  console.log('[server] 📦 Production/dev mode - loaded .env');
+}
+
 import http from 'http';
 import express, { Request, Response } from 'express';
 import cors from 'cors';

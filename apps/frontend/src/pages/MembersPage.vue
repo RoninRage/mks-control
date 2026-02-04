@@ -35,7 +35,16 @@
 
     <!-- Members List -->
     <div v-if="!loading && members.length > 0" class="ms-section">
-      <q-table flat bordered :rows="members" :columns="columns" row-key="id" class="members-table">
+      <q-table
+        flat
+        bordered
+        :rows="members"
+        :columns="columns"
+        row-key="id"
+        class="members-table"
+        v-model:pagination="pagination"
+        :rows-per-page-options="[5, 10, 25, 50]"
+      >
         <template #body-cell-name="props">
           <q-td :props="props">
             <span class="text-weight-medium"
@@ -128,6 +137,11 @@ const userStore = useUserStore();
 const members = ref<Member[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const pagination = ref({
+  rowsPerPage: 50,
+  sortBy: 'name',
+  descending: false,
+});
 
 const columns = [
   {

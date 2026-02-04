@@ -288,6 +288,12 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
   private setStatus(status: ConnectionStatus): void {
     this.status = status;
+
+    // Expose connection status globally for E2E tests
+    if (typeof window !== 'undefined') {
+      (window as any).__WS_CONNECTED__ = status === 'connected';
+    }
+
     this.statusListeners.forEach((listener: (status: ConnectionStatus) => void) =>
       listener(status)
     );

@@ -65,6 +65,15 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       return;
     }
 
+    // Production safety: reject test tags in production environment
+    if (process.env.NODE_ENV === 'production' && /^test-/.test(event.uid)) {
+      res.status(403).json({
+        ok: false,
+        error: 'Test tags are not allowed in production environment',
+      });
+      return;
+    }
+
     // Check if this is an admin tag (environment variable)
     const isAdminByEnv = adminTagUids.includes(event.uid.toLowerCase());
 
