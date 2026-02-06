@@ -5,6 +5,7 @@ export interface Tag {
   tagUid: string;
   memberId: string;
   createdAt: string;
+  updatedAt: string;
   isActive: boolean;
 }
 

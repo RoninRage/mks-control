@@ -29,6 +29,7 @@ erDiagram
         string tagUid UK
         string memberId FK
         string createdAt
+        string updatedAt
         boolean isActive
     }
 
@@ -90,6 +91,7 @@ The system uses two main CouchDB databases:
 - Links to members via `memberId`
 - Can be active or inactive
 - Unique constraint on `tagUid`
+- Tracks creation and last update timestamps
 
 #### Equipment
 

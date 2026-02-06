@@ -54,11 +54,13 @@ export const createTagRoutes = (): Router => {
 
       // Create new tag
       const tagId = nanoid();
+      const now = new Date().toISOString();
       const newTag: Tag = {
         id: tagId,
         tagUid,
         memberId,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         isActive: true,
       };
 
@@ -103,7 +105,10 @@ export const createTagRoutes = (): Router => {
       }
 
       const tag = result.docs[0];
+      const now = new Date().toISOString();
       tag.isActive = false;
+      tag.createdAt = tag.createdAt ?? now;
+      tag.updatedAt = now;
       await tagDb.insert(tag);
 
       res.status(200).json({ ok: true, message: 'Tag deleted' });
