@@ -18,6 +18,8 @@ erDiagram
         boolean isActive
         string preferredTheme
         object equipmentPermissions
+        string createdAt
+        string updatedAt
     }
 
     TAG {
@@ -78,6 +80,10 @@ The system uses two main CouchDB databases:
 - Links to RFID tags via `tagUid`
 - Has equipment-specific permissions stored in `equipmentPermissions` object
 - Theme preference for UI customization
+- Theme preference for UI customization
+- Tracks creation and last update timestamps
+- Theme preference for UI customization
+- Tracks creation and last update timestamps
 
 #### Tag
 

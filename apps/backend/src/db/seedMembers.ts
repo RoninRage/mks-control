@@ -1,6 +1,8 @@
 import { getDatabase } from './couchdb';
 import { Member } from '../types/member';
 
+const now = new Date().toISOString();
+
 const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
   {
     id: '1',
@@ -11,6 +13,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['admin', 'vorstand', 'bereichsleitung', 'mitglied'],
     joinDate: '2024-01-01',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '2',
@@ -21,6 +25,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['admin', 'vorstand', 'bereichsleitung', 'mitglied'],
     joinDate: '2024-01-01',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '3',
@@ -31,6 +37,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['mitglied'],
     joinDate: '2024-03-15',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '4',
@@ -40,6 +48,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['bereichsleitung', 'mitglied'],
     joinDate: '2024-02-10',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '5',
@@ -49,6 +59,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['mitglied'],
     joinDate: '2024-04-20',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '6',
@@ -58,6 +70,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['vorstand', 'mitglied'],
     joinDate: '2024-01-05',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '7',
@@ -67,6 +81,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['mitglied'],
     joinDate: '2024-05-12',
     isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     id: '8',
@@ -76,6 +92,8 @@ const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
     roles: ['mitglied'],
     joinDate: '2024-06-08',
     isActive: false,
+    createdAt: now,
+    updatedAt: now,
   },
 ];
 
@@ -93,6 +111,7 @@ const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<v
 
       if (existing.docs.length > 0) {
         const existingMember = existing.docs[0] as Member;
+        const updatedAt = new Date().toISOString();
         const updatedMember: Member = {
           ...existingMember,
           firstName: member.firstName,
@@ -101,6 +120,8 @@ const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<v
           email: member.email,
           roles: member.roles,
           isActive: true,
+          createdAt: existingMember.createdAt ?? updatedAt,
+          updatedAt,
         };
 
         await db.insert(updatedMember);

@@ -22,6 +22,8 @@ export interface Member {
   isActive: boolean;
   preferredTheme?: 'light' | 'dark' | 'auto';
   tags?: Tag[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface MemberResponse {
@@ -54,7 +56,8 @@ export const memberService = {
   async getMembers(): Promise<Member[]> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = apiUrl + '/members';const response = await fetch(url);
+      const url = apiUrl + '/members';
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch members: ' + response.statusText);
       }
@@ -73,7 +76,8 @@ export const memberService = {
   ): Promise<void> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +99,8 @@ export const memberService = {
   async addTag(memberId: string, tagUid: string): Promise<Tag> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}/tags`;const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}/tags`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +124,8 @@ export const memberService = {
   async getTags(memberId: string): Promise<Tag[]> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}/tags`;const response = await fetch(url);
+      const url = `${apiUrl}/members/${memberId}/tags`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch tags: ' + response.statusText);
@@ -136,7 +142,8 @@ export const memberService = {
   async removeTag(tagId: string): Promise<void> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/tags/${tagId}`;const response = await fetch(url, {
+      const url = `${apiUrl}/tags/${tagId}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +163,8 @@ export const memberService = {
   async updateMember(memberId: string, updates: Partial<Member>): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -183,7 +191,8 @@ export const memberService = {
   ): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +221,8 @@ export const memberService = {
   ): Promise<Member> {
     try {
       const apiUrl = resolveApiUrl();
-      const url = `${apiUrl}/members/${memberId}`;const response = await fetch(url, {
+      const url = `${apiUrl}/members/${memberId}`;
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

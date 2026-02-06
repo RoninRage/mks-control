@@ -12,6 +12,8 @@ export interface Member {
   isActive: boolean;
   preferredTheme?: 'light' | 'dark' | 'auto';
   equipmentPermissions?: Record<string, boolean>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateMemberRequest {

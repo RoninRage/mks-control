@@ -97,6 +97,30 @@
           />
         </div>
 
+        <!-- Created At -->
+        <div class="col-12 col-sm-6">
+          <q-input
+            v-model="formattedCreatedAt"
+            label="Erstellt am"
+            outlined
+            readonly
+            dense
+            class="full-width"
+          />
+        </div>
+
+        <!-- Updated At -->
+        <div class="col-12 col-sm-6">
+          <q-input
+            v-model="formattedUpdatedAt"
+            label="Aktualisiert am"
+            outlined
+            readonly
+            dense
+            class="full-width"
+          />
+        </div>
+
         <!-- Status -->
         <div class="col-12 col-sm-6">
           <q-toggle
@@ -350,6 +374,18 @@ const formattedJoinDate = computed(() => {
     return member.value.joinDate;
   }
 });
+
+const formatDateTime = (value?: string): string => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('de-DE');
+  } catch {
+    return value;
+  }
+};
+
+const formattedCreatedAt = computed(() => formatDateTime(member.value?.createdAt));
+const formattedUpdatedAt = computed(() => formatDateTime(member.value?.updatedAt));
 
 async function updateStatus(isActive: boolean) {
   if (!member.value) return;

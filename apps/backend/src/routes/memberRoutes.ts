@@ -150,6 +150,7 @@ export const createMemberRoutes = (): Router => {
         roles = ['mitglied'];
       }
 
+      const now = new Date().toISOString();
       const newMember: Omit<Member, '_id' | '_rev'> = {
         id: newId,
         firstName: memberData.firstName,
@@ -160,6 +161,8 @@ export const createMemberRoutes = (): Router => {
         roles: roles,
         joinDate: new Date().toISOString().split('T')[0],
         isActive: true,
+        createdAt: now,
+        updatedAt: now,
       };
 
       const result = await db.insert(newMember);
@@ -191,6 +194,7 @@ export const createMemberRoutes = (): Router => {
       }
 
       const existingMember = result.docs[0];
+      const now = new Date().toISOString();
 
       // Special authorization checks for role updates
       if (updates.roles !== undefined) {
@@ -254,6 +258,8 @@ export const createMemberRoutes = (): Router => {
         _id: existingMember._id,
         _rev: existingMember._rev,
         id: existingMember.id, // Prevent ID change
+        createdAt: existingMember.createdAt ?? now,
+        updatedAt: now,
       };
 
       // Auto-grant equipment permissions if assigning bereichsleitung role
@@ -322,7 +328,10 @@ export const createMemberRoutes = (): Router => {
       }
 
       // Soft delete by setting isActive to false
+      const now = new Date().toISOString();
       member.isActive = false;
+      member.createdAt = member.createdAt ?? now;
+      member.updatedAt = now;
       await db.insert(member);
 
       res.status(200).json({ ok: true, message: 'Member deleted' });
@@ -402,6 +411,7 @@ export const createMemberRoutes = (): Router => {
         }
 
         const member = memberResult.docs[0];
+        const now = new Date().toISOString();
 
         // Update permissions
         const permissions = member.equipmentPermissions || {};
@@ -410,6 +420,8 @@ export const createMemberRoutes = (): Router => {
         const updatedMember: Member = {
           ...member,
           equipmentPermissions: permissions,
+          createdAt: member.createdAt ?? now,
+          updatedAt: now,
         };
 
         const result = await db.insert(updatedMember);
