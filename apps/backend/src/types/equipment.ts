@@ -7,6 +7,8 @@ export interface Equipment {
   configuration?: string;
   areaId?: string;
   isAvailable: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EquipmentWithMeta extends Equipment {

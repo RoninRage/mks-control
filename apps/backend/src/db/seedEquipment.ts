@@ -1,6 +1,8 @@
 import { getDatabase } from './couchdb';
 import { Equipment } from '../types/equipment';
 
+const now = new Date().toISOString();
+
 const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
   {
     type: 'equipment',
@@ -9,6 +11,8 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
     configuration: 'Temperaturregelung, 60W Leistung',
     areaId: '1',
     isAvailable: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     type: 'equipment',
@@ -17,6 +21,8 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
     configuration: '0.4mm Düse, PLA/ABS',
     areaId: '2',
     isAvailable: true,
+    createdAt: now,
+    updatedAt: now,
   },
   {
     type: 'equipment',
@@ -25,6 +31,8 @@ const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
     configuration: 'Arbeitsbereich 600x400mm',
     areaId: '3',
     isAvailable: false,
+    createdAt: now,
+    updatedAt: now,
   },
 ];
 

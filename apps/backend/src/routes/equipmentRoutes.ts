@@ -91,6 +91,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const now = new Date().toISOString();
     const newEquipment: Equipment = {
       type: 'equipment',
       id: Date.now().toString(),
@@ -98,6 +99,8 @@ router.post('/', async (req: Request, res: Response) => {
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
+      createdAt: now,
+      updatedAt: now,
     };
     const result = await db.insert(newEquipment);
 
@@ -164,6 +167,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    const now = new Date().toISOString();
     const updatedEquipment: EquipmentWithMeta = {
       ...existingEquipment,
       type: 'equipment',
@@ -171,6 +175,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
+      createdAt: existingEquipment.createdAt ?? now,
+      updatedAt: now,
     };
 
     const result = await db.insert(updatedEquipment);

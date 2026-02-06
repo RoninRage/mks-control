@@ -109,6 +109,30 @@
             class="full-width"
           />
         </div>
+
+        <!-- Created At -->
+        <div v-if="!isCreate" class="col-12 col-sm-6">
+          <q-input
+            v-model="formattedCreatedAt"
+            label="Erstellt am"
+            outlined
+            readonly
+            dense
+            class="full-width"
+          />
+        </div>
+
+        <!-- Updated At -->
+        <div v-if="!isCreate" class="col-12 col-sm-6">
+          <q-input
+            v-model="formattedUpdatedAt"
+            label="Aktualisiert am"
+            outlined
+            readonly
+            dense
+            class="full-width"
+          />
+        </div>
       </div>
 
       <!-- Footer with action buttons -->
@@ -173,6 +197,18 @@ const nameError = computed<string>(() => {
 });
 
 const hasNameError = computed<boolean>(() => nameError.value.length > 0);
+
+const formatDateTime = (value?: string): string => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('de-DE');
+  } catch {
+    return value;
+  }
+};
+
+const formattedCreatedAt = computed(() => formatDateTime(equipment.value?.createdAt));
+const formattedUpdatedAt = computed(() => formatDateTime(equipment.value?.updatedAt));
 
 async function loadEquipment() {
   if (isCreate.value) {

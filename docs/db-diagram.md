@@ -41,6 +41,8 @@ erDiagram
         string configuration
         string areaId FK
         boolean isAvailable
+        string createdAt
+        string updatedAt
     }
 
     AREA {
@@ -80,9 +82,6 @@ The system uses two main CouchDB databases:
 - Links to RFID tags via `tagUid`
 - Has equipment-specific permissions stored in `equipmentPermissions` object
 - Theme preference for UI customization
-- Theme preference for UI customization
-- Tracks creation and last update timestamps
-- Theme preference for UI customization
 - Tracks creation and last update timestamps
 
 #### Tag
@@ -98,6 +97,7 @@ The system uses two main CouchDB databases:
 - Can be assigned to an area via `areaId`
 - Has availability status
 - Optional configuration data
+- Tracks creation and last update timestamps
 
 #### Area
 
