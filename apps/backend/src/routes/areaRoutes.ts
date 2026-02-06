@@ -86,12 +86,15 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const now = new Date().toISOString();
     const newArea: Area = {
       type: 'area',
       id: Date.now().toString(),
       name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || [],
+      createdAt: now,
+      updatedAt: now,
     };
 
     const result = await db.insert(newArea);
@@ -159,6 +162,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || existingArea.bereichsleiterIds || [],
+      updatedAt: new Date().toISOString(),
     };
 
     const result = await db.insert(updatedArea);

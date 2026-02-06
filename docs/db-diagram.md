@@ -49,39 +49,14 @@ erDiagram
         string name
         string description
         string[] bereichsleiterIds FK
-    }
-
-    TAG_EVENT {
-        string type
-        string uid
-        string ts
-        string source
-        string device
-        boolean isAdmin
-        boolean memberFound
-        boolean isInactive
-    }
-
-    HEARTBEAT_EVENT {
-        string type
-        string ts
-        string source
-        string device
-    }
-
-    READER_ERROR_EVENT {
-        string type
-        string ts
-        string source
-        string device
-        string error
+        string createdAt
+        string updatedAt
     }
 
     MEMBER ||--o{ TAG : "has"
     MEMBER ||--o{ EQUIPMENT : "has permissions for"
     AREA ||--o{ EQUIPMENT : "contains"
     AREA }o--o{ MEMBER : "managed by (bereichsleiter)"
-    MEMBER ||--o| TAG_EVENT : "triggers"
 ```
 
 ## Database Structure Overview
@@ -123,14 +98,6 @@ The system uses two main CouchDB databases:
 - Represents physical or logical areas in the makerspace
 - Contains equipment
 - Has area managers (Bereichsleiter) via `bereichsleiterIds` array
-
-#### Auth Events
-
-Real-time authentication events (not stored in database, used for WebSocket communication):
-
-- **TagEvent** - RFID tag scanned
-- **HeartbeatEvent** - Reader status update
-- **ReaderErrorEvent** - Reader error notification
 
 ### Relationships
 
