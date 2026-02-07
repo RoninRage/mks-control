@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { getDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 import { Member, CreateMemberRequest, UpdateMemberRequest } from '../types/member';
 import { Equipment } from '../types/equipment';
 import { Area } from '../types/area';
@@ -166,6 +167,14 @@ export const createMemberRoutes = (): Router => {
       };
 
       const result = await db.insert(newMember);
+      void logAuditEvent(
+        {
+          action: 'member.create',
+          targetType: 'member',
+          targetId: newMember.id,
+        },
+        req
+      );
       res.status(201).json({ ok: true, data: { ...newMember, _id: result.id, _rev: result.rev } });
     } catch (err) {
       res.status(500).json({ ok: false, error: 'Failed to create member' });
@@ -195,6 +204,12 @@ export const createMemberRoutes = (): Router => {
 
       const existingMember = result.docs[0];
       const now = new Date().toISOString();
+      const existingRoles = [...(existingMember.roles ?? [])].sort();
+      const nextRoles = updates.roles ? [...updates.roles].sort() : existingRoles;
+      const rolesChanged =
+        updates.roles !== undefined && JSON.stringify(existingRoles) !== JSON.stringify(nextRoles);
+      const isActiveChanged =
+        typeof updates.isActive === 'boolean' && updates.isActive !== existingMember.isActive;
 
       // Special authorization checks for role updates
       if (updates.roles !== undefined) {
@@ -282,6 +297,37 @@ export const createMemberRoutes = (): Router => {
       }
 
       const updateResult = await db.insert(updatedMember);
+      void logAuditEvent(
+        {
+          action: 'member.update',
+          targetType: 'member',
+          targetId: updatedMember.id,
+        },
+        req
+      );
+
+      if (rolesChanged) {
+        void logAuditEvent(
+          {
+            action: 'member.roles.update',
+            targetType: 'member',
+            targetId: updatedMember.id,
+          },
+          req
+        );
+      }
+
+      if (isActiveChanged) {
+        void logAuditEvent(
+          {
+            action: updates.isActive ? 'member.activate' : 'member.deactivate',
+            targetType: 'member',
+            targetId: updatedMember.id,
+          },
+          req
+        );
+      }
+
       res.status(200).json({ ok: true, data: { ...updatedMember, _rev: updateResult.rev } });
     } catch (err) {
       res.status(500).json({ ok: false, error: 'Failed to update member' });
@@ -333,6 +379,15 @@ export const createMemberRoutes = (): Router => {
       member.createdAt = member.createdAt ?? now;
       member.updatedAt = now;
       await db.insert(member);
+
+      void logAuditEvent(
+        {
+          action: 'member.deactivate',
+          targetType: 'member',
+          targetId: member.id,
+        },
+        req
+      );
 
       res.status(200).json({ ok: true, message: 'Member deleted' });
     } catch (err) {
@@ -425,6 +480,14 @@ export const createMemberRoutes = (): Router => {
         };
 
         const result = await db.insert(updatedMember);
+        void logAuditEvent(
+          {
+            action: 'member.permissions.update',
+            targetType: 'equipment',
+            targetId: equipmentId,
+          },
+          req
+        );
         res.status(200).json({ ok: true, data: { ...updatedMember, _rev: result.rev } });
       } catch (err) {
         res.status(500).json({ ok: false, error: 'Failed to update equipment permission' });

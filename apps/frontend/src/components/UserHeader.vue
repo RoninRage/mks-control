@@ -30,6 +30,7 @@
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useUserStore } from 'stores/user-store';
+import { authService } from 'src/services/authService';
 import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
@@ -40,7 +41,12 @@ const router = useRouter();
 const $q = useQuasar();
 const userStore = useUserStore();
 
-function handleLogout() {
+async function handleLogout() {
+  // Log audit event for logout before clearing user session
+  if (userStore.userId) {
+    await authService.logoutWithAudit(userStore.userId, 'user-initiated');
+  }
+
   userStore.logout();
   router.replace('/');
 }

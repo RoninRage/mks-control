@@ -1,4 +1,5 @@
 import nano, { ServerScope } from 'nano';
+import { AuditLog } from '../types/audit';
 import { Member } from '../types/member';
 import { Tag } from '../types/tag';
 
@@ -12,18 +13,21 @@ const getCouchDBConfig = (): {
   password: string;
   dbName: string;
   tagsDbName: string;
+  auditDbName: string;
 } => {
   const url = process.env.COUCHDB_URL ?? 'http://localhost:5984';
   const user = process.env.COUCHDB_USER ?? 'admin';
   const password = process.env.COUCHDB_PASSWORD ?? 'password';
   const dbName = process.env.COUCHDB_DB_NAME ?? 'mks_members';
   const tagsDbName = process.env.COUCHDB_TAGS_DB_NAME ?? 'mks_tags';
+  const auditDbName = process.env.COUCHDB_AUDIT_DB_NAME ?? 'mks_audit';
 
-  return { url, user, password, dbName, tagsDbName };
+  return { url, user, password, dbName, tagsDbName, auditDbName };
 };
 
 let dbInstance: nano.DocumentScope<Member> | null = null;
 let tagDbInstance: nano.DocumentScope<Tag> | null = null;
+let auditDbInstance: nano.DocumentScope | null = null;
 let nanoInstance: ServerScope | null = null;
 
 export const initializeDatabase = async (): Promise<void> => {
@@ -49,8 +53,14 @@ export const initializeDatabase = async (): Promise<void> => {
       await nanoInstance.db.create(config.tagsDbName);
     }
 
+    // Check if audit database exists
+    if (!dbList.includes(config.auditDbName)) {
+      await nanoInstance.db.create(config.auditDbName);
+    }
+
     dbInstance = nanoInstance.use<Member>(config.dbName);
     tagDbInstance = nanoInstance.use<Tag>(config.tagsDbName);
+    auditDbInstance = nanoInstance.use<AuditLog>(config.auditDbName);
 
     // Create indexes for members database
     try {
@@ -108,6 +118,51 @@ export const initializeDatabase = async (): Promise<void> => {
     } catch (err) {
       // Index might already exist
     }
+
+    // Create indexes for audit database
+    try {
+      await auditDbInstance.createIndex({
+        index: {
+          fields: ['timestamp'],
+        },
+        name: 'timestamp-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await auditDbInstance.createIndex({
+        index: {
+          fields: ['action'],
+        },
+        name: 'action-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await auditDbInstance.createIndex({
+        index: {
+          fields: ['actorId'],
+        },
+        name: 'actor-id-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await auditDbInstance.createIndex({
+        index: {
+          fields: ['targetId'],
+        },
+        name: 'target-id-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
   } catch (err) {
     error(`Failed to initialize database: ${(err as Error).message}`);
     throw err;
@@ -126,6 +181,13 @@ export const getTagDatabase = (): nano.DocumentScope<Tag> => {
     throw new Error('Tag database not initialized. Call initializeDatabase() first.');
   }
   return tagDbInstance;
+};
+
+export const getAuditDatabase = (): nano.DocumentScope<AuditLog> => {
+  if (!auditDbInstance) {
+    throw new Error('Audit database not initialized. Call initializeDatabase() first.');
+  }
+  return auditDbInstance as nano.DocumentScope<AuditLog>;
 };
 
 export const getNanoInstance = (): ServerScope => {

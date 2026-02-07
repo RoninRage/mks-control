@@ -32,6 +32,7 @@ import { seedAreas } from './db/seedAreas';
 import { seedEquipment } from './db/seedEquipment';
 import { migrateDocTypes, migrateTagsToCollection } from './db/migrations';
 import { migrateBackupAdmin } from './db/migrateBackupAdmin';
+import { scheduleAuditRetentionCleanup } from './db/audit';
 
 // Enforce monorepo dev entry point
 if (process.env.MONOREPO_DEV !== 'true') {
@@ -43,6 +44,7 @@ if (process.env.MONOREPO_DEV !== 'true') {
 const startServer = async (): Promise<void> => {
   // Initialize database
   await initializeDatabase();
+  scheduleAuditRetentionCleanup();
   await migrateDocTypes();
   await migrateBackupAdmin();
   await seedAreas();

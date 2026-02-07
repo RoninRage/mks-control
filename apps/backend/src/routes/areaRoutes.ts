@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 import { Area, AreaWithMeta } from '../types/area';
 
 const router = Router();
@@ -12,7 +13,7 @@ const normalizeName = (value: string): string => value.trim().toLowerCase();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const db = getDatabase<AreaWithMeta>();
+    const db = getDatabase<Area>();
     const result = await db.find({
       selector: { type: { $eq: 'area' } },
     });
@@ -30,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const db = getDatabase<AreaWithMeta>();
+    const db = getDatabase<Area>();
     const result = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
@@ -72,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDatabase<AreaWithMeta>();
+    const db = getDatabase<Area>();
     const existingByName = await db.find({
       selector: { type: { $eq: 'area' } },
     });
@@ -87,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const now = new Date().toISOString();
-    const newArea: Area = {
+    const newArea: Omit<Area, '_id' | '_rev'> = {
       type: 'area',
       id: Date.now().toString(),
       name: name.trim(),
@@ -98,6 +99,15 @@ router.post('/', async (req: Request, res: Response) => {
     };
 
     const result = await db.insert(newArea);
+
+    void logAuditEvent(
+      {
+        action: 'area.create',
+        targetType: 'area',
+        targetId: newArea.id,
+      },
+      req
+    );
 
     res.status(201).json({
       ...newArea,
@@ -130,7 +140,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDatabase<AreaWithMeta>();
+    const db = getDatabase<Area>();
     const existingResult = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
@@ -156,7 +166,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const updatedArea: AreaWithMeta = {
+    const updatedArea: Area = {
       ...existingArea,
       type: 'area',
       name: name.trim(),
@@ -166,6 +176,15 @@ router.put('/:id', async (req: Request, res: Response) => {
     };
 
     const result = await db.insert(updatedArea);
+
+    void logAuditEvent(
+      {
+        action: 'area.update',
+        targetType: 'area',
+        targetId: existingArea.id,
+      },
+      req
+    );
 
     res.json({
       ...updatedArea,
@@ -187,7 +206,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const db = getDatabase<AreaWithMeta>();
+    const db = getDatabase<Area>();
     const result = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'area' } },
       limit: 1,
@@ -200,6 +219,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const area = result.docs[0];
     await db.destroy(area._id, area._rev);
+
+    void logAuditEvent(
+      {
+        action: 'area.delete',
+        targetType: 'area',
+        targetId: area.id,
+      },
+      req
+    );
+
     res.json({ success: true });
   } catch (error: any) {
     if (error.status === 404) {

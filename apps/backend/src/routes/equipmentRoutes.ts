@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 import { Equipment, EquipmentWithMeta } from '../types/equipment';
 
 const router = Router();
@@ -12,7 +13,7 @@ const normalizeName = (value: string): string => value.trim().toLowerCase();
  */
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const db = getDatabase<EquipmentWithMeta>();
+    const db = getDatabase<Equipment>();
     const result = await db.find({
       selector: { type: { $eq: 'equipment' } },
     });
@@ -30,7 +31,7 @@ router.get('/', async (_req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const db = getDatabase<EquipmentWithMeta>();
+    const db = getDatabase<Equipment>();
     const result = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
@@ -77,7 +78,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDatabase<EquipmentWithMeta>();
+    const db = getDatabase<Equipment>();
     const existingByName = await db.find({
       selector: { type: { $eq: 'equipment' } },
     });
@@ -103,6 +104,15 @@ router.post('/', async (req: Request, res: Response) => {
       updatedAt: now,
     };
     const result = await db.insert(newEquipment);
+
+    void logAuditEvent(
+      {
+        action: 'equipment.create',
+        targetType: 'equipment',
+        targetId: newEquipment.id,
+      },
+      req
+    );
 
     res.status(201).json({
       ...newEquipment,
@@ -140,7 +150,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDatabase<EquipmentWithMeta>();
+    const db = getDatabase<Equipment>();
     const existingResult = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
@@ -181,6 +191,15 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const result = await db.insert(updatedEquipment);
 
+    void logAuditEvent(
+      {
+        action: 'equipment.update',
+        targetType: 'equipment',
+        targetId: existingEquipment.id,
+      },
+      req
+    );
+
     res.json({
       ...updatedEquipment,
       _rev: result.rev,
@@ -201,7 +220,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const db = getDatabase<EquipmentWithMeta>();
+    const db = getDatabase<Equipment>();
     const result = await db.find({
       selector: { id: { $eq: req.params.id }, type: { $eq: 'equipment' } },
       limit: 1,
@@ -214,6 +233,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const equipment = result.docs[0];
     await db.destroy(equipment._id, equipment._rev);
+
+    void logAuditEvent(
+      {
+        action: 'equipment.delete',
+        targetType: 'equipment',
+        targetId: equipment.id,
+      },
+      req
+    );
+
     res.json({ success: true });
   } catch (error: any) {
     if (error.status === 404) {

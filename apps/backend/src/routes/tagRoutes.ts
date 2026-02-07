@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { nanoid } from 'nanoid';
 import { getTagDatabase, getDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 import { Tag, CreateTagRequest } from '../types/tag';
 import { Member } from '../types/member';
 
@@ -65,6 +66,16 @@ export const createTagRoutes = (): Router => {
       };
 
       await tagDb.insert(newTag);
+
+      void logAuditEvent(
+        {
+          action: 'tag.add',
+          targetType: 'tag',
+          targetId: newTag.id,
+        },
+        req
+      );
+
       res.status(201).json({ ok: true, data: newTag });
     } catch (err) {
       res.status(500).json({ ok: false, error: 'Fehler beim Hinzufügen des Tags' });
@@ -110,6 +121,15 @@ export const createTagRoutes = (): Router => {
       tag.createdAt = tag.createdAt ?? now;
       tag.updatedAt = now;
       await tagDb.insert(tag);
+
+      void logAuditEvent(
+        {
+          action: 'tag.remove',
+          targetType: 'tag',
+          targetId: tag.id,
+        },
+        req
+      );
 
       res.status(200).json({ ok: true, message: 'Tag deleted' });
     } catch (err) {

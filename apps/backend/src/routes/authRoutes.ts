@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { AuthEvent, TagEvent, TagEventSource } from '../types/auth';
 import { getDatabase, getTagDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 import { Member } from '../types/member';
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
@@ -113,6 +114,46 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       console.error(`[auth-routes] Error looking up member: ${(err as Error).message}`);
     }
 
+    if (member && isInactive) {
+      void logAuditEvent(
+        {
+          action: 'auth.login.inactive',
+          actorId: member.id,
+          targetType: 'member',
+          targetId: member.id,
+        },
+        req
+      );
+    } else if (member) {
+      void logAuditEvent(
+        {
+          action: 'auth.login',
+          actorId: member.id,
+          targetType: 'member',
+          targetId: member.id,
+        },
+        req
+      );
+    } else if (isAdminByEnv) {
+      void logAuditEvent(
+        {
+          action: 'auth.login.admin-tag',
+          targetType: 'tag',
+          targetId: event.uid,
+        },
+        req
+      );
+    } else {
+      void logAuditEvent(
+        {
+          action: 'auth.login.invalid',
+          targetType: 'tag',
+          targetId: event.uid,
+        },
+        req
+      );
+    }
+
     // Determine if admin based on either environment variable or member roles
     const isAdmin = isAdminByEnv || (member?.roles.includes('admin') ?? false);
 
@@ -161,6 +202,30 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       error: typeof body.error === 'string' ? body.error : 'Unknown reader error',
     };
     broadcast(event);
+    res.status(202).json({ ok: true });
+  });
+
+  router.post('/logout', async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const memberId = typeof body.memberId === 'string' ? body.memberId.trim() : '';
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+
+    if (!memberId) {
+      res.status(400).json({ ok: false, error: 'memberId is required' });
+      return;
+    }
+
+    const action = reason ? `auth.logout.${reason}` : 'auth.logout';
+    await logAuditEvent(
+      {
+        action,
+        actorId: memberId,
+        targetType: 'member',
+        targetId: memberId,
+      },
+      req
+    );
+
     res.status(202).json({ ok: true });
   });
 
