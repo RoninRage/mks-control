@@ -89,6 +89,23 @@
             <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
           </q-card-actions>
         </q-card>
+
+        <q-card
+          v-if="canViewAuditLogs"
+          flat
+          bordered
+          class="action-card"
+          @click="$router.replace('/audit-logs')"
+        >
+          <q-card-section>
+            <q-icon name="history" size="48px" color="primary" />
+            <div class="text-h6 q-mt-md">Audit Logs</div>
+            <div class="text-body2 text-grey-7">Systemaktivität und Benutzeraktionen</div>
+          </q-card-section>
+          <q-card-actions>
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+          </q-card-actions>
+        </q-card>
       </div>
     </div>
   </q-page>
@@ -121,6 +138,11 @@ const permissionsSubtitle = computed((): string => {
     return 'Berechtigungen in Ihrem Bereich verwalten';
   }
   return 'Ihre Zugriffsberechtigungen ansehen';
+});
+
+const canViewAuditLogs = computed((): boolean => {
+  const role = userStore.roleId;
+  return role === 'admin' || role === 'vorstand' || role === 'bereichsleitung';
 });
 
 function handleLogout() {

@@ -57,6 +57,11 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'audit-logs',
+        component: () => import('pages/AuditLogsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'profile',
         redirect: () => {
           const memberId = localStorage.getItem('memberId');

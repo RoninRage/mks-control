@@ -11,6 +11,7 @@ export interface AuditLog {
   ip?: string;
   userAgent?: string;
   deviceId?: string;
+  source?: string;
 }
 
 export interface AuditLogInput {
@@ -19,4 +20,5 @@ export interface AuditLogInput {
   actorRole?: string;
   targetType?: string;
   targetId?: string;
+  source?: string;
 }

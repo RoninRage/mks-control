@@ -25,6 +25,7 @@ import { createMemberRoutes } from './routes/memberRoutes';
 import { createTagRoutes } from './routes/tagRoutes';
 import areaRoutes from './routes/areaRoutes';
 import equipmentRoutes from './routes/equipmentRoutes';
+import auditRoutes from './routes/auditRoutes';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
@@ -64,6 +65,7 @@ const startServer = async (): Promise<void> => {
   app.use('/api', createTagRoutes());
   app.use('/api/areas', areaRoutes);
   app.use('/api/equipment', equipmentRoutes);
+  app.use('/api/audit-logs', auditRoutes);
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });

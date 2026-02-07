@@ -10,6 +10,7 @@ const buildAuditEntry = (input: AuditLogInput, req?: Request): AuditLog => {
   const now = new Date().toISOString();
   const actorId = input.actorId ?? req?.get('x-user-id') ?? undefined;
   const actorRole = input.actorRole ?? req?.get('x-user-role') ?? undefined;
+  const source = input.source ?? req?.get('x-source') ?? process.env.MACHINE_NAME ?? undefined;
 
   return {
     id: nanoid(),
@@ -22,6 +23,7 @@ const buildAuditEntry = (input: AuditLogInput, req?: Request): AuditLog => {
     ip: req?.ip,
     userAgent: req?.get('user-agent') ?? undefined,
     deviceId: req?.get('x-device-id') ?? undefined,
+    source,
   };
 };
 
