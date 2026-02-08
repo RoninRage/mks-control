@@ -7,6 +7,8 @@ export interface Equipment {
   configuration?: string;
   areaId?: string;
   isAvailable: boolean;
+  isActive?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

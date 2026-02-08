@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Equipment, EquipmentWithMeta } from '../types/equipment';
+import { Member } from '../types/member';
 
 const router = Router();
 
@@ -15,7 +16,10 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const db = getDatabase<Equipment>();
     const result = await db.find({
-      selector: { type: { $eq: 'equipment' } },
+      selector: {
+        type: { $eq: 'equipment' },
+        $or: [{ isActive: { $eq: true } }, { isActive: { $exists: false } }],
+      },
     });
     const equipment: EquipmentWithMeta[] = result.docs as EquipmentWithMeta[];
     res.json(equipment);
@@ -100,6 +104,7 @@ router.post('/', async (req: Request, res: Response) => {
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
+      isActive: true,
       createdAt: now,
       updatedAt: now,
     };
@@ -185,6 +190,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       configuration: configuration || '',
       areaId: areaId || '',
       isAvailable: typeof isAvailable === 'boolean' ? isAvailable : true,
+      isActive: existingEquipment.isActive ?? true,
+      deletedAt: existingEquipment.deletedAt,
       createdAt: existingEquipment.createdAt ?? now,
       updatedAt: now,
     };
@@ -232,11 +239,33 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     const equipment = result.docs[0];
-    await db.destroy(equipment._id, equipment._rev);
+
+    const membersDb = getDatabase<Member>();
+    const membersResult = await membersDb.find({
+      selector: {
+        roles: { $exists: true },
+        $or: [{ isActive: { $eq: true } }, { isActive: { $exists: false } }],
+      },
+    });
+
+    const hasActiveAssignments = membersResult.docs.some((member: Member) => {
+      return Boolean(member.equipmentPermissions?.[equipment.id]);
+    });
+
+    if (hasActiveAssignments) {
+      res.status(409).json({ error: 'Ausruestung ist Mitgliedern zugewiesen' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    equipment.isActive = false;
+    equipment.deletedAt = now;
+    equipment.updatedAt = now;
+    await db.insert(equipment);
 
     void logAuditEvent(
       {
-        action: 'equipment.delete',
+        action: 'equipment.deactivate',
         targetType: 'equipment',
         targetId: equipment.id,
       },

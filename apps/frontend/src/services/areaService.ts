@@ -6,6 +6,8 @@ export interface Area {
   name: string;
   description: string;
   bereichsleiterIds?: string[];
+  isActive?: boolean;
+  deletedAt?: string;
 }
 
 const resolveApiUrl = (): string => {

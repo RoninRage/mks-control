@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Area, AreaWithMeta } from '../types/area';
+import { Equipment } from '../types/equipment';
 
 const router = Router();
 
@@ -15,7 +16,10 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const db = getDatabase<Area>();
     const result = await db.find({
-      selector: { type: { $eq: 'area' } },
+      selector: {
+        type: { $eq: 'area' },
+        $or: [{ isActive: { $eq: true } }, { isActive: { $exists: false } }],
+      },
     });
     const areas: AreaWithMeta[] = result.docs as AreaWithMeta[];
     res.json(areas);
@@ -94,6 +98,7 @@ router.post('/', async (req: Request, res: Response) => {
       name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || [],
+      isActive: true,
       createdAt: now,
       updatedAt: now,
     };
@@ -172,6 +177,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       name: name.trim(),
       description: description || '',
       bereichsleiterIds: bereichsleiterIds || existingArea.bereichsleiterIds || [],
+      isActive: existingArea.isActive ?? true,
+      deletedAt: existingArea.deletedAt,
       updatedAt: new Date().toISOString(),
     };
 
@@ -218,11 +225,31 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     const area = result.docs[0];
-    await db.destroy(area._id, area._rev);
+
+    const equipmentDb = getDatabase<Equipment>();
+    const equipmentResult = await equipmentDb.find({
+      selector: {
+        type: { $eq: 'equipment' },
+        areaId: { $eq: area.id },
+        $or: [{ isActive: { $eq: true } }, { isActive: { $exists: false } }],
+      },
+      limit: 1,
+    });
+
+    if (equipmentResult.docs.length > 0) {
+      res.status(409).json({ error: 'Bereich hat aktive Ausruestung zugewiesen' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    area.isActive = false;
+    area.deletedAt = now;
+    area.updatedAt = now;
+    await db.insert(area);
 
     void logAuditEvent(
       {
-        action: 'area.delete',
+        action: 'area.deactivate',
         targetType: 'area',
         targetId: area.id,
       },
