@@ -125,6 +125,25 @@ Set in shell before running `npm run dev`:
 NODE_ENV=development
 ```
 
+### Seeding (Default and Mass)
+
+Seeding is controlled by env vars and runs only when `SEED_DATA=true`.
+
+```bash
+# Default fixture seeding
+SEED_DATA=true
+SEED_MODE=default
+
+# Mass seed mode (generates realistic volumes)
+SEED_DATA=true
+SEED_MODE=mass
+SEED_MEMBERS=150
+SEED_AREAS=20
+SEED_EQUIPMENT=200
+```
+
+Mass mode creates deterministic IDs (e.g., `member-001`, `area-001`, `equipment-001`) so you can re-run it without duplicates.
+
 ### Automatically Set by dev.js
 
 ```bash

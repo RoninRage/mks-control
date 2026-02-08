@@ -31,6 +31,7 @@ import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
 import { seedAreas } from './db/seedAreas';
 import { seedEquipment } from './db/seedEquipment';
+import { getSeedCountsFromEnv, seedMassData } from './db/seedMass';
 import { migrateDocTypes, migrateTagsToCollection } from './db/migrations';
 import { migrateBackupAdmin } from './db/migrateBackupAdmin';
 import { scheduleAuditRetentionCleanup } from './db/audit';
@@ -49,9 +50,13 @@ const startServer = async (): Promise<void> => {
   await migrateDocTypes();
   await migrateBackupAdmin();
   if (process.env.SEED_DATA === 'true') {
-    await seedAreas();
-    await seedEquipment();
-    await seedMembers();
+    if (process.env.SEED_MODE === 'mass') {
+      await seedMassData(getSeedCountsFromEnv());
+    } else {
+      await seedAreas();
+      await seedEquipment();
+      await seedMembers();
+    }
   }
   await migrateTagsToCollection();
 
