@@ -1,107 +1,27 @@
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Member } from '../types/member';
 
-const now = new Date().toISOString();
+const loadMembersFixture = (): Array<Omit<Member, '_id' | '_rev' | 'createdAt' | 'updatedAt'>> => {
+  const filePath = resolve(__dirname, 'fixtures', 'members.json');
+  const content = readFileSync(filePath, 'utf-8');
+  return JSON.parse(content) as Array<Omit<Member, '_id' | '_rev' | 'createdAt' | 'updatedAt'>>;
+};
 
-const defaultMembers: Omit<Member, '_id' | '_rev'>[] = [
-  {
-    id: '1',
-    firstName: 'Admin',
-    lastName: 'System',
-    tagUid: '2659423e',
-    email: 'admin@makerspace.local',
-    roles: ['admin', 'vorstand', 'bereichsleitung', 'mitglied'],
-    joinDate: '2024-01-01',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '2',
-    firstName: 'Backupadmin',
-    lastName: 'System',
-    tagUid: 'ab9c423e',
-    email: 'backup@makerspace.local',
-    roles: ['admin', 'vorstand', 'bereichsleitung', 'mitglied'],
-    joinDate: '2024-01-01',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '3',
-    firstName: 'Max',
-    lastName: 'Mustermann',
-    email: 'max.mustermann@example.com',
-    phone: '+49 123 456789',
-    roles: ['mitglied'],
-    joinDate: '2024-03-15',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '4',
-    firstName: 'Erika',
-    lastName: 'Musterfrau',
-    email: 'erika.musterfrau@example.com',
-    roles: ['bereichsleitung', 'mitglied'],
-    joinDate: '2024-02-10',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '5',
-    firstName: 'Hans',
-    lastName: 'Schmidt',
-    email: 'hans.schmidt@example.com',
-    roles: ['mitglied'],
-    joinDate: '2024-04-20',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '6',
-    firstName: 'Maria',
-    lastName: 'Müller',
-    email: 'maria.mueller@example.com',
-    roles: ['vorstand', 'mitglied'],
-    joinDate: '2024-01-05',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '7',
-    firstName: 'Klaus',
-    lastName: 'Weber',
-    email: 'klaus.weber@example.com',
-    roles: ['mitglied'],
-    joinDate: '2024-05-12',
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: '8',
-    firstName: 'Anna',
-    lastName: 'Meyer',
-    email: 'anna.meyer@example.com',
-    roles: ['mitglied'],
-    joinDate: '2024-06-08',
-    isActive: false,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
+const addTimestamps = (
+  member: Omit<Member, '_id' | '_rev' | 'createdAt' | 'updatedAt'>,
+  now: string
+): Omit<Member, '_id' | '_rev'> => ({
+  ...member,
+  createdAt: now,
+  updatedAt: now,
+});
 
-const adminSeedMembers: Omit<Member, '_id' | '_rev'>[] = defaultMembers.filter((member) =>
-  member.roles.includes('admin')
-);
-
-const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<void> => {
+const ensureAdminMembers = async (
+  db: ReturnType<typeof getDatabase>,
+  adminSeedMembers: Array<Omit<Member, '_id' | '_rev'>>
+): Promise<void> => {
   const adminPromises = adminSeedMembers.map(async (member) => {
     try {
       const existing = await db.find({
@@ -140,9 +60,12 @@ const ensureAdminMembers = async (db: ReturnType<typeof getDatabase>): Promise<v
 export const seedMembers = async (): Promise<void> => {
   try {
     const db = getDatabase();
+    const now = new Date().toISOString();
+    const defaultMembers = loadMembersFixture().map((member) => addTimestamps(member, now));
+    const adminSeedMembers = defaultMembers.filter((member) => member.roles.includes('admin'));
 
     // Ensure admin members always exist and are active
-    await ensureAdminMembers(db);
+    await ensureAdminMembers(db, adminSeedMembers);
 
     // Check if members already exist by looking for actual member documents
     try {

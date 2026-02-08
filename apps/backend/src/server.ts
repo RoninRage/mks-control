@@ -48,9 +48,11 @@ const startServer = async (): Promise<void> => {
   scheduleAuditRetentionCleanup();
   await migrateDocTypes();
   await migrateBackupAdmin();
-  await seedAreas();
-  await seedEquipment();
-  await seedMembers();
+  if (process.env.SEED_DATA === 'true') {
+    await seedAreas();
+    await seedEquipment();
+    await seedMembers();
+  }
   await migrateTagsToCollection();
 
   const app = express();

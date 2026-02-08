@@ -15,12 +15,18 @@ const getCouchDBConfig = (): {
   tagsDbName: string;
   auditDbName: string;
 } => {
-  const url = process.env.COUCHDB_URL ?? 'http://localhost:5984';
-  const user = process.env.COUCHDB_USER ?? 'admin';
-  const password = process.env.COUCHDB_PASSWORD ?? 'password';
+  const isDevMode = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  const url = process.env.COUCHDB_URL ?? (isDevMode ? 'http://localhost:5984' : '');
+  const user = process.env.COUCHDB_USER ?? (isDevMode ? 'admin' : '');
+  const password = process.env.COUCHDB_PASSWORD ?? (isDevMode ? 'password' : '');
   const dbName = process.env.COUCHDB_DB_NAME ?? 'mks_members';
   const tagsDbName = process.env.COUCHDB_TAGS_DB_NAME ?? 'mks_tags';
   const auditDbName = process.env.COUCHDB_AUDIT_DB_NAME ?? 'mks_audit';
+
+  if (!url || !user || !password) {
+    error('Missing CouchDB configuration. Set COUCHDB_URL, COUCHDB_USER, COUCHDB_PASSWORD.');
+    throw new Error('Invalid CouchDB configuration');
+  }
 
   return { url, user, password, dbName, tagsDbName, auditDbName };
 };

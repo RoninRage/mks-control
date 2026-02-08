@@ -1,34 +1,13 @@
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Area } from '../types/area';
 
-const now = new Date().toISOString();
-
-const defaultAreas: Omit<Area, '_id' | '_rev'>[] = [
-  {
-    type: 'area',
-    id: '1',
-    name: 'Elektronik',
-    description: 'Bereich für elektronische Projekte und Arbeiten',
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    type: 'area',
-    id: '2',
-    name: '3D Druck',
-    description: 'Bereich für 3D-Drucker und additive Fertigung',
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    type: 'area',
-    id: '3',
-    name: 'Werkstatt',
-    description: 'Allgemeine Werkstatt mit Hand- und Elektrowerkzeugen',
-    createdAt: now,
-    updatedAt: now,
-  },
-];
+const loadAreasFixture = (): Array<Omit<Area, '_id' | '_rev' | 'createdAt' | 'updatedAt'>> => {
+  const filePath = resolve(__dirname, 'fixtures', 'areas.json');
+  const content = readFileSync(filePath, 'utf-8');
+  return JSON.parse(content) as Array<Omit<Area, '_id' | '_rev' | 'createdAt' | 'updatedAt'>>;
+};
 
 export const seedAreas = async (): Promise<void> => {
   try {
@@ -44,8 +23,15 @@ export const seedAreas = async (): Promise<void> => {
       return;
     }
 
+    const now = new Date().toISOString();
+    const defaultAreas = loadAreasFixture();
+
     for (const area of defaultAreas) {
-      await db.insert(area);
+      await db.insert({
+        ...area,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   } catch (error) {
     throw error;

@@ -91,6 +91,7 @@ async function startService(service) {
       API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
       CI: process.env.CI || 'false',
       npm_config_workspaces: 'true',
+      SEED_DATA: process.env.SEED_DATA || 'true',
     };
 
     delete childEnv.npm_config_workspace;

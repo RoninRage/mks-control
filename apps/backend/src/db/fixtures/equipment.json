@@ -1,0 +1,26 @@
+[
+  {
+    "type": "equipment",
+    "id": "1",
+    "name": "Loetstation",
+    "configuration": "Temperaturregelung, 60W Leistung",
+    "areaId": "1",
+    "isAvailable": true
+  },
+  {
+    "type": "equipment",
+    "id": "2",
+    "name": "3D-Drucker Prusa i3",
+    "configuration": "0.4mm Duese, PLA/ABS",
+    "areaId": "2",
+    "isAvailable": true
+  },
+  {
+    "type": "equipment",
+    "id": "3",
+    "name": "CNC-Fraesmaschine",
+    "configuration": "Arbeitsbereich 600x400mm",
+    "areaId": "3",
+    "isAvailable": false
+  }
+]

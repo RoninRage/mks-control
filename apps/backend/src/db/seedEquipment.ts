@@ -1,40 +1,13 @@
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Equipment } from '../types/equipment';
 
-const now = new Date().toISOString();
-
-const defaultEquipment: Omit<Equipment, '_id' | '_rev'>[] = [
-  {
-    type: 'equipment',
-    id: '1',
-    name: 'Lötstation',
-    configuration: 'Temperaturregelung, 60W Leistung',
-    areaId: '1',
-    isAvailable: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    type: 'equipment',
-    id: '2',
-    name: '3D-Drucker Prusa i3',
-    configuration: '0.4mm Düse, PLA/ABS',
-    areaId: '2',
-    isAvailable: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    type: 'equipment',
-    id: '3',
-    name: 'CNC-Fräsmaschine',
-    configuration: 'Arbeitsbereich 600x400mm',
-    areaId: '3',
-    isAvailable: false,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
+const loadEquipmentFixture = (): Array<Omit<Equipment, '_id' | '_rev' | 'createdAt' | 'updatedAt'>> => {
+  const filePath = resolve(__dirname, 'fixtures', 'equipment.json');
+  const content = readFileSync(filePath, 'utf-8');
+  return JSON.parse(content) as Array<Omit<Equipment, '_id' | '_rev' | 'createdAt' | 'updatedAt'>>;
+};
 
 export const seedEquipment = async (): Promise<void> => {
   try {
@@ -49,8 +22,15 @@ export const seedEquipment = async (): Promise<void> => {
       return;
     }
 
+    const now = new Date().toISOString();
+    const defaultEquipment = loadEquipmentFixture();
+
     for (const item of defaultEquipment) {
-      await db.insert(item);
+      await db.insert({
+        ...item,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   } catch (error) {
     throw error;

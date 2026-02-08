@@ -1,0 +1,20 @@
+[
+  {
+    "type": "area",
+    "id": "1",
+    "name": "Elektronik",
+    "description": "Bereich fuer elektronische Projekte und Arbeiten"
+  },
+  {
+    "type": "area",
+    "id": "2",
+    "name": "3D Druck",
+    "description": "Bereich fuer 3D-Drucker und additive Fertigung"
+  },
+  {
+    "type": "area",
+    "id": "3",
+    "name": "Werkstatt",
+    "description": "Allgemeine Werkstatt mit Hand- und Elektrowerkzeugen"
+  }
+]
