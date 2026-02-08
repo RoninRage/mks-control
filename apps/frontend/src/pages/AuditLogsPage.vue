@@ -181,7 +181,7 @@
           <div class="col-12 col-sm-9">
             <q-input
               v-model="searchQuery"
-              label="Suche (Benutzer, Aktion, Entitaet)"
+              label="Suche (Benutzer, Aktion, Entitaet, Ausruestung)"
               type="text"
               outlined
               dense
@@ -267,13 +267,6 @@
                   size="sm"
                   :label="`Benutzer: ${getActorName(log.actorId)}`"
                   class="bg-blue-1 text-blue-9"
-                />
-              </div>
-              <div v-if="log.targetId" class="col-auto">
-                <q-chip
-                  size="sm"
-                  :label="`Ziel: ${log.targetId}`"
-                  class="bg-purple-1 text-purple-9"
                 />
               </div>
               <div v-if="log.actorRole" class="col-auto">

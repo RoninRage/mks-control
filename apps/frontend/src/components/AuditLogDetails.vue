@@ -36,8 +36,13 @@
             </div>
 
             <div class="detail-group">
-              <div class="detail-label">Ziel-ID</div>
-              <div class="detail-value">{{ log.targetId || 'N/A' }}</div>
+              <div class="detail-label">{{ targetLabel }}</div>
+              <div class="detail-value">{{ targetName }}</div>
+            </div>
+
+            <div v-if="log.action === 'member.permissions.update'" class="detail-group">
+              <div class="detail-label">Ausruestung</div>
+              <div class="detail-value">{{ relatedAssetName }}</div>
             </div>
 
             <div class="detail-group">
@@ -65,6 +70,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { type AuditLog } from 'src/services/auditService';
 import { memberService, type Member } from 'src/services/memberService';
+import { equipmentService, type Equipment } from 'src/services/equipmentService';
 
 defineOptions({
   name: 'AuditLogDetails',
@@ -76,6 +82,7 @@ const props = defineProps<{
 }>();
 
 const members = ref<Member[]>([]);
+const equipment = ref<Equipment[]>([]);
 
 const actorName = computed(() => {
   if (!props.log.actorId) return 'N/A';
@@ -88,11 +95,43 @@ const actorName = computed(() => {
   return props.log.actorId;
 });
 
+const targetName = computed(() => {
+  // For member.permissions.update, targetId is the member whose permissions changed
+  if (props.log.action === 'member.permissions.update' && props.log.targetId) {
+    const member = members.value.find((m) => m.id === props.log.targetId);
+    if (member) {
+      return `${member.firstName} ${member.lastName}`.trim();
+    }
+  }
+  return props.log.targetId || 'N/A';
+});
+
+const targetLabel = computed(() => {
+  if (props.log.action === 'member.permissions.update') {
+    return 'Benutzer';
+  }
+  return 'Ziel';
+});
+
+const relatedAssetName = computed(() => {
+  if (!props.log.relatedId) return 'N/A';
+  const asset = equipment.value.find((e) => e.id === props.log.relatedId);
+  if (asset) {
+    return asset.name;
+  }
+  return props.log.relatedId;
+});
+
 onMounted(async () => {
   try {
-    members.value = await memberService.getMembers();
+    const [membersData, equipmentData] = await Promise.all([
+      memberService.getMembers(),
+      equipmentService.getEquipment(),
+    ]);
+    members.value = membersData;
+    equipment.value = equipmentData;
   } catch (error) {
-    console.error('[AuditLogDetails] Failed to load members:', error);
+    console.error('[AuditLogDetails] Failed to load data:', error);
   }
 });
 </script>

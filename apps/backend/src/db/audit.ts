@@ -19,6 +19,7 @@ const buildAuditEntry = (input: AuditLogInput, req?: Request): AuditLog => {
     actorRole,
     targetType: input.targetType,
     targetId: input.targetId,
+    relatedId: input.relatedId,
     timestamp: now,
     ip: req?.ip,
     userAgent: req?.get('user-agent') ?? undefined,

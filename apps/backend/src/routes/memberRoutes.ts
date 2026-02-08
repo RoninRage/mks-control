@@ -483,8 +483,9 @@ export const createMemberRoutes = (): Router => {
         void logAuditEvent(
           {
             action: 'member.permissions.update',
-            targetType: 'equipment',
-            targetId: equipmentId,
+            targetType: 'member',
+            targetId: id, // The member whose permissions changed
+            relatedId: equipmentId, // The equipment being granted/revoked
           },
           req
         );

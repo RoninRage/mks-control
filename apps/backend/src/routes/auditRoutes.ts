@@ -179,13 +179,44 @@ router.get('/', async (req: Request, res: Response) => {
     // Full-text search filtering
     if (search) {
       const searchLower = search.toLowerCase();
+      let matchingEquipmentIds: string[] = [];
+
+      if (searchLower.trim().length > 0) {
+        const equipmentResult = await membersDb.find({
+          selector: { type: { $eq: 'equipment' } },
+        });
+
+        matchingEquipmentIds = equipmentResult.docs
+          .filter((item: any) => {
+            const idMatch = (item.id || '').toLowerCase() === searchLower;
+            const nameMatch = (item.name || '').toLowerCase().includes(searchLower);
+            return idMatch || nameMatch;
+          })
+          .map((item: any) => item.id);
+      }
+
       auditLogs = auditLogs.filter((log: any) => {
-        return (
+        const directMatch =
           log.action?.toLowerCase().includes(searchLower) ||
           log.actorId?.toLowerCase().includes(searchLower) ||
           log.targetId?.toLowerCase().includes(searchLower) ||
-          log.source?.toLowerCase().includes(searchLower)
-        );
+          log.relatedId?.toLowerCase().includes(searchLower) ||
+          log.source?.toLowerCase().includes(searchLower);
+
+        if (directMatch) {
+          return true;
+        }
+
+        if (matchingEquipmentIds.length === 0) {
+          return false;
+        }
+
+        const targetMatch =
+          log.targetType === 'equipment' &&
+          log.targetId &&
+          matchingEquipmentIds.includes(log.targetId);
+        const relatedMatch = log.relatedId && matchingEquipmentIds.includes(log.relatedId);
+        return targetMatch || relatedMatch;
       });
     }
 

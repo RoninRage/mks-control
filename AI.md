@@ -150,6 +150,7 @@ mks-control/
 ├── apps/
 │   ├── backend/        # Express API server
 │   ├── frontend/       # Vue 3 application
+├── docs/               # Documentation
 ├── nfc-bridge/         # NFC reader interface
 ├── packages/           # Shared libraries
 ├── scripts/            # Development infrastructure
