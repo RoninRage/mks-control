@@ -3,7 +3,9 @@ import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Equipment } from '../types/equipment';
 
-const loadEquipmentFixture = (): Array<Omit<Equipment, '_id' | '_rev' | 'createdAt' | 'updatedAt'>> => {
+const loadEquipmentFixture = (): Array<
+  Omit<Equipment, '_id' | '_rev' | 'createdAt' | 'updatedAt'>
+> => {
   const filePath = resolve(__dirname, 'fixtures', 'equipment.json');
   const content = readFileSync(filePath, 'utf-8');
   return JSON.parse(content) as Array<Omit<Equipment, '_id' | '_rev' | 'createdAt' | 'updatedAt'>>;
