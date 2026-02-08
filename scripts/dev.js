@@ -83,18 +83,24 @@ async function startService(service) {
   return new Promise((resolve, reject) => {
     log('\n🚀 Starting ' + service.name + '...');
 
+    const childEnv = {
+      ...process.env,
+      ...service.env,
+      MONOREPO_DEV: 'true',
+      FRONTEND_URL: 'http://localhost:9000',
+      API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
+      CI: process.env.CI || 'false',
+    };
+
+    delete childEnv.npm_config_workspaces;
+    delete childEnv.npm_config_workspace;
+    delete childEnv.npm_config_workspaces;
+
     const proc = spawn(service.cmd, service.args, {
       cwd: path.join(__dirname, '..', service.cwd),
       stdio: process.env.NODE_ENV === 'test' ? 'pipe' : 'inherit',
       shell: true,
-      env: {
-        ...process.env,
-        ...service.env,
-        MONOREPO_DEV: 'true',
-        FRONTEND_URL: 'http://localhost:9000',
-        API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
-        CI: process.env.CI || 'false',
-      },
+      env: childEnv,
     });
 
     // In test mode, log output with service prefix

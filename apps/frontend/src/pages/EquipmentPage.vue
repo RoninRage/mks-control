@@ -138,8 +138,9 @@
 import { onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { equipmentService, type Equipment } from 'src/services/equipmentService';
-import { areaService, type Area } from 'src/services/areaService';
+import type { Area, Equipment } from '@mks-control/shared-types';
+import { equipmentService } from 'src/services/equipmentService';
+import { areaService } from 'src/services/areaService';
 
 defineOptions({
   name: 'EquipmentPage',

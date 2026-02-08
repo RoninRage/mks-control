@@ -1,50 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import type { Area, Equipment, Member } from '@mks-control/shared-types';
 import { areaService } from '../services/areaService';
 import { equipmentService } from '../services/equipmentService';
 import { memberService } from '../services/memberService';
 import { useUserStore } from './user-store';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
 import { isPrivilegedRole } from 'src/utils/roles';
-
-export interface Area {
-  _id?: string;
-  _rev?: string;
-  type?: 'area';
-  id: string;
-  name: string;
-  description: string;
-  bereichsleiterIds?: string[];
-}
-
-export interface Equipment {
-  _id?: string;
-  _rev?: string;
-  type?: 'equipment';
-  id: string;
-  name: string;
-  configuration?: string;
-  areaId?: string;
-  isAvailable: boolean;
-}
-
-export interface Member {
-  _id?: string;
-  _rev?: string;
-  id: string;
-  firstName: string;
-  lastName: string;
-  tagUid?: string;
-  email?: string;
-  phone?: string;
-  roles: string[];
-  joinDate: string;
-  isActive: boolean;
-  preferredTheme?: 'light' | 'dark' | 'auto';
-  equipmentPermissions?: Record<string, boolean>;
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 export const useAusstattungStore = defineStore('ausstattung', () => {
   // State

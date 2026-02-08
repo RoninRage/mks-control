@@ -1,16 +1,5 @@
+import type { Area } from '@mks-control/shared-types';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
-
-export interface Area {
-  _id?: string;
-  _rev?: string;
-  type?: 'area';
-  id: string;
-  name: string;
-  description: string;
-  bereichsleiterIds?: string[];
-  isActive?: boolean;
-  deletedAt?: string;
-}
 
 export const areaService = {
   async getAreas(): Promise<Area[]> {

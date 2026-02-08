@@ -168,8 +168,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { areaService, type Area } from 'src/services/areaService';
-import { memberService, type Member } from 'src/services/memberService';
+import type { Area, Member } from '@mks-control/shared-types';
+import { areaService } from 'src/services/areaService';
+import { memberService } from 'src/services/memberService';
 
 defineOptions({
   name: 'EditAreaPage',

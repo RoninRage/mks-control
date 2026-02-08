@@ -297,7 +297,8 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { auditService, type AuditLog, type AuditLogFilters } from 'src/services/auditService';
-import { memberService, type Member } from 'src/services/memberService';
+import type { Member } from '@mks-control/shared-types';
+import { memberService } from 'src/services/memberService';
 import { useUserStore } from 'stores/user-store';
 import { useQuasar } from 'quasar';
 import AuditLogDetails from 'components/AuditLogDetails.vue';

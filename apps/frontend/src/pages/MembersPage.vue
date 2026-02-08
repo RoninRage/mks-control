@@ -122,7 +122,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import type { Member } from 'src/services/memberService';
+import type { Member } from '@mks-control/shared-types';
 import { memberService } from 'src/services/memberService';
 import { useUserStore } from 'src/stores/user-store';
 import { getRoleColor, getRoleLabel } from 'src/utils/roles';

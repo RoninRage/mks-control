@@ -315,9 +315,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
-import type { Member, Tag } from 'src/services/memberService';
+import type { Area, Member, Tag } from '@mks-control/shared-types';
 import { memberService } from 'src/services/memberService';
-import { areaService, type Area } from 'src/services/areaService';
+import { areaService } from 'src/services/areaService';
 import { authEventSource } from 'src/services/authEventSource';
 import { useUserStore } from 'stores/user-store';
 import { getRoleColor, getRoleLabel, ROLE_OPTIONS } from 'src/utils/roles';

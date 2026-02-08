@@ -1,19 +1,5 @@
+import type { Equipment } from '@mks-control/shared-types';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
-
-export interface Equipment {
-  _id?: string;
-  _rev?: string;
-  type?: 'equipment';
-  id: string;
-  name: string;
-  configuration?: string;
-  areaId?: string;
-  isAvailable: boolean;
-  isActive?: boolean;
-  deletedAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 export const equipmentService = {
   async getEquipment(): Promise<Equipment[]> {

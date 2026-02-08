@@ -119,7 +119,8 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { areaService, type Area } from 'src/services/areaService';
+import type { Area } from '@mks-control/shared-types';
+import { areaService } from 'src/services/areaService';
 
 defineOptions({
   name: 'AreasPage',

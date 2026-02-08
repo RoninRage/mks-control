@@ -69,8 +69,9 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { type AuditLog } from 'src/services/auditService';
-import { memberService, type Member } from 'src/services/memberService';
-import { equipmentService, type Equipment } from 'src/services/equipmentService';
+import type { Equipment, Member } from '@mks-control/shared-types';
+import { memberService } from 'src/services/memberService';
+import { equipmentService } from 'src/services/equipmentService';
 
 defineOptions({
   name: 'AuditLogDetails',

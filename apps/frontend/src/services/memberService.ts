@@ -1,33 +1,5 @@
+import type { Member, Tag } from '@mks-control/shared-types';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
-
-export interface Tag {
-  _id?: string;
-  _rev?: string;
-  id: string;
-  tagUid: string;
-  memberId: string;
-  createdAt: string;
-  updatedAt?: string;
-  isActive: boolean;
-}
-
-export interface Member {
-  _id?: string;
-  _rev?: string;
-  id: string;
-  firstName: string;
-  lastName: string;
-  tagUid?: string;
-  email?: string;
-  phone?: string;
-  roles: string[];
-  joinDate: string;
-  isActive: boolean;
-  preferredTheme?: 'light' | 'dark' | 'auto';
-  tags?: Tag[];
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 interface MemberResponse {
   ok: boolean;

@@ -1,49 +1,19 @@
+import type {
+  HeartbeatEvent,
+  ReaderErrorEvent,
+  ReaderEvent,
+  TagEvent,
+  TagEventSource,
+} from '@mks-control/shared-types';
+export type {
+  HeartbeatEvent,
+  ReaderErrorEvent,
+  ReaderEvent,
+  TagEvent,
+  TagEventSource,
+} from '@mks-control/shared-types';
+
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'retrying';
-
-export type TagEventSource = 'acr122u' | 'webnfc' | 'manual';
-
-export type ReaderStatus = 'attached' | 'detached';
-
-export interface TagEvent {
-  type: 'tag';
-  uid: string;
-  ts: string;
-  source: TagEventSource;
-  device: string;
-  isAdmin?: boolean;
-  memberFound?: boolean;
-  isInactive?: boolean;
-  member?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    roles: string[];
-    preferredTheme?: 'light' | 'dark' | 'auto';
-  };
-}
-
-export interface ReaderEvent {
-  type: 'reader';
-  status: ReaderStatus;
-  ts: string;
-  source: TagEventSource;
-  device: string;
-}
-
-export interface HeartbeatEvent {
-  type: 'heartbeat';
-  ts: string;
-  source: string;
-  device: string;
-}
-
-export interface ReaderErrorEvent {
-  type: 'reader-error';
-  ts: string;
-  source: string;
-  device: string;
-  error: string;
-}
 
 export interface AuthEventSource {
   connect(): void;
