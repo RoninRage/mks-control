@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { areaService } from '../services/areaService';
 import { equipmentService } from '../services/equipmentService';
 import { memberService } from '../services/memberService';
+import { useUserStore } from './user-store';
 
 export interface Area {
   _id?: string;
@@ -152,6 +153,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
       error.value = null;
 
       // Call backend endpoint
+      const userStore = useUserStore();
       const apiUrl = resolveApiUrl();
       const response = await fetch(
         `${apiUrl}/members/${memberId}/equipment-permissions/${equipmentId}`,
@@ -159,8 +161,8 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-User-ID': localStorage.getItem('userId') || '',
-            'X-User-Role': localStorage.getItem('userRole') || '',
+            'X-User-ID': userStore.memberId || '',
+            'X-User-Role': userStore.roleId || '',
           },
           body: JSON.stringify({ allowed }),
         }
@@ -221,7 +223,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
 
       // For Bereichsleiter, pre-select their first area if available
       if (userRole === 'bereichsleitung' && areas.value.length > 0) {
-        const userId = localStorage.getItem('userId');
+        const userId = localStorage.getItem('memberId');
         const userArea = areas.value.find((a) => a.bereichsleiterIds?.includes(userId || ''));
         if (userArea) {
           selectArea(userArea.id);
