@@ -4,20 +4,33 @@
     <div class="ms-section">
       <div class="row items-center justify-between q-mb-lg">
         <div>
-          <h1 class="text-h3 q-mb-none">Audit Logs</h1>
-          <p class="text-body2 text-grey-7">View system activity and user actions</p>
+          <h1 class="text-h3 q-mb-none">Audit-Protokolle</h1>
+          <p class="text-body2 text-grey-7">Systemaktivitaeten und Benutzeraktionen anzeigen</p>
         </div>
-        <q-btn
-          flat
-          icon="arrow_back"
-          color="primary"
-          @click="goBack"
-          size="lg"
-          padding="md"
-          min-width="48px"
-          min-height="48px"
-          aria-label="Go back"
-        />
+        <div class="row items-center q-gutter-sm">
+          <q-btn
+            v-if="userStore.isAdmin"
+            outline
+            icon="delete_sweep"
+            label="Audit-Protokolle loeschen"
+            color="negative"
+            @click="confirmClearAuditLogs"
+            padding="md"
+            min-height="44px"
+            aria-label="Audit-Protokolle loeschen"
+          />
+          <q-btn
+            flat
+            icon="arrow_back"
+            color="primary"
+            @click="goBack"
+            size="lg"
+            padding="md"
+            min-width="48px"
+            min-height="48px"
+            aria-label="Zurueck"
+          />
+        </div>
       </div>
     </div>
 
@@ -28,24 +41,108 @@
           <!-- Date Range -->
           <div class="col-12 col-sm-6 col-md-3">
             <q-input
-              v-model="filters.startDate"
-              label="Start Date"
-              type="date"
+              :model-value="formatDateForDisplay(filters.startDate)"
+              label="Startdatum"
               outlined
               dense
-              @update:model-value="applyFilters"
-            />
+              clearable
+              readonly
+              @clear="clearStartDate"
+            >
+              <template #append>
+                <q-icon name="event" class="cursor-pointer">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                    <q-date
+                      v-model="filters.startDate"
+                      mask="YYYY-MM-DD"
+                      @update:model-value="applyFilters"
+                    >
+                      <div class="row items-center justify-end">
+                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
+                      </div>
+                    </q-date>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
+            <q-input
+              :model-value="formatTimeForDisplay(startTime)"
+              label="Startzeit"
+              outlined
+              dense
+              readonly
+              class="q-mt-sm"
+            >
+              <template #append>
+                <q-icon name="schedule" class="cursor-pointer">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                    <q-time
+                      v-model="startTime"
+                      mask="HH:mm"
+                      format24h
+                      @update:model-value="applyFilters"
+                    >
+                      <div class="row items-center justify-end">
+                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
+                      </div>
+                    </q-time>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
           </div>
 
           <div class="col-12 col-sm-6 col-md-3">
             <q-input
-              v-model="filters.endDate"
-              label="End Date"
-              type="date"
+              :model-value="formatDateForDisplay(filters.endDate)"
+              label="Enddatum"
               outlined
               dense
-              @update:model-value="applyFilters"
-            />
+              clearable
+              readonly
+              @clear="clearEndDate"
+            >
+              <template #append>
+                <q-icon name="event" class="cursor-pointer">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                    <q-date
+                      v-model="filters.endDate"
+                      mask="YYYY-MM-DD"
+                      @update:model-value="applyFilters"
+                    >
+                      <div class="row items-center justify-end">
+                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
+                      </div>
+                    </q-date>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
+            <q-input
+              :model-value="formatTimeForDisplay(endTime)"
+              label="Endzeit"
+              outlined
+              dense
+              readonly
+              class="q-mt-sm"
+            >
+              <template #append>
+                <q-icon name="schedule" class="cursor-pointer">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                    <q-time
+                      v-model="endTime"
+                      mask="HH:mm"
+                      format24h
+                      @update:model-value="applyFilters"
+                    >
+                      <div class="row items-center justify-end">
+                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
+                      </div>
+                    </q-time>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
           </div>
 
           <!-- Action Filter -->
@@ -53,7 +150,7 @@
             <q-select
               v-model="filters.action"
               :options="availableActions"
-              label="Action Type"
+              label="Aktionstyp"
               outlined
               dense
               clearable
@@ -68,7 +165,7 @@
             <q-select
               v-model="filters.source"
               :options="availableSources"
-              label="Machine"
+              label="Maschine"
               outlined
               dense
               clearable
@@ -79,12 +176,12 @@
           </div>
         </div>
 
-        <!-- Search -->
-        <div class="row q-col-gutter-md">
-          <div class="col-12">
+        <!-- Search and Reset Button -->
+        <div class="row q-col-gutter-md items-end">
+          <div class="col-12 col-sm-9">
             <q-input
               v-model="searchQuery"
-              label="Search (User, Action, Entity)"
+              label="Suche (Benutzer, Aktion, Entitaet)"
               type="text"
               outlined
               dense
@@ -96,6 +193,18 @@
               </template>
             </q-input>
           </div>
+          <div class="col-12 col-sm-3">
+            <q-btn
+              flat
+              icon="refresh"
+              label="Filter zuruecksetzen"
+              color="primary"
+              @click="resetFilters"
+              class="full-width"
+              padding="sm md"
+              min-height="44px"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -103,7 +212,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="text-center q-my-lg">
       <q-spinner color="primary" size="50px" />
-      <p class="text-body2 q-mt-md">Loading audit logs...</p>
+      <p class="text-body2 q-mt-md">Audit-Protokolle werden geladen...</p>
     </div>
 
     <!-- Error State -->
@@ -113,7 +222,7 @@
       </template>
       {{ error }}
       <template #action>
-        <q-btn flat label="Retry" @click="loadAuditLogs" />
+        <q-btn flat label="Erneut versuchen" @click="loadAuditLogs" />
       </template>
     </q-banner>
 
@@ -121,7 +230,7 @@
     <div v-if="!loading && !error" class="audit-logs-page__list">
       <div v-if="logs.length === 0" class="text-center q-py-lg">
         <q-icon name="event_note" size="48px" class="text-grey-5" />
-        <p class="text-body2 text-grey-7 q-mt-md">No audit logs found matching your filters</p>
+        <p class="text-body2 text-grey-7 q-mt-md">Keine Audit-Protokolle gefunden, die den Filtern entsprechen</p>
       </div>
 
       <!-- Audit Log Cards -->
@@ -152,92 +261,33 @@
             <!-- Quick Info -->
             <div class="row q-mt-md items-center q-col-gutter-sm no-wrap">
               <div v-if="log.actorId" class="col-auto">
-                <q-chip size="sm" :label="`User: ${log.actorId}`" class="bg-blue-1 text-blue-9" />
+                <q-chip size="sm" :label="`Benutzer: ${getActorName(log.actorId)}`" class="bg-blue-1 text-blue-9" />
               </div>
               <div v-if="log.targetId" class="col-auto">
                 <q-chip
                   size="sm"
-                  :label="`Target: ${log.targetId}`"
+                  :label="`Ziel: ${log.targetId}`"
                   class="bg-purple-1 text-purple-9"
                 />
               </div>
               <div v-if="log.actorRole" class="col-auto">
                 <q-chip
                   size="sm"
-                  :label="`Role: ${log.actorRole}`"
+                  :label="`Rolle: ${log.actorRole}`"
                   class="bg-orange-1 text-orange-9"
                 />
               </div>
             </div>
           </q-card-section>
 
-          <!-- Expandable Details -->
-          <q-slide-transition>
-            <div v-show="expandedLogs.includes(log.id)">
-              <q-separator />
-              <q-card-section class="audit-log-card__details">
-                <div class="row q-col-gutter-lg">
-                  <!-- Left Column -->
-                  <div class="col-12 col-md-6">
-                    <div class="detail-group">
-                      <div class="detail-label">Action</div>
-                      <div class="detail-value">{{ log.action }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Timestamp</div>
-                      <div class="detail-value">{{ log.timestamp }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Actor ID</div>
-                      <div class="detail-value">{{ log.actorId || 'N/A' }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Actor Role</div>
-                      <div class="detail-value">{{ log.actorRole || 'N/A' }}</div>
-                    </div>
-                  </div>
-
-                  <!-- Right Column -->
-                  <div class="col-12 col-md-6">
-                    <div class="detail-group">
-                      <div class="detail-label">Target Type</div>
-                      <div class="detail-value">{{ log.targetType || 'N/A' }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Target ID</div>
-                      <div class="detail-value">{{ log.targetId || 'N/A' }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Source (Machine)</div>
-                      <div class="detail-value">{{ log.source || 'N/A' }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">IP Address</div>
-                      <div class="detail-value">{{ log.ip || 'N/A' }}</div>
-                    </div>
-
-                    <div class="detail-group">
-                      <div class="detail-label">Device ID</div>
-                      <div class="detail-value text-caption">{{ log.deviceId || 'N/A' }}</div>
-                    </div>
-                  </div>
-                </div>
-              </q-card-section>
-            </div>
-          </q-slide-transition>
+          <AuditLogDetails :log="log" :is-expanded="expandedLogs.includes(log.id)" />
         </q-card>
       </div>
 
       <!-- Pagination Info -->
       <div v-if="logs.length > 0" class="text-center q-mt-lg">
         <p class="text-caption text-grey-7">
-          Showing {{ logs.length }} of {{ metadata.total }} audit logs
+          Zeige {{ logs.length }} von {{ metadata.total }} Audit-Protokollen
         </p>
       </div>
     </div>
@@ -245,10 +295,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { auditService, type AuditLog, type AuditLogFilters } from 'src/services/auditService';
+import { memberService, type Member } from 'src/services/memberService';
 import { useUserStore } from 'stores/user-store';
+import { useQuasar } from 'quasar';
+import AuditLogDetails from 'components/AuditLogDetails.vue';
 
 defineOptions({
   name: 'AuditLogsPage',
@@ -256,6 +309,7 @@ defineOptions({
 
 const router = useRouter();
 const userStore = useUserStore();
+const $q = useQuasar();
 
 const goBack = (): void => {
   router.push('/dashboard').catch((err) => {
@@ -265,10 +319,13 @@ const goBack = (): void => {
 
 // State
 const logs = ref<AuditLog[]>([]);
+const members = ref<Member[]>([]);
 const error = ref<string | null>(null);
 const loading = ref(true);
 const expandedLogs = ref<string[]>([]);
 const searchQuery = ref('');
+const startTime = ref('00:00');
+const endTime = ref('23:59');
 
 const filters = ref<AuditLogFilters>({});
 
@@ -281,12 +338,66 @@ const metadata = ref({
 const availableActions = ref<string[]>([]);
 const availableSources = ref<string[]>([]);
 
+// Computed
+const dateFormatter = computed(() => {
+  try {
+    return new Intl.DateTimeFormat(undefined);
+  } catch (e) {
+    console.warn('Date format detection failed, using en-GB', e);
+    return new Intl.DateTimeFormat('en-GB');
+  }
+});
+
+const timeFormatter = computed(() => {
+  try {
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    console.warn('Time format detection failed, using en-GB', e);
+    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+});
+
+const formatDateForDisplay = (isoDate?: string): string => {
+  if (!isoDate) return '';
+  const date = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return dateFormatter.value.format(date);
+};
+
+const formatTimeForDisplay = (timeValue?: string): string => {
+  if (!timeValue) return '';
+  const date = new Date(`2000-01-01T${timeValue}:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return timeFormatter.value.format(date);
+};
+
+const buildStartDateTime = (): string | undefined => {
+  if (!filters.value.startDate) return undefined;
+  const time = startTime.value || '00:00';
+  return `${filters.value.startDate}T${time}:00`;
+};
+
+const buildEndDateTime = (): string | undefined => {
+  if (!filters.value.endDate) return undefined;
+  const time = endTime.value || '23:59';
+  return `${filters.value.endDate}T${time}:59`;
+};
+
 // Methods
 const formatAction = (action: string): string => {
   return action
     .split('.')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+};
+
+const getActorName = (actorId?: string): string => {
+  if (!actorId) return 'N/A';
+  const member = members.value.find(m => m.id === actorId);
+  if (member) {
+    return `${member.firstName} ${member.lastName}`.trim();
+  }
+  return actorId;
 };
 
 const formatTimestamp = (timestamp: string): string => {
@@ -310,8 +421,10 @@ const loadAuditLogs = async (): Promise<void> => {
     const filterParams: AuditLogFilters = {};
 
     // Only include filters that have values
-    if (filters.value.startDate) filterParams.startDate = filters.value.startDate;
-    if (filters.value.endDate) filterParams.endDate = filters.value.endDate;
+    const startDateTime = buildStartDateTime();
+    const endDateTime = buildEndDateTime();
+    if (startDateTime) filterParams.startDate = startDateTime;
+    if (endDateTime) filterParams.endDate = endDateTime;
     if (filters.value.action) filterParams.action = filters.value.action;
     if (filters.value.source) filterParams.source = filters.value.source;
     if (searchQuery.value) filterParams.search = searchQuery.value;
@@ -330,13 +443,66 @@ const loadAuditLogs = async (): Promise<void> => {
   }
 };
 
+const clearAuditLogs = async (): Promise<void> => {
+  loading.value = true;
+  error.value = null;
+
+  try {
+    await auditService.clearAuditLogs();
+    await loadAuditLogs();
+  } catch (err) {
+    error.value =
+      err instanceof Error ? err.message : 'Audit-Protokolle konnten nicht geloescht werden';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const confirmClearAuditLogs = (): void => {
+  $q.dialog({
+    title: 'Audit-Protokolle loeschen',
+    message: 'Moechten Sie wirklich alle Audit-Protokolle loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.',
+    cancel: true,
+    persistent: true,
+    ok: {
+      label: 'Loeschen',
+      color: 'negative',
+    },
+  }).onOk(() => {
+    void clearAuditLogs();
+  });
+};
+
 const applyFilters = (): void => {
   loadAuditLogs();
 };
 
-// Lifecycle
-onMounted(() => {
+const clearStartDate = (): void => {
+  delete filters.value.startDate;
+  applyFilters();
+};
+
+const clearEndDate = (): void => {
+  delete filters.value.endDate;
+  applyFilters();
+};
+
+const resetFilters = (): void => {
+  filters.value = {};
+  searchQuery.value = '';
+  startTime.value = '00:00';
+  endTime.value = '23:59';
   loadAuditLogs();
+};
+
+// Lifecycle
+onMounted(async () => {
+  try {
+    members.value = await memberService.getMembers();
+  } catch (err) {
+    console.error('[AuditLogsPage] Failed to load members:', err);
+  }
+  await loadAuditLogs();
 });
 </script>
 
@@ -377,30 +543,6 @@ onMounted(() => {
   &__details {
     background: var(--ms-background);
   }
-}
-
-.detail-group {
-  margin-bottom: 16px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.detail-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.detail-value {
-  font-family: 'Roboto Mono', monospace;
-  font-size: 14px;
-  color: var(--text-primary);
-  word-break: break-all;
 }
 
 .rotate-180 {

@@ -33,6 +33,11 @@ interface AuditLogsResponse {
   };
 }
 
+interface ClearAuditLogsResponse {
+  ok: boolean;
+  deleted: number;
+}
+
 const resolveApiUrl = (): string => {
   if (typeof window !== 'undefined' && window.location) {
     const { hostname, port } = window.location;
@@ -84,6 +89,21 @@ export const auditService = {
       return (await response.json()) as AuditLogsResponse;
     } catch (error) {
       console.error('[auditService] Error fetching audit logs:', error);
+      throw error;
+    }
+  },
+
+  async clearAuditLogs(): Promise<ClearAuditLogsResponse> {
+    try {
+      const apiUrl = resolveApiUrl();
+      const response = await fetch(`${apiUrl}/audit-logs`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('Failed to clear audit logs: ' + response.statusText);
+      }
+
+      return (await response.json()) as ClearAuditLogsResponse;
+    } catch (error) {
+      console.error('[auditService] Error clearing audit logs:', error);
       throw error;
     }
   },

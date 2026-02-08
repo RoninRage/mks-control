@@ -1,8 +1,50 @@
 import { Router, Request, Response } from 'express';
 import { getAuditDatabase } from '../db/couchdb';
 import { getDatabase } from '../db/couchdb';
+import { logAuditEvent } from '../db/audit';
 
 const router = Router();
+
+const deleteAllAuditLogs = async (): Promise<number> => {
+  const auditDb = getAuditDatabase();
+  const batchSize = 500;
+  let deletedCount = 0;
+  let startKey: string | undefined;
+
+  while (true) {
+    const result = await auditDb.list({
+      include_docs: true,
+      limit: batchSize,
+      startkey: startKey,
+      skip: startKey ? 1 : 0,
+    });
+
+    if (result.rows.length === 0) {
+      break;
+    }
+
+    const deletions = result.rows
+      .filter((row) => !row.id.startsWith('_design/') && !row.id.startsWith('_local/'))
+      .map((row) => ({
+        _id: row.id,
+        _rev: row.doc?._rev,
+        _deleted: true,
+      }))
+      .filter((doc) => Boolean(doc._rev));
+
+    if (deletions.length > 0) {
+      await auditDb.bulk({ docs: deletions });
+      deletedCount += deletions.length;
+    }
+
+    startKey = result.rows[result.rows.length - 1]?.id;
+    if (!startKey || result.rows.length < batchSize) {
+      break;
+    }
+  }
+
+  return deletedCount;
+};
 
 interface AuditLogFilter {
   startDate?: string;
@@ -172,6 +214,37 @@ router.get('/', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[audit-routes] Error fetching audit logs:', error);
     res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
+
+/**
+ * DELETE /api/audit-logs
+ * Clear all audit logs (admin only)
+ */
+router.delete('/', async (req: Request, res: Response) => {
+  try {
+    const userRole = req.get('x-user-role') as string | undefined;
+
+    if (userRole !== 'admin') {
+      res.status(403).json({ error: 'Insufficient permissions to clear audit logs' });
+      return;
+    }
+
+    const deleted = await deleteAllAuditLogs();
+
+    await logAuditEvent(
+      {
+        action: 'audit.clear',
+        targetType: 'audit',
+        targetId: 'all',
+      },
+      req
+    );
+
+    res.json({ ok: true, deleted });
+  } catch (error) {
+    console.error('[audit-routes] Error clearing audit logs:', error);
+    res.status(500).json({ error: 'Failed to clear audit logs' });
   }
 });
 
