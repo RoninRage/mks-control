@@ -49,12 +49,12 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
   });
 
   // Actions
-  const loadAreas = async () => {
+  const loadAreas = async (): Promise<void> => {
     try {
       loading.value = true;
       error.value = null;
       const allAreas = await areaService.getAreas();
-      areas.value = Array.isArray(allAreas) ? allAreas : (allAreas as any).data || [];
+      areas.value = allAreas;
     } catch (err) {
       error.value = `Failed to load areas: ${(err as Error).message}`;
       console.error('[ausstattung-store] Error loading areas:', err);
@@ -63,7 +63,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     }
   };
 
-  const loadEquipment = async () => {
+  const loadEquipment = async (): Promise<void> => {
     try {
       loading.value = true;
       error.value = null;
@@ -77,13 +77,12 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     }
   };
 
-  const loadMembers = async () => {
+  const loadMembers = async (): Promise<void> => {
     try {
       loading.value = true;
       error.value = null;
       const data = await memberService.getMembers();
-      // Handle both wrapped and unwrapped response formats
-      members.value = Array.isArray(data) ? data : (data as any).data || [];
+      members.value = data;
     } catch (err) {
       error.value = `Failed to load members: ${(err as Error).message}`;
       console.error('[ausstattung-store] Error loading members:', err);
@@ -92,18 +91,18 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     }
   };
 
-  const selectArea = (areaId: string | null) => {
+  const selectArea = (areaId: string | null): void => {
     selectedAreaId.value = areaId;
     selectedEquipmentId.value = null;
     searchQuery.value = '';
   };
 
-  const selectEquipment = (equipmentId: string | null) => {
+  const selectEquipment = (equipmentId: string | null): void => {
     selectedEquipmentId.value = equipmentId;
     searchQuery.value = '';
   };
 
-  const setSearchQuery = (query: string) => {
+  const setSearchQuery = (query: string): void => {
     searchQuery.value = query;
   };
 
@@ -137,7 +136,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
         throw new Error(errorData.error || 'Failed to update permission');
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Update local state
       const member = members.value.find((m) => m.id === memberId);
@@ -178,7 +177,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     return member.equipmentPermissions?.[equipmentId] ?? false;
   };
 
-  const initializeStore = async (userRole: string) => {
+  const initializeStore = async (userRole: string): Promise<void> => {
     try {
       loading.value = true;
       error.value = null;
@@ -198,7 +197,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     }
   };
 
-  const reset = () => {
+  const reset = (): void => {
     areas.value = [];
     equipment.value = [];
     members.value = [];
