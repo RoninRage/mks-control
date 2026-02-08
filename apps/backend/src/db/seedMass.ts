@@ -74,10 +74,7 @@ const generateMembers = (count: number): Array<Omit<Member, '_id' | '_rev'>> => 
   return members;
 };
 
-const generateAreas = (
-  count: number,
-  leaderIds: string[]
-): Array<Omit<Area, '_id' | '_rev'>> => {
+const generateAreas = (count: number, leaderIds: string[]): Array<Omit<Area, '_id' | '_rev'>> => {
   const areas: Array<Omit<Area, '_id' | '_rev'>> = [];
 
   for (let i = 1; i <= count; i += 1) {
