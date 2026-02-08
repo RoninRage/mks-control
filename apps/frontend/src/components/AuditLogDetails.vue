@@ -79,12 +79,12 @@ const members = ref<Member[]>([]);
 
 const actorName = computed(() => {
   if (!props.log.actorId) return 'N/A';
-  
-  const member = members.value.find(m => m.id === props.log.actorId);
+
+  const member = members.value.find((m) => m.id === props.log.actorId);
   if (member) {
     return `${member.firstName} ${member.lastName}`.trim();
   }
-  
+
   return props.log.actorId;
 });
 

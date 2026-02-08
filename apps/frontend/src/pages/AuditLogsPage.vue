@@ -230,7 +230,9 @@
     <div v-if="!loading && !error" class="audit-logs-page__list">
       <div v-if="logs.length === 0" class="text-center q-py-lg">
         <q-icon name="event_note" size="48px" class="text-grey-5" />
-        <p class="text-body2 text-grey-7 q-mt-md">Keine Audit-Protokolle gefunden, die den Filtern entsprechen</p>
+        <p class="text-body2 text-grey-7 q-mt-md">
+          Keine Audit-Protokolle gefunden, die den Filtern entsprechen
+        </p>
       </div>
 
       <!-- Audit Log Cards -->
@@ -261,7 +263,11 @@
             <!-- Quick Info -->
             <div class="row q-mt-md items-center q-col-gutter-sm no-wrap">
               <div v-if="log.actorId" class="col-auto">
-                <q-chip size="sm" :label="`Benutzer: ${getActorName(log.actorId)}`" class="bg-blue-1 text-blue-9" />
+                <q-chip
+                  size="sm"
+                  :label="`Benutzer: ${getActorName(log.actorId)}`"
+                  class="bg-blue-1 text-blue-9"
+                />
               </div>
               <div v-if="log.targetId" class="col-auto">
                 <q-chip
@@ -393,7 +399,7 @@ const formatAction = (action: string): string => {
 
 const getActorName = (actorId?: string): string => {
   if (!actorId) return 'N/A';
-  const member = members.value.find(m => m.id === actorId);
+  const member = members.value.find((m) => m.id === actorId);
   if (member) {
     return `${member.firstName} ${member.lastName}`.trim();
   }
@@ -461,7 +467,8 @@ const clearAuditLogs = async (): Promise<void> => {
 const confirmClearAuditLogs = (): void => {
   $q.dialog({
     title: 'Audit-Protokolle loeschen',
-    message: 'Moechten Sie wirklich alle Audit-Protokolle loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.',
+    message:
+      'Moechten Sie wirklich alle Audit-Protokolle loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.',
     cancel: true,
     persistent: true,
     ok: {
