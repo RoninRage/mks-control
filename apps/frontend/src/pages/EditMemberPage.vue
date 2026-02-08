@@ -320,6 +320,7 @@ import { memberService } from 'src/services/memberService';
 import { areaService, type Area } from 'src/services/areaService';
 import { authEventSource } from 'src/services/authEventSource';
 import { useUserStore } from 'stores/user-store';
+import { getRoleColor, getRoleLabel, ROLE_OPTIONS } from 'src/utils/roles';
 import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
@@ -347,16 +348,9 @@ const themeOptions = [
   { label: 'Automatisch', value: 'auto' },
 ];
 
-const roleOptions = [
-  { label: 'Admin', value: 'admin' },
-  { label: 'Vorstand', value: 'vorstand' },
-  { label: 'Bereichsleitung', value: 'bereichsleitung' },
-  { label: 'Mitglied', value: 'mitglied' },
-];
-
 const availableRoleOptions = computed(() => {
   if (!member.value) return [];
-  return roleOptions.filter((option) => !member.value.roles.includes(option.value));
+  return ROLE_OPTIONS.filter((option) => !member.value.roles.includes(option.value));
 });
 
 const memberId = computed(() => route.params.id as string);
@@ -444,26 +438,6 @@ async function updateThemePreference(theme: 'light' | 'dark' | 'auto') {
 const statusLabel = computed(() => {
   return member.value?.isActive ? 'Aktiv' : 'Inaktiv';
 });
-
-function getRoleColor(role: string): string {
-  const roleColors: Record<string, string> = {
-    admin: 'negative',
-    vorstand: 'info',
-    bereichsleitung: 'warning',
-    mitglied: 'primary',
-  };
-  return roleColors[role] || 'grey';
-}
-
-function getRoleLabel(role: string): string {
-  const roleLabels: Record<string, string> = {
-    admin: 'Admin',
-    vorstand: 'Vorstand',
-    bereichsleitung: 'Bereichsleitung',
-    mitglied: 'Mitglied',
-  };
-  return roleLabels[role] || role;
-}
 
 async function updateRoles(newRoles: string[]) {
   if (!member.value || !userStore.memberId || !userStore.selectedRole?.id) {

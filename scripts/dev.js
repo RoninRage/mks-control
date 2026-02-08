@@ -92,6 +92,7 @@ async function startService(service) {
         ...service.env,
         MONOREPO_DEV: 'true',
         FRONTEND_URL: 'http://localhost:9000',
+        API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
         CI: process.env.CI || 'false',
       },
     });

@@ -4,6 +4,8 @@ import { areaService } from '../services/areaService';
 import { equipmentService } from '../services/equipmentService';
 import { memberService } from '../services/memberService';
 import { useUserStore } from './user-store';
+import { getApiBaseUrl } from 'src/utils/apiUrl';
+import { isPrivilegedRole } from 'src/utils/roles';
 
 export interface Area {
   _id?: string;
@@ -72,7 +74,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     return members.value.filter((m) => {
       const query = searchQuery.value.toLowerCase();
       const roleIds = m.roles.map((role) => role.toLowerCase());
-      const isPrivileged = roleIds.includes('admin') || roleIds.includes('vorstand');
+      const isPrivileged = roleIds.some(isPrivilegedRole);
       return (
         m.isActive &&
         !isPrivileged &&
@@ -154,7 +156,7 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
 
       // Call backend endpoint
       const userStore = useUserStore();
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const response = await fetch(
         `${apiUrl}/members/${memberId}/equipment-permissions/${equipmentId}`,
         {
@@ -274,17 +276,3 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
     reset,
   };
 });
-
-const resolveApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, port } = window.location;
-
-    if (port && port !== '3000') {
-      return `http://${hostname}:3000/api`;
-    }
-
-    return '/api';
-  }
-
-  return 'http://localhost:3000/api';
-};

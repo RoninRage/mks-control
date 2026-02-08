@@ -1,21 +1,9 @@
-const resolveApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, port } = window.location;
-
-    if (port && port !== '3000') {
-      return `http://${hostname}:3000/api`;
-    }
-
-    return '/api';
-  }
-
-  return 'http://localhost:3000/api';
-};
+import { getApiBaseUrl } from 'src/utils/apiUrl';
 
 export const authService = {
   async logoutWithAudit(memberId: string, reason: string = 'user-initiated'): Promise<void> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/auth/logout`;
       const response = await fetch(url, {
         method: 'POST',

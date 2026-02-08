@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from 'src/utils/apiUrl';
+
 export interface Equipment {
   _id?: string;
   _rev?: string;
@@ -13,24 +15,10 @@ export interface Equipment {
   updatedAt?: string;
 }
 
-const resolveApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, port } = window.location;
-
-    if (port && port !== '3000') {
-      return `http://${hostname}:3000/api`;
-    }
-
-    return '/api';
-  }
-
-  return 'http://localhost:3000/api';
-};
-
 export const equipmentService = {
   async getEquipment(): Promise<Equipment[]> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = apiUrl + '/equipment';
       const response = await fetch(url);
       if (!response.ok) {
@@ -46,7 +34,7 @@ export const equipmentService = {
 
   async getEquipmentById(id: string): Promise<Equipment> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/equipment/${id}`;
       const response = await fetch(url);
       if (!response.ok) {
@@ -61,7 +49,7 @@ export const equipmentService = {
 
   async createEquipment(equipment: Omit<Equipment, '_id' | '_rev'>): Promise<Equipment> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = apiUrl + '/equipment';
       const response = await fetch(url, {
         method: 'POST',
@@ -88,7 +76,7 @@ export const equipmentService = {
     equipment: Omit<Equipment, '_id' | '_rev'>
   ): Promise<Equipment> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/equipment/${id}`;
       const response = await fetch(url, {
         method: 'PUT',
@@ -112,7 +100,7 @@ export const equipmentService = {
 
   async deleteEquipment(id: string): Promise<void> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/equipment/${id}`;
       const response = await fetch(url, {
         method: 'DELETE',

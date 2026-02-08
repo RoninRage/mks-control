@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from 'src/utils/apiUrl';
+
 export interface AuditLog {
   _id?: string;
   _rev?: string;
@@ -39,24 +41,10 @@ interface ClearAuditLogsResponse {
   deleted: number;
 }
 
-const resolveApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, port } = window.location;
-
-    if (port && port !== '3000') {
-      return `http://${hostname}:3000/api`;
-    }
-
-    return '/api';
-  }
-
-  return 'http://localhost:3000/api';
-};
-
 export const auditService = {
   async getAuditLogs(filters?: AuditLogFilters): Promise<AuditLogsResponse> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = new URL(`${apiUrl}/audit-logs`);
 
       // Add query parameters for filters
@@ -96,7 +84,7 @@ export const auditService = {
 
   async clearAuditLogs(): Promise<ClearAuditLogsResponse> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const response = await fetch(`${apiUrl}/audit-logs`, { method: 'DELETE' });
       if (!response.ok) {
         throw new Error('Failed to clear audit logs: ' + response.statusText);

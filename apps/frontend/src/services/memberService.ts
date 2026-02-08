@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from 'src/utils/apiUrl';
+
 export interface Tag {
   _id?: string;
   _rev?: string;
@@ -37,26 +39,10 @@ interface TagResponse {
   data: Tag[];
 }
 
-const resolveApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, port } = window.location;
-
-    // If frontend is on a different port than 3000, connect to backend on 3000
-    if (port && port !== '3000') {
-      return `http://${hostname}:3000/api`;
-    }
-
-    // Otherwise use same origin
-    return '/api';
-  }
-
-  return 'http://localhost:3000/api';
-};
-
 export const memberService = {
   async getMembers(): Promise<Member[]> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = apiUrl + '/members';
       const response = await fetch(url);
       if (!response.ok) {
@@ -76,7 +62,7 @@ export const memberService = {
     currentUserRole: string
   ): Promise<void> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
       const response = await fetch(url, {
         method: 'DELETE',
@@ -99,7 +85,7 @@ export const memberService = {
 
   async addTag(memberId: string, tagUid: string): Promise<Tag> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}/tags`;
       const response = await fetch(url, {
         method: 'POST',
@@ -124,7 +110,7 @@ export const memberService = {
 
   async getTags(memberId: string): Promise<Tag[]> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}/tags`;
       const response = await fetch(url);
 
@@ -142,7 +128,7 @@ export const memberService = {
 
   async removeTag(tagId: string): Promise<void> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/tags/${tagId}`;
       const response = await fetch(url, {
         method: 'DELETE',
@@ -163,7 +149,7 @@ export const memberService = {
 
   async updateMember(memberId: string, updates: Partial<Member>): Promise<Member> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
       const response = await fetch(url, {
         method: 'PUT',
@@ -191,7 +177,7 @@ export const memberService = {
     preferredTheme: 'light' | 'dark' | 'auto'
   ): Promise<Member> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
       const response = await fetch(url, {
         method: 'PUT',
@@ -221,7 +207,7 @@ export const memberService = {
     currentUserRole: string
   ): Promise<Member> {
     try {
-      const apiUrl = resolveApiUrl();
+      const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
       const response = await fetch(url, {
         method: 'PUT',

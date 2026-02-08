@@ -1,12 +1,14 @@
 import { boot } from 'quasar/wrappers';
 import { authEventSource, HeartbeatEvent, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
-import { useUserStore } from 'src/stores/user-store';
+import { ROLE_NAME_MAP, ROLE_PRIORITY, useUserStore } from 'src/stores/user-store';
 
-// Enforce monorepo dev entry point - check port instead of env var (works in browser)
-if (typeof window !== 'undefined' && window.location.port && window.location.port !== '9000') {
+const isMonorepoDev = typeof process !== 'undefined' && process.env.MONOREPO_DEV === 'true';
+
+// Enforce monorepo dev entry point - check env var
+if (typeof window !== 'undefined' && !isMonorepoDev) {
   console.error('❌ ERROR: Frontend must be started via: npm run dev');
-  console.error('Do not run frontend directly. Expected port 9000, got ' + window.location.port);
+  console.error('Do not run frontend directly. MONOREPO_DEV is not set to true.');
   window.location.href = 'about:blank';
 }
 
@@ -48,18 +50,10 @@ export default boot(({ router }) => {
     // Only process tag if no user is logged in
     store.unlock(event);
 
-    const rolePriority = ['admin', 'vorstand', 'bereichsleitung', 'mitglied'] as const;
-    const roleNameMap: Record<string, string> = {
-      admin: 'Admin',
-      vorstand: 'Vorstand',
-      bereichsleitung: 'Bereichsleitung',
-      mitglied: 'Mitglied',
-    };
-
     const memberRoles = event.member?.roles ?? [];
     const resolvedRoleId =
-      rolePriority.find((roleId) => memberRoles.includes(roleId)) ?? 'mitglied';
-    const resolvedRoleName = roleNameMap[resolvedRoleId] ?? 'Mitglied';
+      ROLE_PRIORITY.find((roleId) => memberRoles.includes(roleId)) ?? 'mitglied';
+    const resolvedRoleName = ROLE_NAME_MAP[resolvedRoleId] ?? 'Mitglied';
 
     if (event.isAdmin) {
       const memberId = event.member?.id;

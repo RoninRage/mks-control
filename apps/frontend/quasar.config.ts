@@ -55,6 +55,8 @@ export default configure((ctx) => {
       // analyze: true,
       env: {
         AUTH_WS_URL: process.env.AUTH_WS_URL,
+        API_BASE_URL: process.env.API_BASE_URL,
+        MONOREPO_DEV: process.env.MONOREPO_DEV,
       },
       // rawDefine: {}
       // ignorePublicFolder: true,

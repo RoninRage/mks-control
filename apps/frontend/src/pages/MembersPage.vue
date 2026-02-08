@@ -125,6 +125,7 @@ import { useQuasar } from 'quasar';
 import type { Member } from 'src/services/memberService';
 import { memberService } from 'src/services/memberService';
 import { useUserStore } from 'src/stores/user-store';
+import { getRoleColor, getRoleLabel } from 'src/utils/roles';
 
 defineOptions({
   name: 'MembersPage',
@@ -193,26 +194,6 @@ async function loadMembers() {
 
 function goBack() {
   router.replace('/dashboard');
-}
-
-function getRoleColor(role: string): string {
-  const roleColors: Record<string, string> = {
-    admin: 'negative',
-    vorstand: 'info',
-    bereichsleitung: 'warning',
-    mitglied: 'primary',
-  };
-  return roleColors[role] || 'grey';
-}
-
-function getRoleLabel(role: string): string {
-  const roleLabels: Record<string, string> = {
-    admin: 'Admin',
-    vorstand: 'Vorstand',
-    bereichsleitung: 'Bereichsleitung',
-    mitglied: 'Mitglied',
-  };
-  return roleLabels[role] || role;
 }
 
 function editMember(member: Member) {

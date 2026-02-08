@@ -15,6 +15,15 @@ export type Permission =
   | 'manage:areas'
   | 'manage:equipment';
 
+export const ROLE_PRIORITY: RoleId[] = ['admin', 'vorstand', 'bereichsleitung', 'mitglied'];
+
+export const ROLE_NAME_MAP: Record<RoleId, string> = {
+  admin: 'Admin',
+  vorstand: 'Vorstand',
+  bereichsleitung: 'Bereichsleitung',
+  mitglied: 'Mitglied',
+};
+
 // Define which permissions each role has
 const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
   mitglied: ['view:profile', 'view:permissions', 'view:about'],
