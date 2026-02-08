@@ -36,177 +36,22 @@
 
     <!-- Filters Section -->
     <div class="ms-section">
-      <div class="audit-logs-page__filters q-mb-lg">
-        <div class="row q-col-gutter-md q-mb-md">
-          <!-- Date Range -->
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-input
-              :model-value="formatDateForDisplay(filters.startDate)"
-              label="Startdatum"
-              outlined
-              dense
-              clearable
-              readonly
-              @clear="clearStartDate"
-            >
-              <template #append>
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                    <q-date
-                      v-model="filters.startDate"
-                      mask="YYYY-MM-DD"
-                      @update:model-value="applyFilters"
-                    >
-                      <div class="row items-center justify-end">
-                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
-                      </div>
-                    </q-date>
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-            <q-input
-              :model-value="formatTimeForDisplay(startTime)"
-              label="Startzeit"
-              outlined
-              dense
-              readonly
-              class="q-mt-sm"
-            >
-              <template #append>
-                <q-icon name="schedule" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                    <q-time
-                      v-model="startTime"
-                      mask="HH:mm"
-                      format24h
-                      @update:model-value="applyFilters"
-                    >
-                      <div class="row items-center justify-end">
-                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
-                      </div>
-                    </q-time>
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-          </div>
-
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-input
-              :model-value="formatDateForDisplay(filters.endDate)"
-              label="Enddatum"
-              outlined
-              dense
-              clearable
-              readonly
-              @clear="clearEndDate"
-            >
-              <template #append>
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                    <q-date
-                      v-model="filters.endDate"
-                      mask="YYYY-MM-DD"
-                      @update:model-value="applyFilters"
-                    >
-                      <div class="row items-center justify-end">
-                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
-                      </div>
-                    </q-date>
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-            <q-input
-              :model-value="formatTimeForDisplay(endTime)"
-              label="Endzeit"
-              outlined
-              dense
-              readonly
-              class="q-mt-sm"
-            >
-              <template #append>
-                <q-icon name="schedule" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                    <q-time
-                      v-model="endTime"
-                      mask="HH:mm"
-                      format24h
-                      @update:model-value="applyFilters"
-                    >
-                      <div class="row items-center justify-end">
-                        <q-btn v-close-popup label="Schliessen" color="primary" flat />
-                      </div>
-                    </q-time>
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-          </div>
-
-          <!-- Action Filter -->
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-select
-              v-model="filters.action"
-              :options="availableActions"
-              label="Aktionstyp"
-              outlined
-              dense
-              clearable
-              emit-value
-              map-options
-              @update:model-value="applyFilters"
-            />
-          </div>
-
-          <!-- Source (Machine) Filter -->
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-select
-              v-model="filters.source"
-              :options="availableSources"
-              label="Maschine"
-              outlined
-              dense
-              clearable
-              emit-value
-              map-options
-              @update:model-value="applyFilters"
-            />
-          </div>
-        </div>
-
-        <!-- Search and Reset Button -->
-        <div class="row q-col-gutter-md items-end">
-          <div class="col-12 col-sm-9">
-            <q-input
-              v-model="searchQuery"
-              label="Suche (Benutzer, Aktion, Entitaet, Ausruestung)"
-              type="text"
-              outlined
-              dense
-              clearable
-              @update:model-value="applyFilters"
-            >
-              <template #prepend>
-                <q-icon name="search" />
-              </template>
-            </q-input>
-          </div>
-          <div class="col-12 col-sm-3">
-            <q-btn
-              flat
-              icon="refresh"
-              label="Filter zuruecksetzen"
-              color="primary"
-              @click="resetFilters"
-              class="full-width"
-              padding="sm md"
-              min-height="44px"
-            />
-          </div>
-        </div>
-      </div>
+      <AuditLogsFilters
+        :filters="filters"
+        :start-time="startTime"
+        :end-time="endTime"
+        :search-query="searchQuery"
+        :available-actions="availableActions"
+        :available-sources="availableSources"
+        @update:filters="setFilters"
+        @update:start-time="setStartTime"
+        @update:end-time="setEndTime"
+        @update:search-query="setSearchQuery"
+        @apply="applyFilters"
+        @reset="resetFilters"
+        @clear-start-date="clearStartDate"
+        @clear-end-date="clearEndDate"
+      />
     </div>
 
     <!-- Loading State -->
@@ -227,81 +72,30 @@
     </q-banner>
 
     <!-- Audit Logs List -->
-    <div v-if="!loading && !error" class="audit-logs-page__list">
-      <div v-if="logs.length === 0" class="text-center q-py-lg">
-        <q-icon name="event_note" size="48px" class="text-grey-5" />
-        <p class="text-body2 text-grey-7 q-mt-md">
-          Keine Audit-Protokolle gefunden, die den Filtern entsprechen
-        </p>
-      </div>
-
-      <!-- Audit Log Cards -->
-      <div v-for="log in logs" :key="log.id" class="audit-log-card q-mb-md">
-        <q-card flat bordered class="audit-log-card__content">
-          <q-card-section class="audit-log-card__header" @click="toggleExpanded(log.id)">
-            <div class="row items-center justify-between no-wrap">
-              <div class="col">
-                <div class="text-subtitle1 text-weight-bold">{{ formatAction(log.action) }}</div>
-                <div class="text-caption text-grey-7 q-mt-xs">
-                  {{ formatTimestamp(log.timestamp) }}
-                </div>
-              </div>
-
-              <div class="col-auto text-right">
-                <div class="text-caption text-grey-7">
-                  <span v-if="log.source" class="text-weight-medium">{{ log.source }}</span>
-                </div>
-                <q-icon
-                  name="expand_more"
-                  size="24px"
-                  :class="{ 'rotate-180': expandedLogs.includes(log.id) }"
-                  class="transition-all"
-                />
-              </div>
-            </div>
-
-            <!-- Quick Info -->
-            <div class="row q-mt-md items-center q-col-gutter-sm no-wrap">
-              <div v-if="log.actorId" class="col-auto">
-                <q-chip
-                  size="sm"
-                  :label="`Benutzer: ${getActorName(log.actorId)}`"
-                  class="bg-blue-1 text-blue-9"
-                />
-              </div>
-              <div v-if="log.actorRole" class="col-auto">
-                <q-chip
-                  size="sm"
-                  :label="`Rolle: ${log.actorRole}`"
-                  class="bg-orange-1 text-orange-9"
-                />
-              </div>
-            </div>
-          </q-card-section>
-
-          <AuditLogDetails :log="log" :is-expanded="expandedLogs.includes(log.id)" />
-        </q-card>
-      </div>
-
-      <!-- Pagination Info -->
-      <div v-if="logs.length > 0" class="text-center q-mt-lg">
-        <p class="text-caption text-grey-7">
-          Zeige {{ logs.length }} von {{ metadata.total }} Audit-Protokollen
-        </p>
-      </div>
+    <div v-if="!loading && !error">
+      <AuditLogsList
+        :logs="logs"
+        :metadata="metadata"
+        :expanded-logs="expandedLogs"
+        :format-action="formatAction"
+        :format-timestamp="formatTimestamp"
+        :get-actor-name="getActorName"
+        @toggle="toggleExpanded"
+      />
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { auditService, type AuditLog, type AuditLogFilters } from 'src/services/auditService';
 import type { Member } from '@mks-control/shared-types';
 import { memberService } from 'src/services/memberService';
 import { useUserStore } from 'stores/user-store';
 import { useQuasar } from 'quasar';
-import AuditLogDetails from 'components/AuditLogDetails.vue';
+import AuditLogsFilters from 'components/AuditLogsFilters.vue';
+import AuditLogsList from 'components/AuditLogsList.vue';
 
 defineOptions({
   name: 'AuditLogsPage',
@@ -339,38 +133,6 @@ const availableActions = ref<string[]>([]);
 const availableSources = ref<string[]>([]);
 
 // Computed
-const dateFormatter = computed(() => {
-  try {
-    return new Intl.DateTimeFormat(undefined);
-  } catch (e) {
-    console.warn('Date format detection failed, using en-GB', e);
-    return new Intl.DateTimeFormat('en-GB');
-  }
-});
-
-const timeFormatter = computed(() => {
-  try {
-    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    console.warn('Time format detection failed, using en-GB', e);
-    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-  }
-});
-
-const formatDateForDisplay = (isoDate?: string): string => {
-  if (!isoDate) return '';
-  const date = new Date(`${isoDate}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return '';
-  return dateFormatter.value.format(date);
-};
-
-const formatTimeForDisplay = (timeValue?: string): string => {
-  if (!timeValue) return '';
-  const date = new Date(`2000-01-01T${timeValue}:00`);
-  if (Number.isNaN(date.getTime())) return '';
-  return timeFormatter.value.format(date);
-};
-
 const buildStartDateTime = (): string | undefined => {
   if (!filters.value.startDate) return undefined;
   const time = startTime.value || '00:00';
@@ -496,6 +258,22 @@ const resetFilters = (): void => {
   loadAuditLogs();
 };
 
+const setFilters = (nextFilters: AuditLogFilters): void => {
+  filters.value = nextFilters;
+};
+
+const setStartTime = (value: string): void => {
+  startTime.value = value;
+};
+
+const setEndTime = (value: string): void => {
+  endTime.value = value;
+};
+
+const setSearchQuery = (value: string): void => {
+  searchQuery.value = value;
+};
+
 // Lifecycle
 onMounted(async () => {
   try {
@@ -513,44 +291,5 @@ onMounted(async () => {
     border-bottom: 1px solid var(--ms-border);
     padding-bottom: 16px;
   }
-
-  &__filters {
-    background: var(--ms-background);
-    border: 1px solid var(--ms-border);
-    border-radius: 8px;
-    padding: 16px;
-  }
-
-  &__list {
-    margin-top: 24px;
-  }
-}
-
-.audit-log-card {
-  &__content {
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-left: 4px solid var(--q-primary);
-
-    &:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-  }
-
-  &__header {
-    user-select: none;
-  }
-
-  &__details {
-    background: var(--ms-background);
-  }
-}
-
-.rotate-180 {
-  transform: rotate(180deg);
-}
-
-.transition-all {
-  transition: transform 0.3s ease;
 }
 </style>
