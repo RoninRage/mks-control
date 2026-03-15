@@ -13,7 +13,7 @@ MKS Control is a Maker Space management system — NFC-based access control, equ
 npm run dev
 
 # Start with database reset
-npm run dev --reset
+npm run dev:reset
 
 # Build all workspaces
 npm run build
@@ -24,6 +24,7 @@ npm run lint
 # E2E tests (Playwright)
 npm run test:e2e
 npm run test:e2e:ui        # Interactive UI
+npm run test:e2e:headed    # Headed browser
 npm run test:e2e:debug     # Debug mode
 
 # Run a command in a single workspace
@@ -32,7 +33,16 @@ npm run <script> --workspace=apps/frontend
 npm run <script> --workspace=nfc-bridge
 ```
 
-**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories. Use `npm run dev:reset` to reset the CouchDB database on startup.
+**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories.
+
+### Environment Setup
+
+Copy `.env.example` to `.env` in each service before first run:
+
+- `apps/backend/.env` — `COUCHDB_URL`, `COUCHDB_USER`, `COUCHDB_PASSWORD`, `ADMIN_TAG_UIDS` (comma-separated UIDs for admin NFC tags), `SEED_DATA`, `SEED_MODE`
+- `nfc-bridge/.env` — `GATEWAY_URL`, `DEVICE_ID`, `SOURCE`, `DEBOUNCE_MS`
+
+The `npm run dev` script starts Docker (CouchDB) automatically.
 
 ### Test a Tag Event (simulates NFC scan)
 
@@ -63,11 +73,13 @@ packages/shared-types/  TypeScript types shared across all workspaces
 - `ws/authWs.ts` — WebSocket server for real-time tag events
 - `db/couchdb.ts` — CouchDB connection and initialization
 - `db/migrations.ts` — Schema migrations
+- `db/seed*.ts` — Individual seeders; `seedMass.ts` seeds 150 members / 20 areas / 200 equipment
 - `types/` — Re-exports from `shared-types` (don't define domain types here directly)
+- `GET /health` — Backend health check endpoint
 
 ### Frontend (`apps/frontend/src/`)
 
-- `boot/` — Quasar boot files: `auth.ts` (route guards), `theme.ts`, `fetch-headers.ts`
+- `boot/` — Quasar boot files: `ios-detect.ts`, `fetch-headers.ts`, `theme.ts`, `auth.ts` (route guards), `apply-theme.ts` — order matters
 - `router/routes.ts` — All application routes
 - `stores/` — Pinia stores: `auth.ts`, `user-store.ts`, `ausstattung-store.ts`
 - `services/` — One file per domain, wraps `fetch` calls to the backend
@@ -95,9 +107,14 @@ Single file exporting all domain interfaces: `Member`, `Area`, `Equipment`, `Tag
 - Interfaces over type aliases for object shapes
 - Explicit parameter and return type annotations
 
+### Formatting (Prettier)
+
+- Single quotes, semicolons, trailing commas (`es5`), 100-char print width, 2-space indent
+
 ### Styling & Dark Mode
 
 - SCSS with BEM naming (`.block__element--modifier`)
+- Brand colors: `primary: #111111`, `secondary: #FFFFFF`, `dark background: #0B0B0C`
 - Use Quasar utility classes for layout/spacing
 - All custom icons use `currentColor` for dark mode compatibility
 - Dark mode overrides go in `apps/frontend/src/css/app.scss` (not scoped component styles)

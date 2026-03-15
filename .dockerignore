@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.github
+*.md
+.env
+.env.*
+.env.test
+test-results
+playwright-report
+tests
+scripts
+docs
+.vscode
+.claude

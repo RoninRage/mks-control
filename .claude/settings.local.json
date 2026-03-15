@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Development/mks-control/apps/frontend/src/pages -name \"*.vue\" | xargs -I {} basename {} | sort)"
+      "Bash(find /c/Development/mks-control/apps/frontend/src/pages -name \"*.vue\" | xargs -I {} basename {} | sort)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(docker build:*)",
+      "Bash(cd:*)"
     ]
   }
 }

@@ -3,15 +3,6 @@ import { authEventSource, HeartbeatEvent, TagEvent } from 'src/services/authEven
 import { useAuthStore } from 'src/stores/auth';
 import { ROLE_NAME_MAP, ROLE_PRIORITY, useUserStore } from 'src/stores/user-store';
 
-const isMonorepoDev = typeof process !== 'undefined' && process.env.MONOREPO_DEV === 'true';
-
-// Enforce monorepo dev entry point - check env var
-if (typeof window !== 'undefined' && !isMonorepoDev) {
-  console.error('❌ ERROR: Frontend must be started via: npm run dev');
-  console.error('Do not run frontend directly. MONOREPO_DEV is not set to true.');
-  window.location.href = 'about:blank';
-}
-
 export default boot(({ router }) => {
   const store = useAuthStore();
   const userStore = useUserStore();

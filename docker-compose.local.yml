@@ -1,0 +1,61 @@
+services:
+  couchdb:
+    image: couchdb:3.3
+    container_name: mks-control-couchdb
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: password
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+      - couchdb_config:/opt/couchdb/etc/local.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mks-network
+    restart: unless-stopped
+
+  backend:
+    image: mks-control-backend:latest
+    container_name: mks-control-backend
+    ports:
+      - "3000:3000"
+    environment:
+      COUCHDB_URL: http://couchdb:5984
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: password
+      COUCHDB_DB_NAME: mks_members
+      ADMIN_TAG_UIDS: ""
+      PORT: "3000"
+      SEED_DATA: "false"
+      MONOREPO_DEV: "true"
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    networks:
+      - mks-network
+    restart: unless-stopped
+
+  frontend:
+    image: mks-control-frontend:latest
+    container_name: mks-control-frontend
+    ports:
+      - "80:80"
+    networks:
+      - mks-network
+    restart: unless-stopped
+
+volumes:
+  couchdb_data:
+    name: mks-control-couchdb-data
+  couchdb_config:
+    name: mks-control-couchdb-config
+
+networks:
+  mks-network:
+    name: mks-control-network
