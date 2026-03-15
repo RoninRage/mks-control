@@ -18,6 +18,11 @@
             </div>
           </q-card-section>
         </q-card>
+
+        <div v-if="hasNfc" class="nfc-section column items-center q-gutter-sm">
+          <div class="text-caption text-grey">oder per Handy anmelden</div>
+          <mobile-nfc-scanner @scanned="onMobileNfcScanned" />
+        </div>
       </q-card-section>
     </q-card>
   </q-page>
@@ -29,7 +34,9 @@ import { Dark, useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
+import { getApiBaseUrl } from 'src/utils/apiUrl';
 import RfidIcon from 'components/RfidIcon.vue';
+import MobileNfcScanner from 'components/MobileNfcScanner.vue';
 
 defineOptions({
   name: 'IndexPage',
@@ -37,6 +44,25 @@ defineOptions({
 
 const authStore = useAuthStore();
 const status = ref<ConnectionStatus>('connecting');
+const hasNfc = 'NDEFReader' in window;
+
+async function onMobileNfcScanned(uid: string): Promise<void> {
+  try {
+    await fetch(getApiBaseUrl() + '/auth/tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'tag',
+        uid,
+        ts: new Date().toISOString(),
+        source: 'webnfc',
+        device: 'mobile-web',
+      }),
+    });
+  } catch (err) {
+    console.error('[IndexPage] Mobile NFC POST failed:', err);
+  }
+}
 
 const statusLabel = computed((): string => {
   if (status.value !== 'connected') {

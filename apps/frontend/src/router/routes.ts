@@ -73,6 +73,11 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
+  {
+    path: '/ios-fehler',
+    component: () => import('pages/IosErrorPage.vue'),
+  },
+
   // Always leave this as last one, but you can also remove it
   {
     path: '/:catchAll(.*)*',

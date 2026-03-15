@@ -292,14 +292,17 @@
           <div v-else class="text-caption text-grey q-mb-lg">Noch keine Tags zugewiesen</div>
 
           <!-- Add Tag Button -->
-          <q-btn
-            :loading="scanningTag"
-            label="Tag Scannen"
-            color="primary"
-            icon="nfc"
-            @click="startTagScanning"
-            class="touch-target"
-          />
+          <div class="row q-gutter-md items-start">
+            <q-btn
+              :loading="scanningTag"
+              label="Tag Scannen"
+              color="primary"
+              icon="nfc"
+              @click="startTagScanning"
+              class="touch-target"
+            />
+            <mobile-nfc-scanner v-if="hasNfc" @scanned="handleTagScanned" />
+          </div>
         </div>
       </div>
 
@@ -322,6 +325,7 @@ import { authEventSource } from 'src/services/authEventSource';
 import { useUserStore } from 'stores/user-store';
 import { getRoleColor, getRoleLabel, ROLE_OPTIONS } from 'src/utils/roles';
 import RoleIcon from 'components/RoleIcon.vue';
+import MobileNfcScanner from 'components/MobileNfcScanner.vue';
 
 defineOptions({
   name: 'EditMemberPage',
@@ -336,6 +340,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const tags = ref<Tag[]>([]);
 const scanningTag = ref(false);
+const hasNfc = 'NDEFReader' in window;
 const themePreference = ref<'light' | 'dark' | 'auto'>('auto');
 const selectedRoles = ref<string[]>([]);
 const isSavingRoles = ref(false);
