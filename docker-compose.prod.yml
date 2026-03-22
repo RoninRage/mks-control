@@ -3,7 +3,7 @@ services:
     image: couchdb:3.3
     container_name: mks-control-couchdb
     ports:
-      - "5984:5984"
+      - '5984:5984'
     environment:
       COUCHDB_USER: ${COUCHDB_USER:-admin}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
@@ -11,7 +11,7 @@ services:
       - couchdb_data:/opt/couchdb/data
       - couchdb_config:/opt/couchdb/etc/local.d
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5984/_up']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,20 +24,20 @@ services:
     image: ghcr.io/${GITHUB_OWNER}/mks-control-backend:${TAG:-latest}
     container_name: mks-control-backend
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       COUCHDB_URL: http://couchdb:5984
       COUCHDB_USER: ${COUCHDB_USER:-admin}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
       COUCHDB_DB_NAME: ${COUCHDB_DB_NAME:-mks_members}
       ADMIN_TAG_UIDS: ${ADMIN_TAG_UIDS:-}
-      PORT: "3000"
+      PORT: '3000'
       SEED_DATA: ${SEED_DATA:-false}
     depends_on:
       couchdb:
         condition: service_healthy
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - 'com.centurylinklabs.watchtower.enable=true'
     networks:
       - mks-network
     restart: unless-stopped
@@ -46,9 +46,9 @@ services:
     image: ghcr.io/${GITHUB_OWNER}/mks-control-frontend:${TAG:-latest}
     container_name: mks-control-frontend
     ports:
-      - "80:80"
+      - '80:80'
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - 'com.centurylinklabs.watchtower.enable=true'
     networks:
       - mks-network
     restart: unless-stopped
@@ -68,7 +68,7 @@ services:
     depends_on:
       - backend
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - 'com.centurylinklabs.watchtower.enable=true'
     networks:
       - mks-network
     restart: unless-stopped
@@ -80,10 +80,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker:/config:ro
     environment:
-      WATCHTOWER_LABEL_ENABLE: "true"
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_LABEL_ENABLE: 'true'
+      WATCHTOWER_CLEANUP: 'true'
+      WATCHTOWER_POLL_INTERVAL: '300'
       DOCKER_CONFIG: /config
+      DOCKER_API_VERSION: '1.45'
     networks:
       - mks-network
     restart: unless-stopped

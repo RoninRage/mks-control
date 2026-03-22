@@ -23,6 +23,7 @@ playwright/.cache/
 .env.local
 .env.*.local
 .env.test
+.env.prod
 
 # IDE
 .vscode/
