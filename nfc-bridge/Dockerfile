@@ -15,9 +15,9 @@ COPY nfc-bridge/package.json ./nfc-bridge/
 RUN node -e "const p=require('./apps/frontend/package.json'); delete p.scripts.prepare; require('fs').writeFileSync('./apps/frontend/package.json', JSON.stringify(p,null,2))"
 RUN npm ci --ignore-scripts && npm rebuild @pokusew/pcsclite
 
+COPY packages/shared-types/ ./packages/shared-types/
 COPY nfc-bridge/ ./nfc-bridge/
-WORKDIR /app/nfc-bridge
-RUN npx tsc -p tsconfig.json
 
+WORKDIR /app/nfc-bridge
 ENV MONOREPO_DEV=true
-CMD ["node", "dist/index.js"]
+CMD ["npx", "tsx", "src/index.ts"]
