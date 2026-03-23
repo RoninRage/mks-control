@@ -2,7 +2,7 @@
   "name": "@mks-control/frontend",
   "version": "1.0.0",
   "description": "MKS Control Frontend - Quasar Framework Application",
-  "productName": "MKS Control DEV",
+  "productName": "MKS Control Development",
   "author": "MKS Control Team",
   "private": true,
   "scripts": {
