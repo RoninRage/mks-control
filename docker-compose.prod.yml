@@ -79,6 +79,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker:/config:ro
+      - /opt/mks/docker-compose.prod.yml:/docker-compose.yml:ro
+      - /opt/mks/.env:/.env:ro
     environment:
       WATCHTOWER_LABEL_ENABLE: 'true'
       WATCHTOWER_CLEANUP: 'true'
