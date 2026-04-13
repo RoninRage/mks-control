@@ -47,9 +47,9 @@ jobs:
         run: node scripts/setup-test-env.js
 
       # Start backend in background, capture logs
-      # Use npx directly to avoid npm workspace flag conflicts
+      # Call binary directly — npx/npm both hit the workspace flag conflict
       - name: Start backend
-        run: cd apps/backend && npx ts-node-dev --respawn --transpile-only src/server.ts > /tmp/backend.log 2>&1 &
+        run: cd apps/backend && ../../node_modules/.bin/ts-node-dev --respawn --transpile-only src/server.ts > /tmp/backend.log 2>&1 &
         env:
           MONOREPO_DEV: 'true'
           NODE_ENV: test
@@ -76,9 +76,9 @@ jobs:
           exit 1
 
       # Start frontend in background
-      # Use npx directly to avoid npm workspace flag conflicts
+      # Call binary directly — npx/npm both hit the workspace flag conflict
       - name: Start frontend
-        run: cd apps/frontend && npx quasar dev > /tmp/frontend.log 2>&1 &
+        run: cd apps/frontend && ../../node_modules/.bin/quasar dev > /tmp/frontend.log 2>&1 &
         env:
           NODE_ENV: test
 
