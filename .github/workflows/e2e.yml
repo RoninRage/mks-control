@@ -37,11 +37,10 @@ jobs:
         run: sudo apt-get install -y libpcsclite-dev
 
       # .npmrc sets workspaces=false at root (to control `npm run` at root).
-      # Override via env var so npm ci installs all workspace deps.
+      # --workspaces + --include-workspace-root installs both workspace deps
+      # (e.g. ts-node-dev) and root devDeps (e.g. @playwright/test).
       - name: Install dependencies
-        run: npm ci
-        env:
-          npm_config_workspaces: 'true'
+        run: npm ci --workspaces --include-workspace-root
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
