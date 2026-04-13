@@ -36,8 +36,12 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get install -y libpcsclite-dev
 
+      # .npmrc sets workspaces=false at root (to control `npm run` at root).
+      # Override via env var so npm ci installs all workspace deps.
       - name: Install dependencies
         run: npm ci
+        env:
+          npm_config_workspaces: 'true'
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
@@ -46,11 +50,12 @@ jobs:
       - name: Setup test environment
         run: node scripts/setup-test-env.js
 
-      # Start backend in background, capture logs
-      # Call binary directly — npx/npm both hit the workspace flag conflict
+      # Start backend in background, capture logs.
+      # Mirrors scripts/dev.js: cd into workspace and override .npmrc workspaces=false via env.
       - name: Start backend
-        run: cd apps/backend && ../../node_modules/.bin/ts-node-dev --respawn --transpile-only src/server.ts > /tmp/backend.log 2>&1 &
+        run: cd apps/backend && npm run dev > /tmp/backend.log 2>&1 &
         env:
+          npm_config_workspaces: 'true'
           MONOREPO_DEV: 'true'
           NODE_ENV: test
           PORT: 3000
@@ -76,10 +81,10 @@ jobs:
           exit 1
 
       # Start frontend in background
-      # Call binary directly — npx/npm both hit the workspace flag conflict
       - name: Start frontend
-        run: cd apps/frontend && ../../node_modules/.bin/quasar dev > /tmp/frontend.log 2>&1 &
+        run: cd apps/frontend && npm run dev > /tmp/frontend.log 2>&1 &
         env:
+          npm_config_workspaces: 'true'
           NODE_ENV: test
 
       # Wait for frontend (Quasar dev server)
