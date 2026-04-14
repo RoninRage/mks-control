@@ -36,6 +36,12 @@ services:
     depends_on:
       couchdb:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     labels:
       - 'com.centurylinklabs.watchtower.enable=true'
     networks:
@@ -47,6 +53,9 @@ services:
     container_name: mks-control-frontend
     ports:
       - '80:80'
+    depends_on:
+      backend:
+        condition: service_healthy
     labels:
       - 'com.centurylinklabs.watchtower.enable=true'
     networks:
