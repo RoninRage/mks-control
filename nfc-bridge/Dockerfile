@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Native build tools + pcsc-lite für nfc-pcsc
 RUN apk add --no-cache python3 make g++ pcsc-lite-dev pcsc-lite pcsc-lite-libs
