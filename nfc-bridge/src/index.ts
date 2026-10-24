@@ -17,6 +17,8 @@ interface BridgeConfig {
   deviceId: string;
   source: 'acr122u';
   debounceMs: number;
+  // Key of a machine terminal (one Pi per machine). Empty for the entrance reader.
+  terminalToken: string;
 }
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -56,6 +58,7 @@ const loadConfig = (): BridgeConfig => {
   const deviceId = process.env.DEVICE_ID ?? 'kiosk-01';
   const source = (process.env.SOURCE ?? 'acr122u') as 'acr122u';
   const debounceMs = parseDebounce(process.env.DEBOUNCE_MS);
+  const terminalToken = (process.env.TERMINAL_TOKEN ?? '').trim();
 
   return {
     gatewayUrl,
@@ -63,6 +66,7 @@ const loadConfig = (): BridgeConfig => {
     deviceId,
     source,
     debounceMs,
+    terminalToken,
   };
 };
 
@@ -73,6 +77,14 @@ log('info', `config postPath=${config.postPath}`);
 log('info', `config deviceId=${config.deviceId}`);
 log('info', `config source=${config.source}`);
 log('info', `config debounceMs=${config.debounceMs}`);
+log('info', `config terminal=${config.terminalToken ? 'yes (key set)' : 'no'}`);
+
+// Scans from a machine terminal must carry its key; the backend then only logs in at that Pi.
+const tagHeaders = (): Record<string, string> => ({
+  'content-type': 'application/json',
+  'x-device-id': config.deviceId,
+  ...(config.terminalToken ? { authorization: `Bearer ${config.terminalToken}` } : {}),
+});
 
 const nfc = new NFC();
 const activeReaders = new Set<Reader>();
@@ -104,10 +116,7 @@ const postTag = async (uid: string): Promise<void> => {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-device-id': config.deviceId,
-      },
+      headers: tagHeaders(),
       body: JSON.stringify(event),
     });
 

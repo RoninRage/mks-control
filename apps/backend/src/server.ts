@@ -27,6 +27,9 @@ import areaRoutes from './routes/areaRoutes';
 import equipmentRoutes from './routes/equipmentRoutes';
 import auditRoutes from './routes/auditRoutes';
 import shellyRoutes from './routes/shellyRoutes';
+import terminalRoutes from './routes/terminalRoutes';
+import terminalClientRoutes from './routes/terminalClientRoutes';
+import { setTerminalNotifier, startSessionSweeper } from './terminals/sessions';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
@@ -80,6 +83,14 @@ const startServer = async (): Promise<void> => {
   app.use('/api/equipment', equipmentRoutes);
   app.use('/api/audit-logs', auditRoutes);
   app.use('/api/shelly', shellyRoutes);
+  app.use('/api/terminals', terminalRoutes);
+  app.use('/api/terminal', terminalClientRoutes);
+
+  // Tell the Pi (via WebSocket) to reload its state; the notice itself carries no member data.
+  setTerminalNotifier((terminalId: string): void => {
+    broadcast({ type: 'terminal-state', terminalId, ts: new Date().toISOString() });
+  });
+  startSessionSweeper();
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });

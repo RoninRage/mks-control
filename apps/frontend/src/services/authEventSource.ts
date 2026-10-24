@@ -3,6 +3,7 @@ import type {
   ReaderErrorEvent,
   ReaderEvent,
   TagEvent,
+  TerminalStateEvent,
 } from '@mks-control/shared-types';
 export type {
   HeartbeatEvent,
@@ -10,6 +11,7 @@ export type {
   ReaderEvent,
   TagEvent,
   TagEventSource,
+  TerminalStateEvent,
 } from '@mks-control/shared-types';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'retrying';
@@ -21,6 +23,8 @@ export interface AuthEventSource {
   onReader(callback: (event: ReaderEvent) => void): void;
   onHeartbeat(callback: (event: HeartbeatEvent) => void): void;
   onReaderError(callback: (event: ReaderErrorEvent) => void): void;
+  // A machine terminal's state changed; returns a function that removes the listener.
+  onTerminalState(callback: (event: TerminalStateEvent) => void): () => void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
   onUnknownTag(callback: (event: TagEvent) => void): void;
   onInactiveUser(callback: (event: TagEvent) => void): void;
@@ -96,6 +100,19 @@ const isReaderErrorEvent = (value: unknown): value is ReaderErrorEvent => {
   );
 };
 
+const isTerminalStateEvent = (value: unknown): value is TerminalStateEvent => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as TerminalStateEvent;
+  return (
+    event.type === 'terminal-state' &&
+    typeof event.terminalId === 'string' &&
+    typeof event.ts === 'string'
+  );
+};
+
 const isHeartbeatEvent = (value: unknown): value is HeartbeatEvent => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -124,6 +141,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly statusListeners: Array<(status: ConnectionStatus) => void> = [];
   private readonly unknownTagListeners: Array<(event: TagEvent) => void> = [];
   private readonly inactiveUserListeners: Array<(event: TagEvent) => void> = [];
+  private readonly terminalStateListeners: Array<(event: TerminalStateEvent) => void> = [];
 
   public constructor(private readonly url: string) {}
 
@@ -171,6 +189,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
         }
         if (isHeartbeatEvent(parsed)) {
           this.emitHeartbeat(parsed);
+          return;
+        }
+        if (isTerminalStateEvent(parsed)) {
+          this.terminalStateListeners.forEach((listener) => listener(parsed));
         }
       } catch {
         // Ignore malformed messages
@@ -214,6 +236,16 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
   public onReaderError(cb: (event: ReaderErrorEvent) => void): void {
     this.readerErrorListeners.push(cb);
+  }
+
+  public onTerminalState(cb: (event: TerminalStateEvent) => void): () => void {
+    this.terminalStateListeners.push(cb);
+    return () => {
+      const index = this.terminalStateListeners.indexOf(cb);
+      if (index >= 0) {
+        this.terminalStateListeners.splice(index, 1);
+      }
+    };
   }
 
   public onStatus(cb: (status: ConnectionStatus) => void): void {

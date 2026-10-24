@@ -58,6 +58,24 @@
         </q-card>
 
         <q-card
+          v-if="userStore.can('manage:devices')"
+          flat
+          bordered
+          class="action-card"
+          data-testid="dashboard-terminals"
+          @click="$router.replace('/terminals')"
+        >
+          <q-card-section>
+            <q-icon name="tablet_mac" size="48px" color="primary" />
+            <div class="text-h6 q-mt-md">Terminals</div>
+            <div class="text-body2 text-grey-7">Raspberry Pis an den Maschinen verwalten</div>
+          </q-card-section>
+          <q-card-actions>
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+          </q-card-actions>
+        </q-card>
+
+        <q-card
           v-if="userStore.can('manage:areas')"
           flat
           bordered

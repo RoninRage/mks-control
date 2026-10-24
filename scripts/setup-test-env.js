@@ -33,6 +33,7 @@ COUCHDB_URL=http://localhost:5984
 COUCHDB_USER=admin
 COUCHDB_PASSWORD=password
 SHELLY_PASSWORD=test-shelly-secret
+TERMINAL_IDLE_TIMEOUT_MS=10000
 `;
 
 const envPath = join(process.cwd(), '.env.test');

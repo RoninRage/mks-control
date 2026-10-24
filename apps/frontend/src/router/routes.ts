@@ -62,6 +62,11 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'terminals',
+        component: () => import('pages/TerminalsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'ausstattung',
         component: () => import('pages/AusstattungsPage.vue'),
         meta: { requiresAuth: true },
@@ -81,6 +86,13 @@ const routes: RouteRecordRaw[] = [
       },
       { path: 'theme', component: () => import('pages/ThemeShowcasePage.vue') },
     ],
+  },
+
+  // Kiosk page of a machine terminal (Raspberry Pi). Authenticated by the terminal key,
+  // not by a member login, so it lives outside the main layout.
+  {
+    path: '/terminal',
+    component: () => import('pages/TerminalPage.vue'),
   },
 
   {

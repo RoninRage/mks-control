@@ -47,6 +47,7 @@ npm run <script> --workspace=nfc-bridge
 - **If `.env.test` exists, the backend auto-switches to test mode** (`server.ts` loads it instead of `.env`). Delete a leftover `.env.test` before normal dev runs.
 - Playwright's `webServer` runs `scripts/dev-e2e.js` (reuses already-running servers); the NFC bridge is skipped when `NODE_ENV=test`.
 - `tests/global-setup.ts` creates and seeds the test DBs via `tests/helpers/` (`database.ts`, `factories.ts`, `auth.ts`); tests run serially (1 worker, Chromium only).
+- `.env.test` sets `TERMINAL_IDLE_TIMEOUT_MS=10000` (automatic logout at terminals, default 5 min) so `terminals.spec.ts` can test it.
 - `tests/helpers/mockShelly.ts` starts fake Gen1/Gen2 Shellys on `127.0.0.1:<random port>` (relays, metering, inputs, lights, covers, auth, offline). `.env.test` sets `SHELLY_PASSWORD=test-shelly-secret` to match.
 - Quasar puts `data-testid` of a `q-input` on the native `<input>`, so fill it directly (`getByTestId('x').fill(...)`).
 
@@ -118,7 +119,8 @@ Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` 
 ### Backend (`apps/backend/src/`)
 
 - `server.ts` — Express entry point, mounts routes and WebSocket
-- `routes/` — One file per domain: `authRoutes`, `memberRoutes`, `tagRoutes`, `areaRoutes`, `equipmentRoutes`, `auditRoutes`, `shellyRoutes` (admin only, `/api/shelly/devices`)
+- `routes/` — One file per domain: `authRoutes`, `memberRoutes`, `tagRoutes`, `areaRoutes`, `equipmentRoutes`, `auditRoutes`, `shellyRoutes` (admin only, `/api/shelly/devices`), `terminalRoutes` (admin only, `/api/terminals`), `terminalClientRoutes` (Pi, `/api/terminal`, terminal key)
+- `terminals/` — machine terminals (one Pi per machine): keys (`token.ts`, only the SHA-256 hash is stored), `terminalAuth.ts` (`Authorization: Bearer mkt_…`), in-memory login per terminal and release permission (`sessions.ts`). A `POST /api/auth/tag` carrying a terminal key only logs in at that terminal and is **not** broadcast as a `TagEvent`; the WebSocket only gets a `terminal-state` notice without member data.
 - `shelly/` — Shelly drivers: `drivers/gen1.ts` (REST, HTTP Basic) and `drivers/gen2.ts` (JSON-RPC, HTTP Digest, also Gen3/Gen4), `driver.ts` picks one via `GET /shelly`. `host.ts` only accepts local IPv4 addresses. Plan for the machine control: `docs/shelly-plan.md`
 - `ws/authWs.ts` — WebSocket server for real-time tag events
 - `db/couchdb.ts` — CouchDB connection and initialization
@@ -129,6 +131,7 @@ Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` 
 
 ### Frontend (`apps/frontend/src/`)
 
+- Kiosk mode: when a terminal key is stored in the browser (`utils/terminalConfig.ts`), the router only allows `/terminal`, `boot/auth.ts` ignores entrance tag scans, and `boot/fetch-headers.ts` adds the key to `/api/terminal` requests.
 - `boot/` — Quasar boot files: `ios-detect.ts`, `fetch-headers.ts`, `theme.ts`, `auth.ts` (route guards), `apply-theme.ts` — order matters
 - `router/routes.ts` — All application routes
 - `stores/` — Pinia stores: `auth.ts`, `user-store.ts`, `ausstattung-store.ts`
