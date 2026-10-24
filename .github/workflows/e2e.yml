@@ -34,7 +34,7 @@ jobs:
 
       # pcsclite native dependency needs system headers
       - name: Install system dependencies
-        run: sudo apt-get install -y libpcsclite-dev
+        run: sudo apt-get update && sudo apt-get install -y libpcsclite-dev
 
       # .npmrc sets workspaces=false at root (to control `npm run` at root).
       # --workspaces + --include-workspace-root installs both workspace deps

@@ -4,17 +4,31 @@
     <div class="ms-section">
       <div class="row items-center justify-between q-mb-lg">
         <h1 class="text-h3 q-mb-none">Mitglieder verwalten</h1>
-        <q-btn
-          flat
-          icon="arrow_back"
-          color="primary"
-          @click="goBack"
-          size="lg"
-          padding="md"
-          min-width="48px"
-          min-height="48px"
-          aria-label="Go back"
-        />
+        <div class="row items-center q-gutter-sm">
+          <q-btn
+            v-if="userStore.canAssignRoles"
+            outline
+            icon="upload_file"
+            color="primary"
+            label="CSV-Import"
+            @click="goToImport"
+            size="md"
+            padding="sm md"
+            min-height="48px"
+            aria-label="Mitglieder per CSV importieren"
+          />
+          <q-btn
+            flat
+            icon="arrow_back"
+            color="primary"
+            @click="goBack"
+            size="lg"
+            padding="md"
+            min-width="48px"
+            min-height="48px"
+            aria-label="Go back"
+          />
+        </div>
       </div>
     </div>
 
@@ -194,6 +208,10 @@ async function loadMembers() {
 
 function goBack() {
   router.replace('/dashboard');
+}
+
+function goToImport() {
+  router.push('/members/import');
 }
 
 function editMember(member: Member) {

@@ -36,10 +36,15 @@ import { migrateDocTypes, migrateTagsToCollection } from './db/migrations';
 import { migrateBackupAdmin } from './db/migrateBackupAdmin';
 import { scheduleAuditRetentionCleanup } from './db/audit';
 
-// Enforce monorepo dev entry point
-if (process.env.MONOREPO_DEV !== 'true') {
-  console.error('❌ ERROR: Backend must be started via: npm run dev');
-  console.error('Do not run backend directly');
+// Enforce monorepo dev entry point — only in development.
+// Production (Docker) starts via `npm start`, test mode sets NODE_ENV=test above.
+if (
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NODE_ENV !== 'test' &&
+  process.env.MONOREPO_DEV !== 'true'
+) {
+  console.error('❌ ERROR: Backend must be started via: npm run dev (from repo root)');
+  console.error('For production use: NODE_ENV=production npm start');
   process.exit(1);
 }
 

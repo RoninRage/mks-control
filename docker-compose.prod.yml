@@ -36,6 +36,19 @@ services:
     depends_on:
       couchdb:
         condition: service_healthy
+    healthcheck:
+      # node:22-slim has no curl; use Node's built-in fetch instead
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     labels:
       - 'com.centurylinklabs.watchtower.enable=true'
     networks:
@@ -47,6 +60,9 @@ services:
     container_name: mks-control-frontend
     ports:
       - '80:80'
+    depends_on:
+      backend:
+        condition: service_healthy
     labels:
       - 'com.centurylinklabs.watchtower.enable=true'
     networks:
@@ -79,6 +95,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker:/config:ro
+      - /opt/mks/docker-compose.prod.yml:/docker-compose.yml:ro
+      - /opt/mks/.env:/.env:ro
     environment:
       WATCHTOWER_LABEL_ENABLE: 'true'
       WATCHTOWER_CLEANUP: 'true'

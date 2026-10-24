@@ -17,7 +17,7 @@ RUN npm ci --ignore-scripts
 COPY packages/shared-types/ ./packages/shared-types/
 COPY apps/backend/ ./apps/backend/
 
-ENV MONOREPO_DEV=true
+ENV NODE_ENV=production
 EXPOSE 3000
 
 WORKDIR /app/apps/backend
