@@ -28,7 +28,6 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
 import { useUserStore } from 'stores/user-store';
 import { authService } from 'src/services/authService';
 import RoleIcon from 'components/RoleIcon.vue';
@@ -38,7 +37,6 @@ defineOptions({
 });
 
 const router = useRouter();
-const $q = useQuasar();
 const userStore = useUserStore();
 
 async function handleLogout() {
