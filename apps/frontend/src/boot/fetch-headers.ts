@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers';
 import { useUserStore } from 'src/stores/user-store';
+import { getTerminalToken, isTerminalApiUrl } from 'src/utils/terminalConfig';
 
 /**
  * Boot file to inject X-Source, X-User-ID, and X-User-Role headers to all fetch requests
@@ -22,6 +23,14 @@ export default boot(() => {
     // Add X-Source header if not already present
     if (!headers['X-Source'] && !headers['x-source']) {
       headers['X-Source'] = 'Control';
+    }
+
+    // Machine terminals authenticate with their key (kiosk mode only).
+    const requestUrl =
+      input instanceof URL ? input.href : typeof input === 'string' ? input : input.url;
+    const terminalToken = getTerminalToken();
+    if (terminalToken && isTerminalApiUrl(requestUrl) && !headers.Authorization) {
+      headers.Authorization = `Bearer ${terminalToken}`;
     }
 
     // Add user authentication headers from userStore

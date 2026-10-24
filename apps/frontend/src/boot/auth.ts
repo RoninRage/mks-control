@@ -2,6 +2,7 @@ import { boot } from 'quasar/wrappers';
 import { authEventSource, HeartbeatEvent, TagEvent } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
 import { ROLE_NAME_MAP, ROLE_PRIORITY, useUserStore } from 'src/stores/user-store';
+import { isTerminalMode } from 'src/utils/terminalConfig';
 
 export default boot(({ router }) => {
   const store = useAuthStore();
@@ -11,6 +12,12 @@ export default boot(({ router }) => {
   userStore.restoreSession();
 
   authEventSource.onTag((event: TagEvent): void => {
+    // A machine terminal only reacts to scans at its own reader (handled by the backend
+    // and shown on the terminal page), never to the entrance reader.
+    if (isTerminalMode()) {
+      return;
+    }
+
     // If a user is currently logged in, log them out and stop processing
     // UNLESS we're in tag assignment mode
     if (userStore.isAuthenticated) {

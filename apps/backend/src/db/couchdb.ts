@@ -97,6 +97,17 @@ export const initializeDatabase = async (): Promise<void> => {
       // Index might already exist
     }
 
+    try {
+      await dbInstance.createIndex({
+        index: {
+          fields: ['type', 'tokenHash'],
+        },
+        name: 'terminal-token-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
     // Create indexes for tags database
     try {
       await tagDbInstance.createIndex({

@@ -3,6 +3,10 @@ import { AuthEvent, TagEvent, TagEventSource } from '../types/auth';
 import { getDatabase, getTagDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Member } from '../types/member';
+import { findMemberByTagUid, isAdminTagUid } from '../db/memberLookup';
+import type { StoredTerminal } from '../terminals/repository';
+import { resolveTerminal } from '../terminals/terminalAuth';
+import { endSession, hasSession, reportRejectedScan, startSession } from '../terminals/sessions';
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
 
@@ -49,6 +53,68 @@ const normalizeTagEvent = (req: Request): NormalizationResult => {
   };
 };
 
+/**
+ * A scan at a machine terminal (request carries the terminal key). It only changes the login
+ * at that terminal and is not broadcast as a TagEvent, so other browsers do not react to it.
+ * Scanning while someone is logged in logs them out, like at the entrance terminal.
+ */
+const handleTerminalScan = async (
+  terminal: StoredTerminal,
+  event: TagEvent,
+  req: Request
+): Promise<void> => {
+  if (hasSession(terminal.id)) {
+    endSession(terminal.id, 'scan');
+    return;
+  }
+
+  const { member, isInactive } = await findMemberByTagUid(event.uid);
+  const isAdminTag = isAdminTagUid(event.uid);
+
+  if (member && isInactive) {
+    reportRejectedScan(terminal.id, 'inactive-member');
+    void logAuditEvent(
+      {
+        action: 'terminal.login.inactive',
+        actorId: member.id,
+        targetType: 'terminal',
+        targetId: terminal.id,
+        source: 'terminal',
+      },
+      req
+    );
+    return;
+  }
+
+  if (!member && !isAdminTag) {
+    reportRejectedScan(terminal.id, 'unknown-tag');
+    void logAuditEvent(
+      {
+        action: 'terminal.login.invalid',
+        targetType: 'terminal',
+        targetId: terminal.id,
+        relatedId: event.uid,
+        source: 'terminal',
+      },
+      req
+    );
+    return;
+  }
+
+  startSession(terminal, { member, isAdminTag });
+  void logAuditEvent(
+    {
+      action: 'terminal.login',
+      actorId: member?.id,
+      targetType: 'terminal',
+      targetId: terminal.id,
+      relatedId: terminal.equipmentId,
+      source: 'terminal',
+    },
+    req
+  );
+};
+
 export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router => {
   const router = Router();
 
@@ -72,6 +138,24 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
         ok: false,
         error: 'Test tags are not allowed in production environment',
       });
+      return;
+    }
+
+    // Scans from a machine terminal carry its key and are handled separately.
+    try {
+      const terminal = await resolveTerminal(req);
+      if (terminal === 'invalid') {
+        res.status(401).json({ ok: false, error: 'Ungültiger Terminal-Schlüssel' });
+        return;
+      }
+      if (terminal) {
+        await handleTerminalScan(terminal, event, req);
+        res.status(202).json({ ok: true });
+        return;
+      }
+    } catch (err) {
+      console.error(`[auth-routes] Terminal scan failed: ${(err as Error).message}`);
+      res.status(500).json({ ok: false, error: 'Terminal scan failed' });
       return;
     }
 

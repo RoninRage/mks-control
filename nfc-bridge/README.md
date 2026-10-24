@@ -12,6 +12,11 @@ READER_POST_PATH=/api/auth/reader
 DEVICE_ID=kiosk-01
 SOURCE=acr122u
 DEBOUNCE_MS=800
+TERMINAL_TOKEN=
+
+`TERMINAL_TOKEN` is only for a machine terminal (one Raspberry Pi per machine). Create the
+terminal in the admin UI under "Terminals" and copy the key shown there. With the key set, a scan
+only logs in at that terminal; without it, the bridge acts as the entrance reader.
 
 ## Run (Windows)
 

@@ -45,7 +45,12 @@ export interface ReaderErrorEvent {
   error: string;
 }
 
-export type AuthEvent = TagEvent | ReaderEvent | HeartbeatEvent | ReaderErrorEvent;
+export type AuthEvent =
+  | TagEvent
+  | ReaderEvent
+  | HeartbeatEvent
+  | ReaderErrorEvent
+  | TerminalStateEvent;
 
 export interface Area {
   _id?: string;
@@ -247,4 +252,85 @@ export interface CreateShellyDeviceRequest {
 export interface UpdateShellyDeviceRequest {
   name?: string;
   host?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Terminals (one Raspberry Pi per machine; phase 2: keys and login at the Pi)
+// ---------------------------------------------------------------------------
+
+export interface Terminal {
+  _id?: string;
+  _rev?: string;
+  type?: 'terminal';
+  id: string;
+  name: string;
+  equipmentId: string;
+  // SHA-256 of the terminal key. The key itself is only shown once, when it is created.
+  tokenHash?: string;
+  // Longest release at this Pi before it asks "Noch da?". Empty = never ask.
+  maxSessionMinutes?: number;
+  // Time to answer "Noch da?" before the machine is switched off. Default 5.
+  stillThereTimeoutMinutes?: number;
+  lastSeenAt?: string;
+  isActive: boolean;
+  deletedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Terminal as returned by the admin API (never contains the key hash).
+export type TerminalSummary = Omit<Terminal, 'tokenHash'>;
+
+export interface CreateTerminalRequest {
+  name: string;
+  equipmentId: string;
+  maxSessionMinutes?: number | null;
+  stillThereTimeoutMinutes?: number | null;
+}
+
+export type UpdateTerminalRequest = Partial<CreateTerminalRequest>;
+
+// Returned once on create and on key rotation.
+export interface TerminalTokenResponse {
+  terminal: TerminalSummary;
+  token: string;
+}
+
+// Why a member may not release the machine at this terminal.
+export type TerminalDenyReason = 'no-permission' | 'equipment-unavailable';
+
+export interface TerminalSessionInfo {
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  isAdmin: boolean;
+  // True when the member may release the machine (permission, or admin override).
+  canRelease: boolean;
+  // True when only the admin override allows it.
+  adminOverride: boolean;
+  denyReason?: TerminalDenyReason;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export type TerminalScanResult = 'login' | 'logout' | 'unknown-tag' | 'inactive-member';
+
+export interface TerminalLastScan {
+  result: TerminalScanResult;
+  at: string;
+}
+
+export interface TerminalState {
+  terminal: TerminalSummary;
+  equipment: { id: string; name: string; isAvailable: boolean } | null;
+  session: TerminalSessionInfo | null;
+  lastScan?: TerminalLastScan;
+}
+
+// WebSocket notice that a terminal's state changed. Contains no member data;
+// the Pi fetches the details with its key from GET /api/terminal/state.
+export interface TerminalStateEvent {
+  type: 'terminal-state';
+  terminalId: string;
+  ts: string;
 }

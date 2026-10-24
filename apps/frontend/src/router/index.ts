@@ -6,6 +6,7 @@ import {
   createWebHistory,
 } from 'vue-router';
 import { useUserStore } from 'stores/user-store';
+import { isTerminalMode } from 'src/utils/terminalConfig';
 
 import routes from './routes';
 
@@ -37,6 +38,12 @@ export default route(function (/* { store, ssrContext } */) {
 
   // Route guard for authentication
   Router.beforeEach((to, from, next) => {
+    // Kiosk mode: a machine terminal shows only the terminal page.
+    if (isTerminalMode() && to.path !== '/terminal') {
+      next({ path: '/terminal', replace: true });
+      return;
+    }
+
     const userStore = useUserStore();
 
     // Restore session on first load

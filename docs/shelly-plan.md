@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phase 1 umgesetzt, Phasen 2–7 offen
+**Stand:** 2026-10-24 · **Status:** Phasen 1–2 umgesetzt, Phasen 3–7 offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -351,7 +351,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
 
 1. ✅ **Treiber und Geräteverwaltung:** Typen, Gen1- und Gen2-Treiber, Erkennung der Funktionen,
    Mock-Shelly, Seite „Geräte", Identifizieren.
-2. **Terminals und sichere Anmeldung:** Terminal-Dokumente, Schlüssel, Anmeldung per Tag-Scan am
+2. ✅ **Terminals und sichere Anmeldung:** Terminal-Dokumente, Schlüssel, Anmeldung per Tag-Scan am
    Terminal, `nfc-bridge` und Kiosk schicken den Schlüssel.
 3. **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben (inkl. Admin),
    Abmelden mit „sofort aus", Totmannschalter, Pi ohne Verbindung, „Noch da?", Nutzungen ohne kWh,
@@ -380,6 +380,31 @@ Abweichungen vom Plan oben:
 - Der Status wird beim Öffnen der Seite und dann alle 10 s abgefragt, noch nicht im Backend.
 - Adressen: nur IPv4 im lokalen Netz (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16), damit
   das Backend nicht beliebige Server abfragen kann.
+
+### Stand Phase 2
+
+Umgesetzt: Terminals (`/api/terminals`, Seite „Terminals" für Admins) mit Schlüssel, der nur
+einmal angezeigt wird (gespeichert wird nur der SHA-256-Hash). Höchstens ein Terminal pro
+Maschine. Der Pi meldet sich mit `Authorization: Bearer mkt_…` an (`/api/terminal/state`,
+`/logout`, `/activity`). Die `nfc-bridge` schickt den Schlüssel mit, wenn `TERMINAL_TOKEN` gesetzt
+ist. Kiosk-Seite `/terminal`: Einrichtung per Schlüssel, Anzeige von Maschine, Mitglied und
+Berechtigung (inkl. Admin-Freigabe und „Maschine nicht verfügbar"), Abmelden per Tag oder Button.
+Tests: `tests/e2e/terminals.spec.ts`.
+
+Wichtige Entscheidungen dabei:
+
+- **Scans an einem Terminal wirken nur dort.** Vorher ging jeder Tag-Scan per WebSocket an alle
+  Browser und meldete überall an. Scans mit Terminal-Schlüssel werden jetzt nicht mehr als
+  `TagEvent` verteilt; es geht nur ein `terminal-state`-Hinweis ohne Mitgliedsdaten raus, und der
+  Pi holt sich die Details mit seinem Schlüssel. Ein Pi im Kiosk-Modus ignoriert umgekehrt Scans
+  vom Eingangs-Leser und zeigt keine anderen Seiten.
+- **Anmeldungen am Pi liegen im Speicher des Backends.** Ein Neustart meldet alle Pis ab.
+  Freigaben ab Phase 3 werden dagegen gespeichert.
+- **Automatische Abmeldung** ohne Freigabe nach 5 Minuten ohne Bedienung
+  (`TERMINAL_IDLE_TIMEOUT_MS`). Jede Berührung am Pi verlängert. Ab Phase 3 gilt das nur, solange
+  die Maschine nicht freigegeben ist.
+- Die Berechtigung wird bei jeder Statusabfrage neu geprüft, nicht nur beim Anmelden. Wird sie
+  entzogen, sieht der Pi das sofort.
 
 ## Risiken
 
