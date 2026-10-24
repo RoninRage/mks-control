@@ -44,3 +44,6 @@ temp/
 
 # OS
 Thumbs.db
+
+# Claude Code (personal, machine-specific settings)
+.claude/settings.local.json

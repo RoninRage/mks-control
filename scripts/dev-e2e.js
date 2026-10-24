@@ -12,6 +12,8 @@ const http = require('http');
 const log = (msg) => console.log(`[E2E] ${msg}`);
 const error = (msg) => console.error(`[E2E] ❌ ${msg}`);
 
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
 async function checkPort(port) {
   return new Promise((resolve) => {
     const net = require('net');
@@ -73,7 +75,7 @@ async function startDocker() {
   if (!dbRunning) {
     log('Starting CouchDB...');
     try {
-      execSync('docker-compose up -d', {
+      execSync('docker compose up -d', {
         stdio: 'ignore',
         cwd: path.join(__dirname, '..'),
       });
@@ -89,16 +91,22 @@ async function startDocker() {
 function startService(name, cmd, args, cwd) {
   return new Promise((resolve) => {
     log(`Starting ${name}...`);
+    // Same as scripts/dev.js: override the root .npmrc (workspaces=false) so
+    // `npm run dev` works inside a workspace directory.
+    const childEnv = {
+      ...process.env,
+      MONOREPO_DEV: 'true',
+      NODE_ENV: 'test',
+      CI: 'true',
+      npm_config_workspaces: 'true',
+    };
+    delete childEnv.npm_config_workspace;
+
     const proc = spawn(cmd, args, {
       cwd: path.join(__dirname, '..', cwd),
       stdio: ['ignore', 'pipe', 'pipe'], // Capture stdout and stderr
       shell: true,
-      env: {
-        ...process.env,
-        MONOREPO_DEV: 'true',
-        NODE_ENV: 'test',
-        CI: 'true',
-      },
+      env: childEnv,
     });
 
     // Log errors
@@ -145,7 +153,7 @@ async function main() {
     log('CouchDB ready');
 
     // Start Backend
-    const backendProc = await startService('Backend', 'npm.cmd', ['run', 'dev'], 'apps/backend');
+    const backendProc = await startService('Backend', NPM, ['run', 'dev'], 'apps/backend');
 
     // Wait for Backend
     log('Waiting for Backend...');
@@ -153,7 +161,7 @@ async function main() {
     log('Backend ready');
 
     // Start Frontend
-    const frontendProc = await startService('Frontend', 'npm.cmd', ['run', 'dev'], 'apps/frontend');
+    const frontendProc = await startService('Frontend', NPM, ['run', 'dev'], 'apps/frontend');
 
     // Wait for Frontend
     log('Waiting for Frontend...');
