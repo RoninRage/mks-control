@@ -6,7 +6,13 @@ import { Member } from '../types/member';
 import { findMemberByTagUid, isAdminTagUid } from '../db/memberLookup';
 import type { StoredTerminal } from '../terminals/repository';
 import { resolveTerminal } from '../terminals/terminalAuth';
-import { endSession, hasSession, reportRejectedScan, startSession } from '../terminals/sessions';
+import {
+  endSession,
+  hasSession,
+  loginFromMember,
+  reportRejectedScan,
+  startSession,
+} from '../terminals/sessions';
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
 
@@ -64,7 +70,8 @@ const handleTerminalScan = async (
   req: Request
 ): Promise<void> => {
   if (hasSession(terminal.id)) {
-    endSession(terminal.id, 'scan');
+    // Logging out also ends a machine release (switches the machine off).
+    await endSession(terminal.id, 'scan');
     return;
   }
 
@@ -101,7 +108,7 @@ const handleTerminalScan = async (
     return;
   }
 
-  startSession(terminal, { member, isAdminTag });
+  startSession(terminal, loginFromMember(member, isAdminTag));
   void logAuditEvent(
     {
       action: 'terminal.login',

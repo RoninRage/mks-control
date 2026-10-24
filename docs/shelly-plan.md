@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phasen 1–2 umgesetzt, Phasen 3–7 offen
+**Stand:** 2026-10-24 · **Status:** Phasen 1–3 umgesetzt, Phasen 4–7 offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -353,7 +353,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
    Mock-Shelly, Seite „Geräte", Identifizieren.
 2. ✅ **Terminals und sichere Anmeldung:** Terminal-Dokumente, Schlüssel, Anmeldung per Tag-Scan am
    Terminal, `nfc-bridge` und Kiosk schicken den Schlüssel.
-3. **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben (inkl. Admin),
+3. ✅ **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben (inkl. Admin),
    Abmelden mit „sofort aus", Totmannschalter, Pi ohne Verbindung, „Noch da?", Nutzungen ohne kWh,
    Audit.
 4. **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
@@ -405,6 +405,39 @@ Wichtige Entscheidungen dabei:
   die Maschine nicht freigegeben ist.
 - Die Berechtigung wird bei jeder Statusabfrage neu geprüft, nicht nur beim Anmelden. Wird sie
   entzogen, sieht der Pi das sofort.
+
+### Stand Phase 3
+
+Umgesetzt: Steuerung pro Maschine (`PUT/DELETE /api/equipment/:id/control`, Abschnitt
+„Steuerung" auf der Ausstattungsseite): Shelly-Gerät, Ausgang (Relais oder Licht),
+Sicherheits-Timer. Am Pi: Button „Maschine freigeben" (`POST /api/terminal/release`), Anzeige
+„freigegeben" mit Laufzeit, Abmelden schaltet sofort aus, Rückfrage „Noch da?"
+(`POST /api/terminal/still-there`). Jede Freigabe wird als `EquipmentUsage` in der neuen Datenbank
+`mks_usage` gespeichert (`COUCHDB_USAGE_DB_NAME`), mit Grund fürs Ende. Code:
+`apps/backend/src/machines/`. Tests: `tests/e2e/machine-control.spec.ts`.
+
+Verhalten im Detail:
+
+- **Sicherheits-Timer:** Einschalten mit `toggle_after` (Gen2) bzw. `timer` (Gen1). Das Backend
+  erneuert ihn alle Timer/3, solange der Pi sich meldet. Schlägt das Erneuern bis zum Ablauf fehl,
+  endet die Freigabe mit `device-offline`; der Shelly hat dann selbst abgeschaltet.
+- **Pi ohne Verbindung:** Der Pi meldet sich über seine Statusabfragen (Takt kommt vom Backend,
+  `pollIntervalMs`). Nach `TERMINAL_OFFLINE_AFTER_MS` (Standard 60 s) ohne Meldung wird nicht mehr
+  erneuert; die Maschine läuft bis zum Ablauf des Timers und die Freigabe endet mit
+  `terminal-offline`. Kommt der Pi vorher zurück, läuft alles weiter.
+- **Während einer Freigabe** gilt die automatische Abmeldung nach Leerlauf nicht; stattdessen
+  „Noch da?" nach der Höchstdauer des Pi. Ohne Antwort: abmelden und ausschalten (`timeout`).
+- **Neustart des Backends:** Offene Freigaben werden aus `mks_usage` wieder aufgenommen, inklusive
+  Anmeldung am Pi; der Timer wird sofort erneuert. Passt die Konfiguration nicht mehr, wird die
+  Freigabe mit `system` geschlossen.
+- **Schutz:** Ein zugeordneter Shelly kann nicht ausgemustert werden, ein Ausgang schaltet nur eine
+  Maschine, und „Identifizieren" ist gesperrt, solange die Maschine freigegeben ist.
+- Zeiten in Minuten (Timer, Höchstdauer, Antwortzeit) werden mit `TERMINAL_MINUTE_MS` gerechnet
+  (Standard 60 000). Die Tests setzen 1000, damit eine „Minute" eine Sekunde dauert.
+
+Noch nicht in Phase 3: Wird die Berechtigung entzogen oder die Maschine während einer Freigabe als
+nicht verfügbar markiert, läuft die Freigabe weiter bis zum Abmelden. Fernabschaltung durch Admins
+kommt mit Phase 6.
 
 ## Risiken
 

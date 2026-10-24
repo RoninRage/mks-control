@@ -1,7 +1,7 @@
 import { FullConfig } from '@playwright/test';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
-import { deleteTestDatabases } from './helpers/database';
+import { deleteTestDatabases, getTestNano } from './helpers/database';
 
 /**
  * Global teardown for Playwright E2E tests
@@ -17,6 +17,16 @@ async function globalTeardown(config: FullConfig) {
   if (!membersDbName || !tagsDbName) {
     console.warn('⚠️  Test database names not found. Skipping cleanup.');
     return;
+  }
+
+  const usageDbName = process.env.TEST_USAGE_DB_NAME;
+  if (usageDbName) {
+    try {
+      await getTestNano().db.destroy(usageDbName);
+      console.log(`[test-db] Deleted usage database: ${usageDbName}`);
+    } catch {
+      // The backend creates it on start; it may not exist if the backend never ran.
+    }
   }
 
   try {

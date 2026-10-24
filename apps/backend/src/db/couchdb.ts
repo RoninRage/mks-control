@@ -1,5 +1,6 @@
 import nano, { ServerScope } from 'nano';
 import { AuditLog } from '../types/audit';
+import type { EquipmentUsage } from '../types/machine';
 import { Member } from '../types/member';
 import { Tag } from '../types/tag';
 
@@ -14,6 +15,7 @@ const getCouchDBConfig = (): {
   dbName: string;
   tagsDbName: string;
   auditDbName: string;
+  usageDbName: string;
 } => {
   const isDevMode = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
   const url = process.env.COUCHDB_URL ?? (isDevMode ? 'http://localhost:5984' : '');
@@ -22,18 +24,20 @@ const getCouchDBConfig = (): {
   const dbName = process.env.COUCHDB_DB_NAME ?? 'mks_members';
   const tagsDbName = process.env.COUCHDB_TAGS_DB_NAME ?? 'mks_tags';
   const auditDbName = process.env.COUCHDB_AUDIT_DB_NAME ?? 'mks_audit';
+  const usageDbName = process.env.COUCHDB_USAGE_DB_NAME ?? 'mks_usage';
 
   if (!url || !user || !password) {
     error('Missing CouchDB configuration. Set COUCHDB_URL, COUCHDB_USER, COUCHDB_PASSWORD.');
     throw new Error('Invalid CouchDB configuration');
   }
 
-  return { url, user, password, dbName, tagsDbName, auditDbName };
+  return { url, user, password, dbName, tagsDbName, auditDbName, usageDbName };
 };
 
 let dbInstance: nano.DocumentScope<Member> | null = null;
 let tagDbInstance: nano.DocumentScope<Tag> | null = null;
 let auditDbInstance: nano.DocumentScope<AuditLog> | null = null;
+let usageDbInstance: nano.DocumentScope<EquipmentUsage> | null = null;
 let nanoInstance: ServerScope | null = null;
 
 export const initializeDatabase = async (): Promise<void> => {
@@ -70,7 +74,13 @@ export const initializeDatabase = async (): Promise<void> => {
       await nanoInstance.db.create(config.auditDbName);
     }
 
+    // Check if usage database exists (machine releases, docs/shelly-plan.md)
+    if (!dbList.includes(config.usageDbName)) {
+      await nanoInstance.db.create(config.usageDbName);
+    }
+
     dbInstance = nanoInstance.use<Member>(config.dbName);
+    usageDbInstance = nanoInstance.use<EquipmentUsage>(config.usageDbName);
     tagDbInstance = nanoInstance.use<Tag>(config.tagsDbName);
     auditDbInstance = nanoInstance.use<AuditLog>(config.auditDbName);
 
@@ -137,6 +147,15 @@ export const initializeDatabase = async (): Promise<void> => {
           fields: ['isActive'],
         },
         name: 'active-status-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
+    try {
+      await usageDbInstance.createIndex({
+        index: { fields: ['endedAt'] },
+        name: 'ended-at-index',
       });
     } catch (err) {
       // Index might already exist
@@ -211,6 +230,13 @@ export const getAuditDatabase = (): nano.DocumentScope<AuditLog> => {
     throw new Error('Audit database not initialized. Call initializeDatabase() first.');
   }
   return auditDbInstance;
+};
+
+export const getUsageDatabase = (): nano.DocumentScope<EquipmentUsage> => {
+  if (!usageDbInstance) {
+    throw new Error('Usage database not initialized. Call initializeDatabase() first.');
+  }
+  return usageDbInstance;
 };
 
 export const getNanoInstance = (): ServerScope => {

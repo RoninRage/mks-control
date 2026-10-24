@@ -8,12 +8,11 @@ import type {
   TerminalLastScan,
   TerminalScanResult,
   TerminalSessionInfo,
-  TerminalState,
 } from '../types/terminal';
-import { toTerminalSummary, type StoredTerminal } from './repository';
+import type { StoredTerminal } from './repository';
 
-// Who is logged in at which terminal. Kept in memory: a backend restart logs everyone out
-// at the Pis. (Machine releases from phase 3 on are persisted separately.)
+// Who is logged in at which terminal. Kept in memory; machine releases are persisted
+// separately (machines/machineControl.ts) and restore their login after a restart.
 
 interface StoredSession {
   // Null for an admin tag from ADMIN_TAG_UIDS that belongs to no member.
@@ -36,6 +35,22 @@ export const setTerminalNotifier = (notify: (terminalId: string) => void): void 
   notifyTerminal = notify;
 };
 
+export const notifyTerminalChanged = (terminalId: string): void => {
+  notifyTerminal(terminalId);
+};
+
+export type LogoutReason = 'scan' | 'button' | 'timeout' | 'terminal-removed' | 'terminal-offline';
+
+// Runs before a session ends; machine control uses it to switch the machine off.
+let sessionEndHandler: (terminalId: string, reason: LogoutReason) => Promise<void> = async () =>
+  undefined;
+
+export const setSessionEndHandler = (
+  handler: (terminalId: string, reason: LogoutReason) => Promise<void>
+): void => {
+  sessionEndHandler = handler;
+};
+
 const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60_000;
 
 // Logged in without activity for this long → logged out. Configurable for tests.
@@ -48,6 +63,9 @@ export const recordScan = (terminalId: string, result: TerminalScanResult): void
   lastScans.set(terminalId, { result, at: new Date().toISOString() });
 };
 
+export const getLastScan = (terminalId: string): TerminalLastScan | undefined =>
+  lastScans.get(terminalId);
+
 // Records a scan that did not log anyone in (unknown tag, deactivated member) and tells the Pi.
 export const reportRejectedScan = (terminalId: string, result: TerminalScanResult): void => {
   recordScan(terminalId, result);
@@ -56,29 +74,48 @@ export const reportRejectedScan = (terminalId: string, result: TerminalScanResul
 
 export const hasSession = (terminalId: string): boolean => sessions.has(terminalId);
 
+export interface SessionLogin {
+  memberId: string | null;
+  firstName: string;
+  lastName: string;
+  isAdminTag: boolean;
+}
+
+export const loginFromMember = (member: Member | null, isAdminTag: boolean): SessionLogin => ({
+  memberId: member?.id ?? null,
+  firstName: member?.firstName ?? 'Admin',
+  lastName: member?.lastName ?? '',
+  isAdminTag,
+});
+
 export const startSession = (
   terminal: StoredTerminal,
-  login: { member: Member | null; isAdminTag: boolean }
+  login: SessionLogin,
+  options: { silent?: boolean } = {}
 ): void => {
   const now = Date.now();
-  sessions.set(terminal.id, {
-    memberId: login.member?.id ?? null,
-    firstName: login.member?.firstName ?? 'Admin',
-    lastName: login.member?.lastName ?? '',
-    isAdminTag: login.isAdminTag,
-    startedAt: now,
-    lastActivityAt: now,
-  });
-  recordScan(terminal.id, 'login');
-  notifyTerminal(terminal.id);
+  sessions.set(terminal.id, { ...login, startedAt: now, lastActivityAt: now });
+  if (!options.silent) {
+    recordScan(terminal.id, 'login');
+    notifyTerminal(terminal.id);
+  }
 };
 
-export type LogoutReason = 'scan' | 'button' | 'timeout' | 'terminal-removed';
-
-export const endSession = (terminalId: string, reason: LogoutReason): boolean => {
+export const endSession = async (terminalId: string, reason: LogoutReason): Promise<boolean> => {
   const session = sessions.get(terminalId);
   if (!session) {
     return false;
+  }
+
+  try {
+    await sessionEndHandler(terminalId, reason);
+  } catch (err) {
+    console.error('[terminals] Session end handler failed:', err);
+  }
+
+  // The handler may have ended the session already (e.g. via a nested call).
+  if (sessions.get(terminalId) !== session) {
+    return true;
   }
   sessions.delete(terminalId);
   if (reason === 'scan' || reason === 'button') {
@@ -108,7 +145,7 @@ export const sweepExpiredSessions = (): void => {
   const now = Date.now();
   [...sessions.entries()].forEach(([terminalId, session]) => {
     if (now - session.lastActivityAt >= timeout) {
-      endSession(terminalId, 'timeout');
+      void endSession(terminalId, 'timeout');
     }
   });
 };
@@ -124,7 +161,7 @@ export const startSessionSweeper = (): void => {
   sweeper.unref();
 };
 
-const findEquipment = async (id: string): Promise<Equipment | null> => {
+export const findEquipment = async (id: string): Promise<Equipment | null> => {
   const db = getDatabase<Equipment>();
   const result = await db.find({
     selector: { type: { $eq: 'equipment' }, id: { $eq: id } },
@@ -176,39 +213,32 @@ export const decideRelease = (
   return { canRelease: false, adminOverride: false, isAdmin, denyReason: 'no-permission' };
 };
 
-export const getTerminalState = async (terminal: StoredTerminal): Promise<TerminalState> => {
-  const equipment = await findEquipment(terminal.equipmentId);
-  const stored = sessions.get(terminal.id);
-
-  let session: TerminalSessionInfo | null = null;
-  if (stored) {
-    const member = stored.memberId ? await findMemberById(stored.memberId) : null;
-    const decision = decideRelease(stored, member, equipment);
-    session = {
-      memberId: stored.memberId ?? '',
-      firstName: stored.firstName,
-      lastName: stored.lastName,
-      isAdmin: decision.isAdmin,
-      canRelease: decision.canRelease,
-      adminOverride: decision.adminOverride,
-      denyReason: decision.denyReason,
-      startedAt: new Date(stored.startedAt).toISOString(),
-      expiresAt: new Date(stored.lastActivityAt + getIdleTimeoutMs()).toISOString(),
-    };
+// Logged-in person and their release permission, evaluated against current data.
+export const getSessionInfo = async (
+  terminalId: string,
+  equipment: Equipment | null
+): Promise<TerminalSessionInfo | null> => {
+  const stored = sessions.get(terminalId);
+  if (!stored) {
+    return null;
   }
-
+  const member = stored.memberId ? await findMemberById(stored.memberId) : null;
+  const decision = decideRelease(stored, member, equipment);
   return {
-    terminal: toTerminalSummary(terminal),
-    equipment: equipment
-      ? { id: equipment.id, name: equipment.name, isAvailable: equipment.isAvailable }
-      : null,
-    session,
-    lastScan: lastScans.get(terminal.id),
+    memberId: stored.memberId ?? '',
+    firstName: stored.firstName,
+    lastName: stored.lastName,
+    isAdmin: decision.isAdmin,
+    canRelease: decision.canRelease,
+    adminOverride: decision.adminOverride,
+    denyReason: decision.denyReason,
+    startedAt: new Date(stored.startedAt).toISOString(),
+    expiresAt: new Date(stored.lastActivityAt + getIdleTimeoutMs()).toISOString(),
   };
 };
 
-// Test hook / used when a terminal is removed.
-export const clearTerminalRuntime = (terminalId: string): void => {
-  endSession(terminalId, 'terminal-removed');
+// Used when a terminal is removed or its key rotated.
+export const clearTerminalRuntime = async (terminalId: string): Promise<void> => {
+  await endSession(terminalId, 'terminal-removed');
   lastScans.delete(terminalId);
 };

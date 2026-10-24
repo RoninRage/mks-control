@@ -47,6 +47,7 @@ npm run <script> --workspace=nfc-bridge
 - **If `.env.test` exists, the backend auto-switches to test mode** (`server.ts` loads it instead of `.env`). Delete a leftover `.env.test` before normal dev runs.
 - Playwright's `webServer` runs `scripts/dev-e2e.js` (reuses already-running servers); the NFC bridge is skipped when `NODE_ENV=test`.
 - `tests/global-setup.ts` creates and seeds the test DBs via `tests/helpers/` (`database.ts`, `factories.ts`, `auth.ts`); tests run serially (1 worker, Chromium only).
+- `.env.test` also sets a unique `COUCHDB_USAGE_DB_NAME` (deleted in teardown) and fast machine timings: `TERMINAL_MINUTE_MS=1000` (one configured minute = 1 s), `TERMINAL_OFFLINE_AFTER_MS=5000`, `MACHINE_TICK_MS=250`. Tests that release machines must keep the Pi "online" by polling `/api/terminal/state`, and should delete terminals via the API so releases end in the backend.
 - `.env.test` sets `TERMINAL_IDLE_TIMEOUT_MS=10000` (automatic logout at terminals, default 5 min) so `terminals.spec.ts` can test it.
 - `tests/helpers/mockShelly.ts` starts fake Gen1/Gen2 Shellys on `127.0.0.1:<random port>` (relays, metering, inputs, lights, covers, auth, offline). `.env.test` sets `SHELLY_PASSWORD=test-shelly-secret` to match.
 - Quasar puts `data-testid` of a `q-input` on the native `<input>`, so fill it directly (`getByTestId('x').fill(...)`).
@@ -106,13 +107,14 @@ packages/shared-types/  TypeScript types shared across all workspaces
 
 **Data flow:** NFC reader → nfc-bridge → `POST /api/auth/tag` → backend WebSocket broadcast → frontend real-time update.
 
-**Database:** CouchDB 3.3 on port 5984 via Docker (dev creds `admin`/`password`, Fauxton at `http://localhost:5984/_utils`). Three databases, names overridable by env:
+**Database:** CouchDB 3.3 on port 5984 via Docker (dev creds `admin`/`password`, Fauxton at `http://localhost:5984/_utils`). Four databases, names overridable by env:
 
 - `mks_members` (`COUCHDB_DB_NAME`) — members, areas and equipment, told apart by a `type` field (`migrateDocTypes` backfills it)
 - `mks_tags` (`COUCHDB_TAGS_DB_NAME`) — NFC tags linked to members by `memberId`
 - `mks_audit` (`COUCHDB_AUDIT_DB_NAME`) — audit log, with a scheduled retention cleanup
+- `mks_usage` (`COUCHDB_USAGE_DB_NAME`) — machine releases (`EquipmentUsage`), open while a machine runs
 
-Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` → `migrateBackupAdmin` → seed (if `SEED_DATA=true`; `SEED_MODE=mass` uses `seedMass.ts`) → `migrateTagsToCollection` (moves legacy `member.tagUid` into the tags DB).
+Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` → `migrateBackupAdmin` → seed (if `SEED_DATA=true`; `SEED_MODE=mass` uses `seedMass.ts`) → `migrateTagsToCollection` (moves legacy `member.tagUid` into the tags DB) → terminal session sweeper and `startMachineControl` (resumes open machine releases).
 
 **Auth model (no tokens/sessions on the backend):** a tag scan hits `POST /api/auth/tag`, the backend resolves the member/admin and broadcasts a `TagEvent` over the WebSocket at `/ws/auth`. The frontend (`boot/auth.ts`) sets the role in `user-store` and goes to `/dashboard`. Scanning a tag while logged in logs out, unless "tag assignment mode" is active (used when assigning a tag to a member). Roles in priority order: `admin`, `vorstand`, `bereichsleitung`, `mitglied`. After login, `boot/fetch-headers.ts` patches `window.fetch` to add `X-Source`, `X-User-ID`, `X-User-Role` and `X-Device-ID`. Backend routes authorize and audit using these headers.
 
@@ -122,6 +124,7 @@ Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` 
 - `routes/` — One file per domain: `authRoutes`, `memberRoutes`, `tagRoutes`, `areaRoutes`, `equipmentRoutes`, `auditRoutes`, `shellyRoutes` (admin only, `/api/shelly/devices`), `terminalRoutes` (admin only, `/api/terminals`), `terminalClientRoutes` (Pi, `/api/terminal`, terminal key)
 - `terminals/` — machine terminals (one Pi per machine): keys (`token.ts`, only the SHA-256 hash is stored), `terminalAuth.ts` (`Authorization: Bearer mkt_…`), in-memory login per terminal and release permission (`sessions.ts`). A `POST /api/auth/tag` carrying a terminal key only logs in at that terminal and is **not** broadcast as a `TagEvent`; the WebSocket only gets a `terminal-state` notice without member data.
 - `shelly/` — Shelly drivers: `drivers/gen1.ts` (REST, HTTP Basic) and `drivers/gen2.ts` (JSON-RPC, HTTP Digest, also Gen3/Gen4), `driver.ts` picks one via `GET /shelly`. `host.ts` only accepts local IPv4 addresses. Plan for the machine control: `docs/shelly-plan.md`
+- `machines/` — machine releases (`machineControl.ts`): `POST /api/terminal/release` switches the equipment's Shelly output (`equipment.control`, set via `routes/machineRoutes.ts`) on with an auto-off timer that a control loop renews while the Pi keeps polling; logout, "Noch da?" timeout, Pi or Shelly offline end it. Each release is an `EquipmentUsage` in `mks_usage`; open ones are resumed on restart. Timings in `timing.ts`.
 - `ws/authWs.ts` — WebSocket server for real-time tag events
 - `db/couchdb.ts` — CouchDB connection and initialization
 - `db/migrations.ts` — Schema migrations

@@ -113,17 +113,64 @@
               {{ denyText(state.session.denyReason) }}
             </q-banner>
 
-            <div class="text-body1 text-grey-7 q-mt-lg" data-testid="terminal-auto-logout">
+            <!-- Machine -->
+            <q-banner
+              v-if="release"
+              class="bg-primary text-white terminal__message terminal__message--released q-mt-lg"
+              data-testid="terminal-released"
+            >
+              <template #avatar>
+                <q-icon name="power" />
+              </template>
+              Maschine freigegeben · läuft seit {{ runtimeText }}
+            </q-banner>
+            <q-banner
+              v-else-if="state.session.canRelease && machineBlockText"
+              class="bg-warning terminal__message q-mt-lg"
+              data-testid="terminal-machine-blocked"
+              :data-reason="state.machine.blockReason"
+            >
+              <template #avatar>
+                <q-icon name="warning" />
+              </template>
+              {{ machineBlockText }}
+            </q-banner>
+            <q-banner
+              v-if="releaseError"
+              class="bg-negative text-white terminal__message q-mt-md"
+              data-testid="terminal-release-error"
+            >
+              {{ releaseError }}
+            </q-banner>
+
+            <div
+              v-if="!release"
+              class="text-body1 text-grey-7 q-mt-lg"
+              data-testid="terminal-auto-logout"
+            >
               Automatische Abmeldung in {{ remainingText }}
             </div>
 
             <div class="terminal__actions q-mt-xl">
               <q-btn
+                v-if="!release && state.session.canRelease"
+                unelevated
+                color="positive"
+                size="xl"
+                icon="power_settings_new"
+                label="Maschine freigeben"
+                class="terminal__big-button"
+                data-testid="terminal-release"
+                :disable="Boolean(state.machine.blockReason)"
+                :loading="releasing"
+                @click="releaseMachine"
+              />
+              <q-btn
                 unelevated
                 color="primary"
                 size="xl"
                 icon="logout"
-                label="Abmelden"
+                :label="release ? 'Abmelden und Maschine ausschalten' : 'Abmelden'"
                 class="terminal__big-button"
                 data-testid="terminal-logout"
                 :loading="loggingOut"
@@ -142,6 +189,31 @@
             </div>
           </section>
         </div>
+
+        <!-- "Noch da?" -->
+        <q-dialog :model-value="Boolean(stillThere)" persistent>
+          <q-card class="terminal__still-there" data-testid="terminal-still-there">
+            <q-card-section class="text-center">
+              <q-icon name="help_outline" size="72px" />
+              <div class="text-h4 q-mt-md">Noch da?</div>
+              <div class="text-h6 q-mt-sm" data-testid="terminal-still-there-countdown">
+                Die Maschine wird in {{ stillThereRemainingText }} ausgeschaltet.
+              </div>
+            </q-card-section>
+            <q-card-actions align="center" class="q-pb-lg">
+              <q-btn
+                unelevated
+                color="positive"
+                size="xl"
+                label="Ja, ich bin noch da"
+                class="terminal__big-button"
+                data-testid="terminal-still-there-confirm"
+                :loading="confirming"
+                @click="confirmStillThere"
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
       </q-page>
     </q-page-container>
   </q-layout>
@@ -151,6 +223,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import type {
+  MachineBlockReason,
   TerminalDenyReason,
   TerminalScanResult,
   TerminalState,
@@ -170,7 +243,8 @@ interface ScanMessage {
   className: string;
 }
 
-const STATE_POLL_INTERVAL_MS = 30_000;
+// Fallback until the backend tells us its interval (state.pollIntervalMs).
+const DEFAULT_POLL_INTERVAL_MS = 15_000;
 const SCAN_MESSAGE_VISIBLE_MS = 8_000;
 const ACTIVITY_THROTTLE_MS = 30_000;
 
@@ -184,9 +258,13 @@ const connecting = ref(false);
 const state = ref<TerminalState | null>(null);
 const loadError = ref(false);
 const loggingOut = ref(false);
+const releasing = ref(false);
+const confirming = ref(false);
+const releaseError = ref<string | null>(null);
 const now = ref(Date.now());
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 let removeStateListener: (() => void) | null = null;
 let lastActivityReport = 0;
@@ -222,6 +300,36 @@ const remainingText = computed((): string => {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')} min`;
 });
 
+const release = computed(() => state.value?.machine.release ?? null);
+const stillThere = computed(() => release.value?.stillThere ?? null);
+
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mmss = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return hours > 0 ? `${hours}:${mmss} h` : `${mmss} min`;
+};
+
+const runtimeText = computed((): string =>
+  release.value ? formatDuration(now.value - Date.parse(release.value.startedAt)) : '–'
+);
+
+const stillThereRemainingText = computed((): string =>
+  stillThere.value ? formatDuration(Date.parse(stillThere.value.deadline) - now.value) : '–'
+);
+
+const BLOCK_TEXTS: Record<MachineBlockReason, string> = {
+  'not-configured': 'Diese Maschine ist noch keinem Shelly zugeordnet.',
+  'device-offline': 'Der Shelly dieser Maschine ist nicht erreichbar.',
+};
+
+const machineBlockText = computed((): string | null => {
+  const reason = state.value?.machine.blockReason;
+  return reason ? BLOCK_TEXTS[reason] : null;
+});
+
 function denyText(reason: TerminalDenyReason | undefined): string {
   if (reason === 'equipment-unavailable') {
     return 'Diese Maschine ist als nicht verfügbar markiert.';
@@ -229,9 +337,20 @@ function denyText(reason: TerminalDenyReason | undefined): string {
   return 'Keine Berechtigung für diese Maschine.';
 }
 
+function applyState(next: TerminalState): void {
+  state.value = next;
+  if (!next.session) {
+    releaseError.value = null;
+  }
+  if (next.pollIntervalMs && next.pollIntervalMs !== pollIntervalMs) {
+    pollIntervalMs = next.pollIntervalMs;
+    restartPolling();
+  }
+}
+
 async function loadState(): Promise<void> {
   try {
-    state.value = await terminalClientService.getState();
+    applyState(await terminalClientService.getState());
     loadError.value = false;
   } catch (err) {
     if (err instanceof TerminalApiError && err.status === 401) {
@@ -243,12 +362,21 @@ async function loadState(): Promise<void> {
   }
 }
 
+// Regular polling also tells the backend this Pi is online; without it the machine
+// switches off when its safety timer runs out.
+function restartPolling(): void {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+  }
+  pollTimer = setInterval(() => {
+    void loadState();
+  }, pollIntervalMs);
+}
+
 function startUpdates(): void {
   stopUpdates();
   void loadState();
-  pollTimer = setInterval(() => {
-    void loadState();
-  }, STATE_POLL_INTERVAL_MS);
+  restartPolling();
   removeStateListener = authEventSource.onTerminalState((event: TerminalStateEvent) => {
     if (state.value && event.terminalId === state.value.terminal.id) {
       void loadState();
@@ -273,7 +401,7 @@ async function connect(): Promise<void> {
   connecting.value = true;
   setupError.value = null;
   try {
-    state.value = await terminalClientService.getState(token);
+    applyState(await terminalClientService.getState(token));
     setTerminalToken(token);
     setupToken.value = '';
     configured.value = true;
@@ -296,10 +424,34 @@ function disconnect(message: string | null): void {
   setupError.value = message;
 }
 
+async function releaseMachine(): Promise<void> {
+  releasing.value = true;
+  releaseError.value = null;
+  try {
+    applyState(await terminalClientService.release());
+  } catch (err) {
+    releaseError.value = err instanceof Error ? err.message : 'Freigabe fehlgeschlagen';
+    void loadState();
+  } finally {
+    releasing.value = false;
+  }
+}
+
+async function confirmStillThere(): Promise<void> {
+  confirming.value = true;
+  try {
+    applyState(await terminalClientService.stillThere());
+  } catch {
+    void loadState();
+  } finally {
+    confirming.value = false;
+  }
+}
+
 async function logout(): Promise<void> {
   loggingOut.value = true;
   try {
-    state.value = await terminalClientService.logout();
+    applyState(await terminalClientService.logout());
   } catch {
     loadError.value = true;
   } finally {
@@ -426,6 +578,15 @@ onBeforeUnmount(() => {
 
   &__small-button {
     min-height: 44px;
+  }
+
+  &__message--released {
+    font-size: 1.5rem;
+  }
+
+  &__still-there {
+    min-width: min(560px, 92vw);
+    border-radius: 16px;
   }
 }
 </style>

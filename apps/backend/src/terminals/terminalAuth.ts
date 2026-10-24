@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { findTerminalByToken, touchTerminal, type StoredTerminal } from './repository';
 import { readBearerToken } from './token';
+import { markTerminalContact } from './contact';
 
 // Authenticates a Raspberry Pi terminal by its key ("Authorization: Bearer mkt_...").
 // The terminal is resolved from the key alone; client headers like X-Device-ID do not count.
@@ -31,6 +32,7 @@ export const resolveTerminal = async (req: Request): Promise<StoredTerminal | 'i
   if (!terminal) {
     return 'invalid';
   }
+  markTerminalContact(terminal.id);
   void touchTerminal(terminal);
   return terminal;
 };

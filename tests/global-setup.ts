@@ -31,6 +31,11 @@ async function globalSetup(_config: FullConfig) {
     throw new Error('Could not read database names from .env.test');
   }
 
+  const usageDbMatch = envContent.match(/COUCHDB_USAGE_DB_NAME=(.+)/);
+  if (usageDbMatch) {
+    process.env.TEST_USAGE_DB_NAME = usageDbMatch[1].trim();
+  }
+
   const membersDbName = membersDbMatch[1].trim();
   const tagsDbName = tagsDbMatch[1].trim();
 

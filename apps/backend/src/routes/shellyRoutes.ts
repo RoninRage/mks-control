@@ -17,6 +17,8 @@ import {
   ShellyUnsupportedError,
 } from '../shelly/errors';
 import { normalizeShellyHost } from '../shelly/host';
+import { isDeviceInUse } from '../machines/machineControl';
+import type { Equipment } from '../types/equipment';
 
 // Shelly device management (admin only).
 // Mounted at /api/shelly.
@@ -383,6 +385,11 @@ router.post('/devices/:id/identify', async (req: Request, res: Response) => {
       return;
     }
 
+    // Flipping the output would switch a released machine off for a second.
+    if (isDeviceInUse(device.id)) {
+      throw new ShellyUnsupportedError('Das Gerät schaltet gerade eine freigegebene Maschine');
+    }
+
     const component = pickIdentifyComponent(device.components);
     if (!component) {
       throw new ShellyUnsupportedError(
@@ -420,6 +427,18 @@ router.delete('/devices/:id', async (req: Request, res: Response) => {
     const device = await findDeviceById(req.params.id);
     if (!device) {
       res.status(404).json({ error: 'Gerät nicht gefunden' });
+      return;
+    }
+
+    const assigned = await getDatabase<Equipment>().find({
+      selector: { type: { $eq: 'equipment' }, 'control.deviceId': { $eq: device.id } },
+      limit: 1000,
+    });
+    const machine = assigned.docs.find((e) => e.isActive !== false);
+    if (machine) {
+      res.status(409).json({
+        error: `Das Gerät schaltet „${machine.name}“. Bitte zuerst die Zuordnung entfernen.`,
+      });
       return;
     }
 

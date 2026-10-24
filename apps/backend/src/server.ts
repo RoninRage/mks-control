@@ -30,6 +30,8 @@ import shellyRoutes from './routes/shellyRoutes';
 import terminalRoutes from './routes/terminalRoutes';
 import terminalClientRoutes from './routes/terminalClientRoutes';
 import { setTerminalNotifier, startSessionSweeper } from './terminals/sessions';
+import { startMachineControl } from './machines/machineControl';
+import machineRoutes from './routes/machineRoutes';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
@@ -80,6 +82,7 @@ const startServer = async (): Promise<void> => {
   app.use('/api', createMemberRoutes());
   app.use('/api', createTagRoutes());
   app.use('/api/areas', areaRoutes);
+  app.use('/api/equipment', machineRoutes);
   app.use('/api/equipment', equipmentRoutes);
   app.use('/api/audit-logs', auditRoutes);
   app.use('/api/shelly', shellyRoutes);
@@ -91,6 +94,7 @@ const startServer = async (): Promise<void> => {
     broadcast({ type: 'terminal-state', terminalId, ts: new Date().toISOString() });
   });
   startSessionSweeper();
+  await startMachineControl();
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });
