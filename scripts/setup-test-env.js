@@ -32,6 +32,7 @@ MONOREPO_DEV=true
 COUCHDB_URL=http://localhost:5984
 COUCHDB_USER=admin
 COUCHDB_PASSWORD=password
+SHELLY_PASSWORD=test-shelly-secret
 `;
 
 const envPath = join(process.cwd(), '.env.test');

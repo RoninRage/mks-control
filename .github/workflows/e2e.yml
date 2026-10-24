@@ -85,6 +85,8 @@ jobs:
         env:
           npm_config_workspaces: 'true'
           NODE_ENV: test
+          # The dev server has no /api proxy; without this the app calls localhost:9000/api.
+          API_BASE_URL: http://localhost:3000/api
 
       # Wait for frontend (Quasar dev server)
       - name: Wait for frontend

@@ -33,6 +33,8 @@ services:
       ADMIN_TAG_UIDS: ${ADMIN_TAG_UIDS:-}
       PORT: '3000'
       SEED_DATA: ${SEED_DATA:-false}
+      SHELLY_PASSWORD: ${SHELLY_PASSWORD:-}
+      SHELLY_GEN1_USER: ${SHELLY_GEN1_USER:-admin}
     depends_on:
       couchdb:
         condition: service_healthy
