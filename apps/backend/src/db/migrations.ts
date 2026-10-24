@@ -59,7 +59,8 @@ export const migrateTagsToCollection = async (): Promise<void> => {
 
 export const migrateDocTypes = async (): Promise<void> => {
   try {
-    const db = getDatabase();
+    // Untyped access: these docs predate the `type` field and are inspected field by field
+    const db = getDatabase<Record<string, unknown>>();
 
     const result = await db.find({
       selector: { type: { $exists: false } },

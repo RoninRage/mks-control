@@ -113,16 +113,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
 import { useUserStore } from 'stores/user-store';
 
 defineOptions({
   name: 'DashboardPage',
 });
 
-const router = useRouter();
-const $q = useQuasar();
 const userStore = useUserStore();
 
 const canManageMembers = computed((): boolean => {
@@ -144,26 +140,6 @@ const canViewAuditLogs = computed((): boolean => {
   const role = userStore.roleId;
   return role === 'admin' || role === 'vorstand' || role === 'bereichsleitung';
 });
-
-function handleLogout() {
-  $q.dialog({
-    title: 'Abmelden',
-    message: 'Möchten Sie sich wirklich abmelden?',
-    cancel: {
-      flat: true,
-      label: 'Abbrechen',
-    },
-    ok: {
-      flat: true,
-      label: 'Abmelden',
-      color: 'negative',
-    },
-    persistent: true,
-  }).onOk(() => {
-    userStore.logout();
-    router.replace('/');
-  });
-}
 </script>
 
 <style scoped lang="scss">

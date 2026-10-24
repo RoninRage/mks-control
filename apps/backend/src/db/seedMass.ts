@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import nano from 'nano';
 import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Area } from '../types/area';
@@ -118,9 +119,9 @@ const generateEquipment = (
   return equipment;
 };
 
-const insertDocs = async <T extends { _id?: string }>(
-  docs: T[],
-  db: ReturnType<typeof getDatabase>
+const insertDocs = async <T>(
+  docs: Array<T & { _id?: string }>,
+  db: nano.DocumentScope<T>
 ): Promise<void> => {
   for (const doc of docs) {
     try {

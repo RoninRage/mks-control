@@ -81,7 +81,7 @@ export const useUserStore = defineStore('user', {
       return perms;
     },
 
-    can(state): (permission: Permission) => boolean {
+    can(): (permission: Permission) => boolean {
       return (permission: Permission) => {
         return (this.permissions as Set<Permission>).has(permission);
       };

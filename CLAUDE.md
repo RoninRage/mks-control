@@ -18,14 +18,20 @@ npm run dev:reset
 # Build all workspaces
 npm run build
 
-# Lint all workspaces
+# Lint / test — root scripts use --if-present (only the frontend defines lint/test)
 npm run lint
+npm run test
+npm run format --workspace=apps/frontend
 
-# E2E tests (Playwright)
+# E2E tests (Playwright) — there are no unit tests
 npm run test:e2e
 npm run test:e2e:ui        # Interactive UI
 npm run test:e2e:headed    # Headed browser
 npm run test:e2e:debug     # Debug mode
+
+# Single spec / single test (run setup-test-env first — `pretest:e2e` only fires via npm run)
+node scripts/setup-test-env.js && npx playwright test tests/e2e/auth.spec.ts
+npx playwright test -g "test name"
 
 # Run a command in a single workspace
 npm run <script> --workspace=apps/backend
@@ -33,7 +39,14 @@ npm run <script> --workspace=apps/frontend
 npm run <script> --workspace=nfc-bridge
 ```
 
-**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories.
+**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories. `scripts/dev.js` runs preflight checks, starts CouchDB via `docker compose`, spawns each workspace's `dev` script, and stops Docker on Ctrl+C. The root `.npmrc` sets `workspaces=false`, so workspace-wide commands need an explicit `--workspaces`/`--workspace=` flag.
+
+### E2E Test Environment
+
+- `scripts/setup-test-env.js` writes a repo-root `.env.test` with uniquely named, throwaway CouchDB databases and `ADMIN_TAG_UIDS=test-admin-tag-001`.
+- **If `.env.test` exists, the backend auto-switches to test mode** (`server.ts` loads it instead of `.env`). Delete a leftover `.env.test` before normal dev runs.
+- Playwright's `webServer` runs `scripts/dev-e2e.js` (reuses already-running servers); the NFC bridge is skipped when `NODE_ENV=test`.
+- `tests/global-setup.ts` creates and seeds the test DBs via `tests/helpers/` (`database.ts`, `factories.ts`, `auth.ts`); tests run serially (1 worker, Chromium only).
 
 ### Environment Setup
 
@@ -53,6 +66,32 @@ curl -X POST http://localhost:3000/api/auth/tag \
   -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
 ```
 
+## Cloud Sessions (claude.ai/code)
+
+Node 22 is pinned via `.nvmrc`. In cloud sessions `CLAUDE_CODE_REMOTE=true` is set (never locally).
+
+- **Environment setup script** — `scripts/cloud-env-setup.sh` is pasted into the environment settings on claude.ai/code (not run from the repo). It runs as root before the session, and its results are cached: apt packages for the native pcsclite build, Node 22, Playwright Chromium with system deps, and the `couchdb:3.3` image. Running containers and processes are not cached.
+- **SessionStart hook** — `.claude/settings.json` runs `scripts/cloud-session-start.sh` on startup/resume. It exits immediately unless `CLAUDE_CODE_REMOTE=true`. Otherwise it starts `dockerd` if needed, deletes a leftover `.env.test`, runs `npm ci --workspaces --include-workspace-root`, runs `npx playwright install chromium`, and starts CouchDB (`docker compose up -d couchdb`, waits for `/_up`). Step logs go to `$TMPDIR/mks-cloud-session/`.
+
+**Start services individually** (e.g. in the background). `npm_config_workspaces=true` overrides the root `.npmrc`; without it `npm run` inside a workspace fails:
+
+```bash
+# Backend (port 3000)
+cd apps/backend && MONOREPO_DEV=true npm_config_workspaces=true npm run dev
+
+# Frontend (port 9000)
+cd apps/frontend && MONOREPO_DEV=true npm_config_workspaces=true \
+  API_BASE_URL=http://localhost:3000/api npm run dev
+```
+
+`npm run dev` from the root also works; it skips the NFC bridge when `CLAUDE_CODE_REMOTE=true` or no `pcscd` is running.
+
+**E2E tests:** `npm run test:e2e` (CouchDB must be up; Playwright starts backend and frontend through `scripts/dev-e2e.js` unless they are already running on 3000/9000).
+
+**No NFC hardware in the cloud:** the NFC bridge does not run. Simulate tag scans with `POST /api/auth/tag` (see "Test a Tag Event" above).
+
+**Branch rule:** never commit or push directly to `master` — Watchtower deploys every `master` push to production. Always work on a feature branch and open a PR.
+
 ## Architecture
 
 ```
@@ -64,7 +103,15 @@ packages/shared-types/  TypeScript types shared across all workspaces
 
 **Data flow:** NFC reader → nfc-bridge → `POST /api/auth/tag` → backend WebSocket broadcast → frontend real-time update.
 
-**Database:** CouchDB on port 5984 via Docker. Backend handles migrations (`src/db/migrations.ts`) and seeding (`src/db/seed*.ts`).
+**Database:** CouchDB 3.3 on port 5984 via Docker (dev creds `admin`/`password`, Fauxton at `http://localhost:5984/_utils`). Three databases, names overridable by env:
+
+- `mks_members` (`COUCHDB_DB_NAME`) — members, areas and equipment, told apart by a `type` field (`migrateDocTypes` backfills it)
+- `mks_tags` (`COUCHDB_TAGS_DB_NAME`) — NFC tags linked to members by `memberId`
+- `mks_audit` (`COUCHDB_AUDIT_DB_NAME`) — audit log, with a scheduled retention cleanup
+
+Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` → `migrateBackupAdmin` → seed (if `SEED_DATA=true`; `SEED_MODE=mass` uses `seedMass.ts`) → `migrateTagsToCollection` (moves legacy `member.tagUid` into the tags DB).
+
+**Auth model (no tokens/sessions on the backend):** a tag scan hits `POST /api/auth/tag`, the backend resolves the member/admin and broadcasts a `TagEvent` over the WebSocket at `/ws/auth`. The frontend (`boot/auth.ts`) sets the role in `user-store` and goes to `/dashboard`. Scanning a tag while logged in logs out, unless "tag assignment mode" is active (used when assigning a tag to a member). Roles in priority order: `admin`, `vorstand`, `bereichsleitung`, `mitglied`. After login, `boot/fetch-headers.ts` patches `window.fetch` to add `X-Source`, `X-User-ID`, `X-User-Role` and `X-Device-ID`. Backend routes authorize and audit using these headers.
 
 ### Backend (`apps/backend/src/`)
 
@@ -138,3 +185,7 @@ body.body--dark {
 - No hover-only interactions — use click/focus/active states
 - At least 8–16px spacing between interactive elements
 - Use Quasar responsive utilities (`.xs`, `.sm`, etc.) for mobile layout
+
+### Other
+
+- UI text and role names are German (e.g. `ausstattung` = equipment, `vorstand` = board).
