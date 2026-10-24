@@ -18,8 +18,9 @@ npm run dev:reset
 # Build all workspaces
 npm run build
 
-# Lint — only the frontend defines a lint script (root `npm run lint` fails on backend/nfc-bridge)
-npm run lint --workspace=apps/frontend
+# Lint / test — root scripts use --if-present (only the frontend defines lint/test)
+npm run lint
+npm run test
 npm run format --workspace=apps/frontend
 
 # E2E tests (Playwright) — there are no unit tests
@@ -38,7 +39,7 @@ npm run <script> --workspace=apps/frontend
 npm run <script> --workspace=nfc-bridge
 ```
 
-**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories. `scripts/dev.js` runs preflight checks, starts CouchDB via `docker-compose`, spawns each workspace's `dev` script, and stops Docker on Ctrl+C. The root `.npmrc` sets `workspaces=false`, so workspace-wide commands need an explicit `--workspaces`/`--workspace=` flag.
+**Important:** Services enforce `MONOREPO_DEV=true` — always start via `npm run dev` from root, not directly within workspace directories. `scripts/dev.js` runs preflight checks, starts CouchDB via `docker compose`, spawns each workspace's `dev` script, and stops Docker on Ctrl+C. The root `.npmrc` sets `workspaces=false`, so workspace-wide commands need an explicit `--workspaces`/`--workspace=` flag.
 
 ### E2E Test Environment
 
@@ -64,6 +65,32 @@ curl -X POST http://localhost:3000/api/auth/tag \
   -H "x-device-id: dev-reader-01" \
   -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
 ```
+
+## Cloud Sessions (claude.ai/code)
+
+Node 22 is pinned via `.nvmrc`. In cloud sessions `CLAUDE_CODE_REMOTE=true` is set (never locally).
+
+- **Environment setup script** — `scripts/cloud-env-setup.sh` is pasted into the environment settings on claude.ai/code (not run from the repo). It runs as root before the session, and its results are cached: apt packages for the native pcsclite build, Node 22, Playwright Chromium with system deps, and the `couchdb:3.3` image. Running containers and processes are not cached.
+- **SessionStart hook** — `.claude/settings.json` runs `scripts/cloud-session-start.sh` on startup/resume. It exits immediately unless `CLAUDE_CODE_REMOTE=true`. Otherwise it starts `dockerd` if needed, deletes a leftover `.env.test`, runs `npm ci --workspaces --include-workspace-root`, runs `npx playwright install chromium`, and starts CouchDB (`docker compose up -d couchdb`, waits for `/_up`). Step logs go to `$TMPDIR/mks-cloud-session/`.
+
+**Start services individually** (e.g. in the background). `npm_config_workspaces=true` overrides the root `.npmrc`; without it `npm run` inside a workspace fails:
+
+```bash
+# Backend (port 3000)
+cd apps/backend && MONOREPO_DEV=true npm_config_workspaces=true npm run dev
+
+# Frontend (port 9000)
+cd apps/frontend && MONOREPO_DEV=true npm_config_workspaces=true \
+  API_BASE_URL=http://localhost:3000/api npm run dev
+```
+
+`npm run dev` from the root also works; it skips the NFC bridge when `CLAUDE_CODE_REMOTE=true` or no `pcscd` is running.
+
+**E2E tests:** `npm run test:e2e` (CouchDB must be up; Playwright starts backend and frontend through `scripts/dev-e2e.js` unless they are already running on 3000/9000).
+
+**No NFC hardware in the cloud:** the NFC bridge does not run. Simulate tag scans with `POST /api/auth/tag` (see "Test a Tag Event" above).
+
+**Branch rule:** never commit or push directly to `master` — Watchtower deploys every `master` push to production. Always work on a feature branch and open a PR.
 
 ## Architecture
 
