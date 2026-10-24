@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Entwurf, noch nicht umgesetzt
+**Stand:** 2026-10-24 · **Status:** Phase 1 umgesetzt, Phasen 2–7 offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -349,7 +349,7 @@ In der Cloud und in der CI gibt es keine Shellys und keine Pis.
 
 Jede Phase ist ein eigener PR und für sich lauffähig.
 
-1. **Treiber und Geräteverwaltung:** Typen, Gen1- und Gen2-Treiber, Erkennung der Funktionen,
+1. ✅ **Treiber und Geräteverwaltung:** Typen, Gen1- und Gen2-Treiber, Erkennung der Funktionen,
    Mock-Shelly, Seite „Geräte", Identifizieren.
 2. **Terminals und sichere Anmeldung:** Terminal-Dokumente, Schlüssel, Anmeldung per Tag-Scan am
    Terminal, `nfc-bridge` und Kiosk schicken den Schlüssel.
@@ -364,6 +364,22 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
    Eingänge sofort reagieren.
 7. **Später/optional:** mDNS-Erkennung, Firmware-Updates, Wartungsmodus, Einrichtungsanleitung
    für das Pi-Image.
+
+### Stand Phase 1
+
+Umgesetzt: gemeinsame Typen, Gen1- und Gen2+-Treiber (Basic- bzw. Digest-Anmeldung), Erkennung von
+Relais, Messung, Eingängen, Dimmer, Rollladen und Messgeräten, API `/api/shelly/devices` (nur
+admin), Seite „Shelly-Geräte" (`/devices`) mit Live-Status, Identifizieren, Bearbeiten,
+Ausmustern, Test-Shelly `tests/helpers/mockShelly.ts` und `tests/e2e/devices.spec.ts`.
+
+Abweichungen vom Plan oben:
+
+- `gen` wird als Zahl gespeichert (1, 2, 3, 4). Alles ab 2 nutzt den Gen2-Treiber.
+- `health` kennt vorerst nur `online`, `offline` und `unknown`. `degraded` kommt mit dem
+  Health-Monitor (Phase 6).
+- Der Status wird beim Öffnen der Seite und dann alle 10 s abgefragt, noch nicht im Backend.
+- Adressen: nur IPv4 im lokalen Netz (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16), damit
+  das Backend nicht beliebige Server abfragen kann.
 
 ## Risiken
 

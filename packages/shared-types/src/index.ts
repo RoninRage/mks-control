@@ -163,3 +163,88 @@ export interface MemberImportResult {
   };
   errors: MemberImportError[];
 }
+
+// ---------------------------------------------------------------------------
+// Shelly devices (machine control, phase 1: drivers and device management)
+// ---------------------------------------------------------------------------
+
+// Kinds of Shelly components the backend can read or control.
+// 'meter' covers stand-alone power meters (Gen2 pm1/em/em1, Gen1 emeters).
+export type ShellyComponentKind = 'switch' | 'input' | 'light' | 'cover' | 'meter';
+
+export type ShellyHealth = 'online' | 'offline' | 'unknown';
+
+export interface ShellyComponent {
+  kind: ShellyComponentKind;
+  index: number;
+  // True when the component itself measures power (e.g. switch on a Plus 1PM).
+  hasPowerMeter?: boolean;
+}
+
+// Result of probing a host: everything needed to create a ShellyDevice.
+export interface ShellyProbeResult {
+  host: string;
+  shellyId: string;
+  mac: string;
+  model: string;
+  // 1 = Gen1 REST API, 2+ = Gen2/Gen3/Gen4 JSON-RPC API.
+  gen: number;
+  firmware?: string;
+  name?: string;
+  authRequired: boolean;
+  components: ShellyComponent[];
+}
+
+export interface ShellyDevice {
+  _id?: string;
+  _rev?: string;
+  type?: 'shellyDevice';
+  id: string;
+  shellyId: string;
+  mac: string;
+  model: string;
+  gen: number;
+  host: string;
+  name: string;
+  firmware?: string;
+  components: ShellyComponent[];
+  health: ShellyHealth;
+  lastSeenAt?: string;
+  isActive: boolean;
+  deletedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Live state of one component. Only the fields that fit the kind are set.
+export interface ShellyComponentStatus {
+  kind: ShellyComponentKind;
+  index: number;
+  on?: boolean; // switch, light
+  brightness?: number; // light, 0-100
+  inputState?: boolean | null; // input (null for analog/button inputs without state)
+  coverState?: string; // cover: open, closed, opening, closing, stopped, ...
+  positionPct?: number; // cover, 0-100 when calibrated
+  powerW?: number;
+  voltageV?: number;
+  currentA?: number;
+  energyWh?: number; // total energy counter
+}
+
+export interface ShellyDeviceStatus {
+  deviceId: string;
+  health: ShellyHealth;
+  checkedAt: string;
+  components: ShellyComponentStatus[];
+  error?: string;
+}
+
+export interface CreateShellyDeviceRequest {
+  host: string;
+  name?: string;
+}
+
+export interface UpdateShellyDeviceRequest {
+  name?: string;
+  host?: string;
+}

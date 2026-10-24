@@ -13,7 +13,8 @@ export type Permission =
   | 'view:about'
   | 'manage:area-permissions'
   | 'manage:areas'
-  | 'manage:equipment';
+  | 'manage:equipment'
+  | 'manage:devices';
 
 export const ROLE_PRIORITY: RoleId[] = ['admin', 'vorstand', 'bereichsleitung', 'mitglied'];
 
@@ -42,6 +43,7 @@ const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     'manage:area-permissions',
     'manage:areas',
     'manage:equipment',
+    'manage:devices',
   ],
 };
 

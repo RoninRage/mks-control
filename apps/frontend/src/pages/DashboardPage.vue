@@ -40,6 +40,24 @@
         </q-card>
 
         <q-card
+          v-if="userStore.can('manage:devices')"
+          flat
+          bordered
+          class="action-card"
+          data-testid="dashboard-devices"
+          @click="$router.replace('/devices')"
+        >
+          <q-card-section>
+            <q-icon name="settings_remote" size="48px" color="primary" />
+            <div class="text-h6 q-mt-md">Shelly-Geräte</div>
+            <div class="text-body2 text-grey-7">Schaltaktoren und Messgeräte verwalten</div>
+          </q-card-section>
+          <q-card-actions>
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+          </q-card-actions>
+        </q-card>
+
+        <q-card
           v-if="userStore.can('manage:areas')"
           flat
           bordered

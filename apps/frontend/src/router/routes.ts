@@ -57,6 +57,11 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'devices',
+        component: () => import('pages/DevicesPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'ausstattung',
         component: () => import('pages/AusstattungsPage.vue'),
         meta: { requiresAuth: true },
