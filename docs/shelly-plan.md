@@ -12,17 +12,20 @@ Stelle bewusst davon ab (siehe „Architektur").
 
 ## Entscheidungen
 
-| Thema              | Entscheidung                                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Geräte             | Möglichst alle Shellys: **Gen1 und Gen2+** (Plus, Pro, Gen3, Gen4)                                               |
-| Gerätefunktionen   | Relais, **Leistungsmessung**, **Eingänge**, **Dimmer/RGB**, **Rollladen/Cover**                                  |
-| Nicht im Umfang    | Batterie-Sensoren (Tür, Temperatur, Wasser)                                                                      |
-| Terminals          | **Ein Pi pro Maschine**                                                                                          |
-| Einschalten        | Tag scannen → Button **„Maschine freigeben"** → Strom an                                                         |
-| Abmelden           | Freigabe wird aufgehoben. **Pro Maschine einstellbar:** sofort aus oder erst im Leerlauf                         |
-| Wer darf freigeben | Wer laut bestehender Berechtigungsverwaltung (`member.equipmentPermissions`) für die Maschine freigeschaltet ist |
-| Messwerte          | Live anzeigen und **eine Zusammenfassung je Nutzung** speichern (wer, wann, wie lange, kWh)                      |
-| Netzwerk           | Shellys im selben Netz wie der Server                                                                            |
+| Thema               | Entscheidung                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Geräte              | Möglichst alle Shellys: **Gen1 und Gen2+** (Plus, Pro, Gen3, Gen4)                                                                                           |
+| Gerätefunktionen    | Relais, **Leistungsmessung**, **Eingänge**, **Dimmer/RGB**, **Rollladen/Cover**                                                                              |
+| Nicht im Umfang     | Batterie-Sensoren (Tür, Temperatur, Wasser)                                                                                                                  |
+| Terminals           | **Ein Pi pro Maschine**                                                                                                                                      |
+| Einschalten         | Tag scannen → Button **„Maschine freigeben"** → Strom an                                                                                                     |
+| Abmelden            | Freigabe wird aufgehoben. **Pro Maschine einstellbar:** sofort aus oder erst im Leerlauf                                                                     |
+| Wer darf freigeben  | Wer laut bestehender Berechtigungsverwaltung (`member.equipmentPermissions`) für die Maschine freigeschaltet ist. **Admins dürfen jede Maschine freigeben.** |
+| Höchstdauer         | **Pro Pi einstellbar:** Nach Ablauf fragt der Pi „Noch da?"; ohne Bestätigung wird abgeschaltet                                                              |
+| Messwerte           | Live anzeigen und **eine Zusammenfassung je Nutzung** speichern (wer, wann, wie lange, kWh)                                                                  |
+| Nutzungsdaten sehen | Nach den bestehenden Rechten, wie beim Audit-Log (siehe „Sichtbarkeit der Nutzungen")                                                                        |
+| Pi ohne Verbindung  | Maschine läuft **bis zum Sicherheits-Timer** weiter und schaltet dann ab                                                                                     |
+| Netzwerk            | Shellys im selben Netz wie der Server                                                                                                                        |
 
 ## Architektur: Das Backend schaltet, nicht der Pi
 
@@ -53,9 +56,12 @@ stateDiagram-v2
   Bereit --> Angemeldet: Tag-Scan
   Angemeldet --> Bereit: Tag-Scan / Abmelden / Timeout
   Angemeldet --> Freigegeben: „Maschine freigeben"\n(Berechtigung ok, Shelly online, Eingänge ok)
-  Freigegeben --> Abschalten: Tag-Scan / Abmelden / max. Dauer
+  Freigegeben --> NochDa: Höchstdauer erreicht
+  NochDa --> Freigegeben: „Ja, noch da"\n(Höchstdauer beginnt neu)
+  NochDa --> Abschalten: keine Bestätigung\nin der Antwortzeit
+  Freigegeben --> Abschalten: Tag-Scan / Abmelden
   Abschalten --> Bereit: Modus „sofort"\noder Leerlauf erkannt\noder max. Wartezeit
-  Freigegeben --> Bereit: Sicherheits-Eingang offen\noder Admin schaltet ab
+  Freigegeben --> Bereit: Sicherheits-Eingang offen\noder Admin schaltet ab\noder Pi ohne Verbindung + Timer abgelaufen
 ```
 
 1. **Bereit:** Der Pi zeigt Maschinenname und „Tag scannen".
@@ -71,6 +77,19 @@ stateDiagram-v2
      „Maschine wird nach Jobende abgeschaltet". Dieser Modus braucht Leistungsmessung.
    - Meldet sich währenddessen ein berechtigtes Mitglied an und gibt frei, läuft die Maschine
      ohne Unterbrechung weiter.
+5. **„Noch da?"** (nur wenn am Pi eine Höchstdauer eingestellt ist, z. B. 4 h): Der Pi fragt nach,
+   gut sichtbar und mit Ton, falls vorhanden. Bestätigt das Mitglied innerhalb der Antwortzeit
+   (z. B. 5 Min.), beginnt die Höchstdauer neu. Sonst beginnt das Abschalten wie beim Abmelden
+   (Grund `timeout`). Ohne eingestellte Höchstdauer gibt es keine Nachfrage.
+
+**Admins** sehen am Pi den Button „Maschine freigeben" immer, auch ohne Eintrag in der
+Berechtigungsverwaltung. Im Audit-Log steht dann `machine.release` mit dem Vermerk
+`adminOverride`.
+
+**Pi ohne Verbindung:** Der Pi meldet sich über den WebSocket regelmäßig beim Backend. Bleibt
+das aus, erneuert das Backend den Sicherheits-Timer am Shelly nicht mehr. Die Maschine läuft
+weiter, bis der Timer abläuft, und schaltet dann ab (Grund `terminal-offline`). Kommt der Pi
+vorher zurück, läuft die Freigabe normal weiter.
 
 ## Sicherheit
 
@@ -92,9 +111,9 @@ gefälschten Headern ließe sich jede Maschine einschalten.
 ### Sicherheits-Timer auf dem Shelly („Totmannschalter")
 
 Beim Freigeben setzt das Backend das Relais mit Auto-Aus-Timer (Gen2: `toggle_after`, Gen1:
-`timer`), z. B. 3 Minuten, und erneuert ihn jede Minute, solange die Freigabe besteht. Fällt das
-Backend oder das Netz aus, schaltet der Shelly die Maschine selbst ab. Die Dauer ist pro Maschine
-einstellbar, damit ein kurzer Server-Neustart keinen Job abbricht.
+`timer`), z. B. 3 Minuten, und erneuert ihn jede Minute, solange die Freigabe besteht **und der Pi
+erreichbar ist**. Fällt das Backend, das Netz oder der Pi aus, schaltet der Shelly die Maschine
+selbst ab. Die Dauer ist pro Maschine einstellbar, damit ein kurzer Ausfall keinen Job abbricht.
 
 ### Grenzen
 
@@ -186,7 +205,6 @@ export interface EquipmentControl {
     maxWaitMinutes?: number; // z. B. 30
   };
   watchdogMinutes: number; // Sicherheits-Timer, Standard 3
-  maxSessionMinutes?: number; // optionale Höchstdauer einer Freigabe
 }
 
 // Erweiterung der bestehenden Equipment-Schnittstelle:
@@ -198,6 +216,8 @@ export interface Terminal {
   name: string;
   equipmentId: string;
   tokenHash: string;
+  maxSessionMinutes?: number; // Höchstdauer einer Freigabe an diesem Pi, leer = keine
+  stillThereTimeoutMinutes?: number; // Antwortzeit für „Noch da?", Standard 5
   lastSeenAt?: string;
   isActive: boolean;
 }
@@ -212,7 +232,15 @@ export interface EquipmentUsage {
   endedAt?: string; // fehlt = Freigabe läuft noch
   durationSec?: number;
   energyWh?: number; // Zählerstand Ende minus Start
-  endReason?: 'logout' | 'timeout' | 'interlock' | 'admin' | 'device-offline' | 'watchdog';
+  adminOverride?: boolean; // Admin ohne Eintrag in der Berechtigungsverwaltung
+  endReason?:
+    | 'logout'
+    | 'timeout'
+    | 'interlock'
+    | 'admin'
+    | 'device-offline'
+    | 'terminal-offline'
+    | 'watchdog';
 }
 ```
 
@@ -237,22 +265,38 @@ Neue Dateien:
 
 Endpunkte:
 
-| Methode             | Pfad                                   | Wer                                                | Zweck                                       |
-| ------------------- | -------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
-| GET                 | `/api/shelly/devices`                  | admin                                              | Liste mit Status und Messwerten             |
-| POST                | `/api/shelly/devices` `{ host }`       | admin                                              | Gerät prüfen und anlegen                    |
-| PUT                 | `/api/shelly/devices/:id`              | admin                                              | Name, Host                                  |
-| POST                | `/api/shelly/devices/:id/identify`     | admin                                              | kurz schalten zum Wiederfinden              |
-| DELETE              | `/api/shelly/devices/:id`              | admin                                              | ausmustern                                  |
-| GET/POST/PUT/DELETE | `/api/terminals`                       | admin                                              | Terminals verwalten, POST liefert Schlüssel |
-| POST                | `/api/terminals/:id/rotate-token`      | admin                                              | neuen Schlüssel erzeugen                    |
-| PUT                 | `/api/equipment/:id/control`           | admin                                              | Steuerung der Maschine konfigurieren        |
-| POST                | `/api/equipment/:id/force-off`         | admin                                              | Freigabe aus der Ferne beenden              |
-| GET                 | `/api/terminal/state`                  | Terminal                                           | Maschine, Mitglied, Freigabe, Messwerte     |
-| POST                | `/api/terminal/release`                | Terminal                                           | „Maschine freigeben"                        |
-| POST                | `/api/terminal/logout`                 | Terminal                                           | Abmelden (startet Abschalten)               |
-| POST                | `/api/terminal/extras/:n` `{ action }` | Terminal                                           | Dimmer, Rollladen, Zusatzrelais             |
-| GET                 | `/api/usage?equipmentId=&memberId=`    | admin, vorstand, bereichsleitung (eigener Bereich) | Nutzungen                                   |
+| Methode             | Pfad                                   | Wer                                            | Zweck                                       |
+| ------------------- | -------------------------------------- | ---------------------------------------------- | ------------------------------------------- |
+| GET                 | `/api/shelly/devices`                  | admin                                          | Liste mit Status und Messwerten             |
+| POST                | `/api/shelly/devices` `{ host }`       | admin                                          | Gerät prüfen und anlegen                    |
+| PUT                 | `/api/shelly/devices/:id`              | admin                                          | Name, Host                                  |
+| POST                | `/api/shelly/devices/:id/identify`     | admin                                          | kurz schalten zum Wiederfinden              |
+| DELETE              | `/api/shelly/devices/:id`              | admin                                          | ausmustern                                  |
+| GET/POST/PUT/DELETE | `/api/terminals`                       | admin                                          | Terminals verwalten, POST liefert Schlüssel |
+| POST                | `/api/terminals/:id/rotate-token`      | admin                                          | neuen Schlüssel erzeugen                    |
+| PUT                 | `/api/equipment/:id/control`           | admin                                          | Steuerung der Maschine konfigurieren        |
+| POST                | `/api/equipment/:id/force-off`         | admin                                          | Freigabe aus der Ferne beenden              |
+| GET                 | `/api/terminal/state`                  | Terminal                                       | Maschine, Mitglied, Freigabe, Messwerte     |
+| POST                | `/api/terminal/release`                | Terminal                                       | „Maschine freigeben"                        |
+| POST                | `/api/terminal/logout`                 | Terminal                                       | Abmelden (startet Abschalten)               |
+| POST                | `/api/terminal/extras/:n` `{ action }` | Terminal                                       | Dimmer, Rollladen, Zusatzrelais             |
+| POST                | `/api/terminal/still-there`            | Terminal                                       | „Ja, noch da" bestätigen                    |
+| GET                 | `/api/usage?equipmentId=&memberId=`    | angemeldet, gefiltert nach Rolle (siehe unten) | Nutzungen                                   |
+
+### Sichtbarkeit der Nutzungen
+
+Nach den bestehenden Rechten, so wie beim Audit-Log (`auditRoutes.ts`):
+
+| Rolle           | Sieht                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| admin, vorstand | alle Nutzungen                                                                           |
+| bereichsleitung | Nutzungen der Ausstattung in den eigenen Bereichen (`area.bereichsleiterIds`) und eigene |
+| mitglied        | nur die eigenen Nutzungen                                                                |
+
+Aufbewahrung: Löschung wie beim Audit-Log über eine eigene Variable `USAGE_RETENTION_DAYS`
+(Standard 365, wie `AUDIT_RETENTION_DAYS`). Die Rolle wird dafür wie heute aus den Headern
+gelesen. Sobald es eine sichere Anmeldung auch außerhalb der Terminals gibt, sollte diese Prüfung
+darauf umziehen.
 
 WebSocket: neue Ereignistypen `machine-state` (pro Terminal) und `shelly-health` über
 `/ws/auth`. Das Frontend ignoriert unbekannte Typen schon heute (Type Guards in
@@ -271,7 +315,7 @@ Audit-Aktionen: `shelly.device.create`, `shelly.device.retire`, `terminal.create
   Live-Messwerten. Dialog „Gerät hinzufügen" (IP → Prüfung → Anlegen), „Identifizieren",
   „Ausmustern".
 - **Neue Admin-Seite `/terminals`**: Terminals anlegen, Schlüssel anzeigen bzw. neu erzeugen,
-  letzter Kontakt.
+  Höchstdauer und Antwortzeit für „Noch da?", letzter Kontakt.
 - **`EditEquipmentPage`**: neuer Abschnitt „Steuerung": Hauptschalter, Messung, Eingänge,
   Zusatzfunktionen, Abschaltmodus mit Schwellwerten, Timer. Dazu laufende Freigabe und Button
   „Abschalten" für Admins.
@@ -286,7 +330,8 @@ Audit-Aktionen: `shelly.device.create`, `shelly.device.retire`, `terminal.create
   `network_mode: host` (wie die `nfc-bridge`), der gefundene Geräte meldet.
 - Pi-Image: Chromium im Kiosk-Modus auf `/terminal` und die `nfc-bridge` mit `DEVICE_ID` und
   `TERMINAL_TOKEN`. Anleitung dazu kommt nach `docs/`.
-- Neue Variablen: `SHELLY_PASSWORD`, `SHELLY_POLL_INTERVAL_MS`, `COUCHDB_USAGE_DB_NAME`.
+- Neue Variablen: `SHELLY_PASSWORD`, `SHELLY_POLL_INTERVAL_MS`, `COUCHDB_USAGE_DB_NAME`,
+  `USAGE_RETENTION_DAYS`.
 
 ## Testen ohne Hardware
 
@@ -296,8 +341,9 @@ In der Cloud und in der CI gibt es keine Shellys und keine Pis.
   (Relais, Messung mit einstellbarer Leistung, Eingänge, Dimmer, Rollladen, Timer, „offline").
 - Das Terminal wird im Test über einen angelegten Schlüssel und `POST /api/auth/tag` simuliert.
 - Neue E2E-Specs: `devices.spec.ts`, `terminals.spec.ts`, `machine-control.spec.ts` (freigeben,
-  ohne Berechtigung abgelehnt, sofort aus, Leerlauf-Abschaltung, Eingang offen, Shelly offline,
-  Totmannschalter, Neustart mit laufender Freigabe), `usage.spec.ts`.
+  ohne Berechtigung abgelehnt, Admin ohne Berechtigung erlaubt, sofort aus, Leerlauf-Abschaltung,
+  „Noch da?" bestätigt und unbeantwortet, Eingang offen, Shelly offline, Pi ohne Verbindung,
+  Totmannschalter, Neustart mit laufender Freigabe), `usage.spec.ts` (Sichtbarkeit je Rolle).
 
 ## Umsetzung in Phasen
 
@@ -307,10 +353,11 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
    Mock-Shelly, Seite „Geräte", Identifizieren.
 2. **Terminals und sichere Anmeldung:** Terminal-Dokumente, Schlüssel, Anmeldung per Tag-Scan am
    Terminal, `nfc-bridge` und Kiosk schicken den Schlüssel.
-3. **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben, Abmelden mit
-   „sofort aus", Totmannschalter, Nutzungen ohne kWh, Audit.
+3. **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben (inkl. Admin),
+   Abmelden mit „sofort aus", Totmannschalter, Pi ohne Verbindung, „Noch da?", Nutzungen ohne kWh,
+   Audit.
 4. **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
-   Nutzungsansicht.
+   Nutzungsansicht mit Sichtbarkeit je Rolle, Aufbewahrungsfrist.
 5. **Eingänge und Zusatzfunktionen:** Sicherheits-Eingänge, Dimmer, Rollladen, Zusatzrelais.
 6. **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
    Push vom Shelly statt Polling (Gen2: Webhooks/Outbound-WebSocket, Gen1: Action-URLs), damit
@@ -328,16 +375,12 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
   Bestätigung.
 - **Gen1-Vielfalt:** Gen1-Modelle unterscheiden sich stärker. Unterstützt werden zuerst Relais,
   Messung, Eingänge, Dimmer und Rollladen; exotische Modelle nach Bedarf.
-- **Datenschutz:** Nutzungen sind personenbezogen. Es braucht eine Aufbewahrungsfrist wie beim
-  Audit-Log.
+- **Datenschutz:** Nutzungen sind personenbezogen. Darum Sichtbarkeit nach Rolle und
+  automatische Löschung nach `USAGE_RETENTION_DAYS`.
+- **Rollen-Header beim Lesen der Nutzungen:** Wie überall außerhalb der Terminals kommt die Rolle
+  aus Headern, die der Client setzt. Für das Schalten ist das durch die Terminal-Schlüssel gelöst,
+  für das Lesen von Nutzungen noch nicht.
 
 ## Offene Fragen
 
-1. **Vergessenes Abmelden:** Soll es eine Höchstdauer pro Freigabe geben (z. B. 4 h), nach der der
-   Pi „Noch da?" fragt und sonst abschaltet?
-2. **Admins ohne Berechtigung:** Dürfen Admins jede Maschine freigeben, oder gilt auch für sie nur
-   die Berechtigungsverwaltung?
-3. **Nutzungsdaten:** Wer darf sie sehen (nur Admin oder auch Vorstand bzw. Bereichsleitung), und
-   wie lange werden sie aufbewahrt?
-4. **Pi ohne Netz:** Soll ein Pi, der die Verbindung zum Server verliert, die Freigabe beenden,
-   oder läuft die Maschine bis zum Totmannschalter weiter?
+Keine. Alle Fragen sind in „Entscheidungen" beantwortet.
