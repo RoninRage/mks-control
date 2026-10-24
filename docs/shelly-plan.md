@@ -56,9 +56,9 @@ export type ShellyDeviceState = 'unassigned' | 'assigned' | 'retired';
 export type ShellyHealth = 'online' | 'degraded' | 'offline' | 'unknown';
 
 export interface ShellyChannel {
-  channel: number;           // Relais-Index (Switch id)
-  equipmentId?: string;      // zugeordnete Ausstattung
-  autoOffMinutes?: number;   // Sicherheits-Timer, wird auf dem Shelly gesetzt
+  channel: number; // Relais-Index (Switch id)
+  equipmentId?: string; // zugeordnete Ausstattung
+  autoOffMinutes?: number; // Sicherheits-Timer, wird auf dem Shelly gesetzt
 }
 
 export interface ShellyDevice {
@@ -66,12 +66,12 @@ export interface ShellyDevice {
   _rev?: string;
   type?: 'shellyDevice';
   id: string;
-  shellyId: string;          // aus GET /shelly, z. B. "shellyplus1pm-a8032ab12345"
+  shellyId: string; // aus GET /shelly, z. B. "shellyplus1pm-a8032ab12345"
   mac: string;
   model: string;
   gen: number;
-  host: string;              // IP oder Hostname
-  name: string;              // Anzeigename
+  host: string; // IP oder Hostname
+  name: string; // Anzeigename
   firmware?: string;
   state: ShellyDeviceState;
   health: ShellyHealth;
@@ -85,9 +85,9 @@ export interface EquipmentPowerStatus {
   equipmentId: string;
   on: boolean;
   health: ShellyHealth;
-  powerW?: number;           // nur bei Geräten mit Leistungsmessung (PM)
+  powerW?: number; // nur bei Geräten mit Leistungsmessung (PM)
   autoOffAt?: string;
-  switchedBy?: string;       // memberId
+  switchedBy?: string; // memberId
 }
 ```
 
@@ -98,13 +98,13 @@ Eine Ausstattung hängt an höchstens einem Kanal. Shelly-Passwort zunächst als
 
 Gen2+ (Plus, Pro, Gen3/Gen4) haben eine einheitliche JSON-RPC-API über HTTP:
 
-| Zweck | Aufruf |
-| --- | --- |
-| Gerät erkennen | `GET http://<host>/shelly` → `id`, `mac`, `model`, `gen`, `ver`, `auth_en` |
-| Einschalten mit Auto-Aus | `GET /rpc/Switch.Set?id=0&on=true&toggle_after=<sek>` |
-| Ausschalten | `GET /rpc/Switch.Set?id=0&on=false` |
-| Status | `GET /rpc/Switch.GetStatus?id=0` → `output`, `apower`, … |
-| Konfiguration | `GET /rpc/Shelly.GetConfig` |
+| Zweck                    | Aufruf                                                                     |
+| ------------------------ | -------------------------------------------------------------------------- |
+| Gerät erkennen           | `GET http://<host>/shelly` → `id`, `mac`, `model`, `gen`, `ver`, `auth_en` |
+| Einschalten mit Auto-Aus | `GET /rpc/Switch.Set?id=0&on=true&toggle_after=<sek>`                      |
+| Ausschalten              | `GET /rpc/Switch.Set?id=0&on=false`                                        |
+| Status                   | `GET /rpc/Switch.GetStatus?id=0` → `output`, `apower`, …                   |
+| Konfiguration            | `GET /rpc/Shelly.GetConfig`                                                |
 
 Authentifizierung: HTTP Digest (SHA-256, Benutzer `admin`), wenn `auth_en` gesetzt ist.
 
@@ -127,15 +127,15 @@ Neue Dateien:
 
 Endpunkte:
 
-| Methode | Pfad | Wer | Zweck |
-| --- | --- | --- | --- |
-| GET | `/api/shelly/devices` | admin | Liste mit Status |
-| POST | `/api/shelly/devices` `{ host }` | admin | Gerät per IP prüfen und anlegen |
-| PUT | `/api/shelly/devices/:id` | admin | Name, Kanal → Ausstattung, Auto-Aus |
-| POST | `/api/shelly/devices/:id/identify` | admin | kurz an/aus schalten zum Wiederfinden |
-| DELETE | `/api/shelly/devices/:id` | admin | auf `retired` setzen |
-| GET | `/api/equipment/:id/power` | angemeldet | aktueller Status |
-| POST | `/api/equipment/:id/power` `{ on }` | Sitzung + Berechtigung | Ein/Aus |
+| Methode | Pfad                                | Wer                    | Zweck                                 |
+| ------- | ----------------------------------- | ---------------------- | ------------------------------------- |
+| GET     | `/api/shelly/devices`               | admin                  | Liste mit Status                      |
+| POST    | `/api/shelly/devices` `{ host }`    | admin                  | Gerät per IP prüfen und anlegen       |
+| PUT     | `/api/shelly/devices/:id`           | admin                  | Name, Kanal → Ausstattung, Auto-Aus   |
+| POST    | `/api/shelly/devices/:id/identify`  | admin                  | kurz an/aus schalten zum Wiederfinden |
+| DELETE  | `/api/shelly/devices/:id`           | admin                  | auf `retired` setzen                  |
+| GET     | `/api/equipment/:id/power`          | angemeldet             | aktueller Status                      |
+| POST    | `/api/equipment/:id/power` `{ on }` | Sitzung + Berechtigung | Ein/Aus                               |
 
 WebSocket: neuer Ereignistyp `equipment-power` über den bestehenden `/ws/auth`. Das Frontend
 ignoriert unbekannte Typen schon heute (Type Guards in `authEventSource.ts`), das ist also
