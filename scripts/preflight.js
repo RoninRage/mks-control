@@ -112,7 +112,7 @@ async function runPreflight() {
   const dbRunning = await checkCouchDB();
   if (!dbRunning) {
     error('CouchDB is not running or not reachable at http://localhost:5984');
-    log('Start Docker services first: docker-compose up -d');
+    log('Start Docker services first: docker compose up -d');
     log('Or let the orchestrator start it for you.');
   }
 
