@@ -33,7 +33,7 @@ const getCouchDBConfig = (): {
 
 let dbInstance: nano.DocumentScope<Member> | null = null;
 let tagDbInstance: nano.DocumentScope<Tag> | null = null;
-let auditDbInstance: nano.DocumentScope | null = null;
+let auditDbInstance: nano.DocumentScope<AuditLog> | null = null;
 let nanoInstance: ServerScope | null = null;
 
 export const initializeDatabase = async (): Promise<void> => {
@@ -193,7 +193,7 @@ export const getAuditDatabase = (): nano.DocumentScope<AuditLog> => {
   if (!auditDbInstance) {
     throw new Error('Audit database not initialized. Call initializeDatabase() first.');
   }
-  return auditDbInstance as nano.DocumentScope<AuditLog>;
+  return auditDbInstance;
 };
 
 export const getNanoInstance = (): ServerScope => {
