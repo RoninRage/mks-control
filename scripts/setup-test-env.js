@@ -14,6 +14,7 @@ const pid = process.pid;
 
 const membersDbName = `mks_members_test_${timestamp}_${pid}`;
 const tagsDbName = `mks_tags_test_${timestamp}_${pid}`;
+const usageDbName = `mks_usage_test_${timestamp}_${pid}`;
 
 console.log('\n📦 Generating test database names:');
 console.log(`   Members: ${membersDbName}`);
@@ -24,6 +25,7 @@ const envContent = `# Auto-generated test environment - DO NOT EDIT
 # Generated at: ${new Date().toISOString()}
 COUCHDB_DB_NAME=${membersDbName}
 COUCHDB_TAGS_DB_NAME=${tagsDbName}
+COUCHDB_USAGE_DB_NAME=${usageDbName}
 TEST_MEMBERS_DB_NAME=${membersDbName}
 TEST_TAGS_DB_NAME=${tagsDbName}
 NODE_ENV=test
@@ -34,6 +36,10 @@ COUCHDB_USER=admin
 COUCHDB_PASSWORD=password
 SHELLY_PASSWORD=test-shelly-secret
 TERMINAL_IDLE_TIMEOUT_MS=10000
+# Machine control timings are configured in minutes; in tests one "minute" is one second.
+TERMINAL_MINUTE_MS=1000
+TERMINAL_OFFLINE_AFTER_MS=5000
+MACHINE_TICK_MS=250
 `;
 
 const envPath = join(process.cwd(), '.env.test');

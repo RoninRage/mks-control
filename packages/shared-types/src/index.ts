@@ -84,6 +84,8 @@ export interface Equipment {
   deletedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Shelly output that powers this machine (docs/shelly-plan.md, phase 3).
+  control?: EquipmentControl;
 }
 
 export interface EquipmentWithMeta extends Equipment {
@@ -299,6 +301,9 @@ export interface TerminalTokenResponse {
 // Why a member may not release the machine at this terminal.
 export type TerminalDenyReason = 'no-permission' | 'equipment-unavailable';
 
+// Why the machine cannot be released right now, independent of who is logged in.
+export type MachineBlockReason = 'not-configured' | 'device-offline';
+
 export interface TerminalSessionInfo {
   memberId: string;
   firstName: string;
@@ -320,11 +325,33 @@ export interface TerminalLastScan {
   at: string;
 }
 
+export interface MachineReleaseInfo {
+  usageId: string;
+  memberId: string | null;
+  memberName: string;
+  startedAt: string;
+  adminOverride: boolean;
+  // Set while the Pi asks "Noch da?"; the machine is switched off at the deadline.
+  stillThere?: { askedAt: string; deadline: string };
+}
+
+export interface TerminalMachineState {
+  // Shelly output configured for this machine.
+  configured: boolean;
+  online: boolean;
+  on?: boolean;
+  blockReason?: MachineBlockReason;
+  release: MachineReleaseInfo | null;
+}
+
 export interface TerminalState {
   terminal: TerminalSummary;
   equipment: { id: string; name: string; isAvailable: boolean } | null;
   session: TerminalSessionInfo | null;
+  machine: TerminalMachineState;
   lastScan?: TerminalLastScan;
+  // How often the Pi should poll; missing polls mean the Pi is offline.
+  pollIntervalMs: number;
 }
 
 // WebSocket notice that a terminal's state changed. Contains no member data;
@@ -333,4 +360,52 @@ export interface TerminalStateEvent {
   type: 'terminal-state';
   terminalId: string;
   ts: string;
+}
+
+// ---------------------------------------------------------------------------
+// Machine control (phase 3: release, safety timer, "Noch da?", usage records)
+// ---------------------------------------------------------------------------
+
+export type MachineControlKind = 'switch' | 'light';
+
+export interface EquipmentControl {
+  deviceId: string;
+  kind: MachineControlKind;
+  index: number;
+  // Safety timer on the Shelly; the backend renews it while the release lasts.
+  watchdogMinutes: number;
+  // Phase 3 only switches off immediately; "when idle" follows with power metering.
+  shutdown: { mode: 'immediate' };
+}
+
+export interface SetEquipmentControlRequest {
+  deviceId: string;
+  kind: MachineControlKind;
+  index: number;
+  watchdogMinutes?: number;
+}
+
+export type UsageEndReason =
+  | 'logout'
+  | 'timeout'
+  | 'admin'
+  | 'device-offline'
+  | 'terminal-offline'
+  | 'system';
+
+// One release of a machine. Open (no endedAt) while the machine is released.
+export interface EquipmentUsage {
+  _id?: string;
+  _rev?: string;
+  type?: 'equipmentUsage';
+  id: string;
+  equipmentId: string;
+  terminalId: string;
+  memberId: string | null;
+  memberName: string;
+  adminOverride: boolean;
+  startedAt: string;
+  endedAt?: string;
+  durationSec?: number;
+  endReason?: UsageEndReason;
 }

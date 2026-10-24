@@ -108,18 +108,24 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     meters: Array.from({ length: options.meters ?? 0 }, () => ({ powerW: 0, energyWh: 0 })),
   };
   const calls: MockShellyCall[] = [];
-  const timers = new Set<NodeJS.Timeout>();
+  // One pending auto-flip per output. Like a real Shelly, every set command replaces it.
+  const timers = new Map<MockOutputState, NodeJS.Timeout>();
   let offline = false;
 
   const scheduleFlip = (target: MockOutputState, seconds: number | undefined): void => {
+    const pending = timers.get(target);
+    if (pending) {
+      clearTimeout(pending);
+      timers.delete(target);
+    }
     if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
       return;
     }
     const timer = setTimeout(() => {
       target.on = !target.on;
-      timers.delete(timer);
+      timers.delete(target);
     }, seconds * 1000);
-    timers.add(timer);
+    timers.set(target, timer);
   };
 
   const isAuthorized = (req: http.IncomingMessage): boolean => {

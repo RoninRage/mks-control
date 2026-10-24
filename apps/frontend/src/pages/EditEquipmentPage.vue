@@ -146,6 +146,11 @@
         />
         <q-btn flat label="Zurück" color="primary" @click="goBack" class="touch-target" />
       </div>
+
+      <!-- Shelly output that powers this machine (admins only) -->
+      <div v-if="!isCreate && userStore.isAdmin" class="q-mt-xl">
+        <equipment-control-card :equipment="equipment" @updated="onControlUpdated" />
+      </div>
     </div>
   </q-page>
 </template>
@@ -157,6 +162,8 @@ import { useQuasar } from 'quasar';
 import type { Area, Equipment } from '@mks-control/shared-types';
 import { equipmentService } from 'src/services/equipmentService';
 import { areaService } from 'src/services/areaService';
+import EquipmentControlCard from 'components/EquipmentControlCard.vue';
+import { useUserStore } from 'stores/user-store';
 
 defineOptions({
   name: 'EditEquipmentPage',
@@ -165,6 +172,20 @@ defineOptions({
 const router = useRouter();
 const route = useRoute();
 const $q = useQuasar();
+const userStore = useUserStore();
+
+function onControlUpdated(updated: Equipment): void {
+  if (!equipment.value) {
+    return;
+  }
+  const next: Equipment = { ...equipment.value };
+  if (updated.control) {
+    next.control = updated.control;
+  } else {
+    delete next.control;
+  }
+  equipment.value = next;
+}
 
 const loading = ref(false);
 const error = ref<string | null>(null);

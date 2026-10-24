@@ -210,3 +210,22 @@ export function getTestDatabaseConnection(): DatabaseConnection {
     tagsDbName,
   };
 }
+
+/**
+ * Server connection with test credentials.
+ */
+export function getTestNano(): ServerScope {
+  return nano(getCouchDBUrl());
+}
+
+/**
+ * Usage database (machine releases). Its name comes from .env.test via global-setup;
+ * the backend creates it on start.
+ */
+export function getTestUsageDatabase(): DocumentScope<any> {
+  const usageDbName = process.env.TEST_USAGE_DB_NAME;
+  if (!usageDbName) {
+    throw new Error('TEST_USAGE_DB_NAME not set. Did global-setup run?');
+  }
+  return getTestNano().use(usageDbName);
+}

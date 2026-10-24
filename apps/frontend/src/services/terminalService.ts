@@ -90,6 +90,14 @@ export const terminalClientService = {
     );
   },
 
+  release(): Promise<TerminalState> {
+    return request('/terminal/release', { method: 'POST' }, 'Freigabe fehlgeschlagen');
+  },
+
+  stillThere(): Promise<TerminalState> {
+    return request('/terminal/still-there', { method: 'POST' }, 'Bestätigung fehlgeschlagen');
+  },
+
   logout(): Promise<TerminalState> {
     return request('/terminal/logout', { method: 'POST' }, 'Abmelden fehlgeschlagen');
   },

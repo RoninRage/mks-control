@@ -260,7 +260,7 @@ router.post('/:id/rotate-token', async (req: Request, res: Response) => {
       tokenHash: hashTerminalToken(token),
       updatedAt: new Date().toISOString(),
     });
-    clearTerminalRuntime(saved.id);
+    await clearTerminalRuntime(saved.id);
 
     void logAuditEvent(
       { action: 'terminal.rotate-token', targetType: 'terminal', targetId: saved.id },
@@ -288,7 +288,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const now = new Date().toISOString();
     await saveTerminal({ ...terminal, isActive: false, deletedAt: now, updatedAt: now });
-    clearTerminalRuntime(terminal.id);
+    await clearTerminalRuntime(terminal.id);
 
     void logAuditEvent(
       { action: 'terminal.delete', targetType: 'terminal', targetId: terminal.id },
