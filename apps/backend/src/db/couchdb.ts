@@ -37,7 +37,13 @@ let auditDbInstance: nano.DocumentScope<AuditLog> | null = null;
 let nanoInstance: ServerScope | null = null;
 
 export const initializeDatabase = async (): Promise<void> => {
-  if (process.env.MONOREPO_DEV !== 'true') {
+  // Same rule as the entry guard in server.ts: production and test mode are allowed,
+  // development must go through the monorepo dev script.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.NODE_ENV !== 'test' &&
+    process.env.MONOREPO_DEV !== 'true'
+  ) {
     error('Database can only be initialized via monorepo dev mode');
     throw new Error('Invalid startup mode');
   }
