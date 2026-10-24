@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import nano from 'nano';
 import { resolve } from 'path';
 import { getDatabase } from './couchdb';
 import { Member } from '../types/member';
@@ -19,7 +20,7 @@ const addTimestamps = (
 });
 
 const ensureAdminMembers = async (
-  db: ReturnType<typeof getDatabase>,
+  db: nano.DocumentScope<Member>,
   adminSeedMembers: Array<Omit<Member, '_id' | '_rev'>>
 ): Promise<void> => {
   const adminPromises = adminSeedMembers.map(async (member) => {

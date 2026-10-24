@@ -440,10 +440,6 @@ async function updateThemePreference(theme: 'light' | 'dark' | 'auto') {
   }
 }
 
-const statusLabel = computed(() => {
-  return member.value?.isActive ? 'Aktiv' : 'Inaktiv';
-});
-
 async function updateRoles(newRoles: string[]) {
   if (!member.value || !userStore.memberId || !userStore.selectedRole?.id) {
     return;
@@ -621,7 +617,7 @@ function startTagScanning() {
   authEventSource.onTag(handleTag);
 
   // Set timeout for scanning (30 seconds)
-  const scanTimeout = setTimeout(() => {
+  setTimeout(() => {
     scanningTag.value = false;
     authEventSource.setTagAssignmentMode(false); // Disable tag assignment mode on timeout
     if (!tagReceived) {

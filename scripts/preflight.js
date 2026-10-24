@@ -12,11 +12,11 @@ if (!process.env.NODE_ENV) {
 }
 
 function checkNodeVersion() {
-  const required = '18.0.0';
+  const requiredMajor = 22;
   const current = process.version.slice(1);
 
-  if (current < required) {
-    error('Node.js ' + required + ' required, got ' + current);
+  if (parseInt(current.split('.')[0], 10) < requiredMajor) {
+    error('Node.js ' + requiredMajor + '+ required, got ' + current);
     process.exit(1);
   }
   log('✅ Node.js ' + current);
@@ -112,7 +112,7 @@ async function runPreflight() {
   const dbRunning = await checkCouchDB();
   if (!dbRunning) {
     error('CouchDB is not running or not reachable at http://localhost:5984');
-    log('Start Docker services first: docker-compose up -d');
+    log('Start Docker services first: docker compose up -d');
     log('Or let the orchestrator start it for you.');
   }
 

@@ -1,6 +1,6 @@
 import { configure } from 'quasar/wrappers';
 
-export default configure((ctx) => {
+export default configure(() => {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/supporting-ts
     supportTS: {

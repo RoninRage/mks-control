@@ -32,7 +32,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { Dark, useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
-import type { ConnectionStatus, TagEvent } from 'src/services/authEventSource';
+import type { ConnectionStatus } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
 import RfidIcon from 'components/RfidIcon.vue';
@@ -136,7 +136,7 @@ onMounted(() => {
     status.value = next;
   });
 
-  authEventSource.onUnknownTag((event: TagEvent): void => {
+  authEventSource.onUnknownTag((): void => {
     q.notify({
       type: 'negative',
       message: 'Unbekannter Benutzer',
@@ -147,7 +147,7 @@ onMounted(() => {
     });
   });
 
-  authEventSource.onReaderError((event): void => {
+  authEventSource.onReaderError((): void => {
     q.notify({
       type: 'negative',
       message: 'Fehler beim Lesen der Karte',
@@ -158,7 +158,7 @@ onMounted(() => {
     });
   });
 
-  authEventSource.onInactiveUser((event: TagEvent): void => {
+  authEventSource.onInactiveUser((): void => {
     q.notify({
       type: 'negative',
       message: 'Benutzer deaktiviert',

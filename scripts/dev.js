@@ -12,6 +12,25 @@ const log = (msg) => console.log(msg);
 const error = (msg) => console.error('❌ ' + msg);
 const success = (msg) => console.log('✅ ' + msg);
 
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+/**
+ * The NFC bridge needs a PC/SC daemon. Returns a reason to skip it, or null to start it.
+ * Windows and macOS ship PC/SC with the OS; on Linux pcscd must be running (or socket-activated).
+ */
+function nfcBridgeSkipReason() {
+  if (process.env.NODE_ENV === 'test') return 'NODE_ENV=test';
+  if (process.env.CLAUDE_CODE_REMOTE === 'true') return 'CLAUDE_CODE_REMOTE=true (cloud session)';
+  if (process.platform !== 'linux') return null;
+  if (fs.existsSync('/run/pcscd/pcscd.comm')) return null;
+  try {
+    execSync('pgrep -x pcscd', { stdio: 'ignore' });
+    return null;
+  } catch {
+    return 'pcscd is not running';
+  }
+}
+
 const services = [
   {
     name: 'CouchDB',
@@ -21,7 +40,7 @@ const services = [
   },
   {
     name: 'Backend',
-    cmd: 'npm.cmd',
+    cmd: NPM,
     args: ['run', 'dev'],
     cwd: 'apps/backend',
     port: 3000,
@@ -29,7 +48,7 @@ const services = [
   },
   {
     name: 'Frontend',
-    cmd: 'npm.cmd',
+    cmd: NPM,
     args: ['run', 'dev'],
     cwd: 'apps/frontend',
     port: 9000,
@@ -38,7 +57,7 @@ const services = [
   },
   {
     name: 'NFC Bridge',
-    cmd: 'npm.cmd',
+    cmd: NPM,
     args: ['run', 'dev'],
     cwd: 'nfc-bridge',
     port: null,
@@ -60,14 +79,14 @@ async function startDocker() {
   if (RESET) {
     log('🔄 Resetting database (--reset flag detected)...');
     try {
-      execSync('docker-compose down -v', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+      execSync('docker compose down -v', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
     } catch (err) {
       // Ignore errors if containers don't exist
     }
   }
 
   try {
-    execSync('docker-compose up -d', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+    execSync('docker compose up -d', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
   } catch (err) {
     error('Failed to start Docker services: ' + err.message);
     process.exit(1);
@@ -129,10 +148,10 @@ async function startService(service) {
   });
 }
 
-async function waitForServices() {
+async function waitForServices(activeServices) {
   log('\n⏳ Waiting for services to be ready...\n');
 
-  for (const service of services) {
+  for (const service of activeServices) {
     try {
       if (service.healthUrl) {
         await waitForEndpoint(service.healthUrl, 60000);
@@ -172,16 +191,19 @@ async function main() {
     // Start Docker services
     await startDocker();
 
+    // Skip the NFC bridge when no PC/SC daemon is available
+    const nfcSkipReason = nfcBridgeSkipReason();
+    if (nfcSkipReason) {
+      log('ℹ️  Skipping NFC Bridge: ' + nfcSkipReason);
+    }
+    const activeServices = services.filter((s) => !(nfcSkipReason && s.name === 'NFC Bridge'));
+
     // Start all services in parallel
     log('\n📦 Starting all services...\n');
-    const processes = await Promise.all(
-      services
-        .filter((s) => !(process.env.NODE_ENV === 'test' && s.name === 'NFC Bridge'))
-        .map(startService)
-    );
+    const processes = await Promise.all(activeServices.map(startService));
 
     // Wait for readiness
-    await waitForServices();
+    await waitForServices(activeServices);
 
     success('\n✨ MKS Control development environment started!\n');
     log('🗄️  Database:  http://localhost:5984/_utils');
@@ -195,7 +217,7 @@ async function main() {
       log('\n🛑 Shutting down services...');
       processes.filter((p) => p).forEach((proc) => proc.kill());
       try {
-        execSync('docker-compose down', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+        execSync('docker compose down', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
       } catch (err) {
         // Ignore errors during cleanup
       }

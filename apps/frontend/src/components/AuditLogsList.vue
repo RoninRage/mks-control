@@ -69,7 +69,7 @@ defineOptions({
   name: 'AuditLogsList',
 });
 
-const props = defineProps<{
+defineProps<{
   logs: AuditLog[];
   metadata: { total: number };
   expandedLogs: string[];
