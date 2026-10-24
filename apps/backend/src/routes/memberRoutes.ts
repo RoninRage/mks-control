@@ -1,9 +1,52 @@
+import { randomUUID } from 'crypto';
 import { Request, Response, Router } from 'express';
+// multer: no multipart/form-data parser existed in the backend; the import endpoint spec
+// mandates multipart uploads, so this dependency is required to read the uploaded CSV file.
+import multer from 'multer';
+// csv-parse: no CSV parser existed in the backend. Used instead of a hand-rolled splitter so
+// quoted fields, embedded commas and BOM are handled correctly.
+import { parse } from 'csv-parse/sync';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Member, CreateMemberRequest, UpdateMemberRequest } from '../types/member';
+import { MemberImportError, MemberImportResult } from '@mks-control/shared-types';
 import { Equipment } from '../types/equipment';
 import { Area } from '../types/area';
+
+// In-memory upload (no disk persistence); 5 MB cap is ample for the Vereinsplaner member export.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+// Parse a German date string "DD.MM.YYYY" into ISO "YYYY-MM-DD".
+// Returns null if the value is missing or not a valid calendar date (e.g. "32.13.2020").
+const parseGermanDate = (value: string | undefined): string | null => {
+  if (!value) return null;
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const day = Number(dd);
+  const month = Number(mm);
+  const year = Number(yyyy);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  // Reject overflow (e.g. 31.02 → 03.03) by checking the parts round-trip.
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// Raw CSV row shape from the Vereinsplaner export (only the columns we consume).
+interface ImportCsvRow {
+  Mitgliedsnummer?: string;
+  Vorname?: string;
+  Nachname?: string;
+  'E-Mail'?: string;
+  Telefonnummer?: string;
+  Beitrittsdatum?: string;
+}
 
 /**
  * Auto-grant equipment permissions when member is assigned bereichsleitung role
@@ -130,6 +173,167 @@ export const createMemberRoutes = (): Router => {
       res.status(500).json({ ok: false, error: 'Failed to fetch member' });
     }
   });
+
+  // POST /members/import - Bulk import members from a Vereinsplaner CSV (multipart/form-data, field "file")
+  // Upserts on the business membership number (memberId). Admin/Vorstand only.
+  router.post(
+    '/members/import',
+    upload.single('file'),
+    async (req: Request, res: Response) => {
+      try {
+        const currentUserRole = req.headers['x-user-role'] as string;
+        if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
+          res.status(403).json({ ok: false, error: 'Keine Berechtigung zum Importieren' });
+          return;
+        }
+
+        if (!req.file) {
+          res.status(400).json({ ok: false, error: 'Keine CSV-Datei hochgeladen' });
+          return;
+        }
+
+        let rows: ImportCsvRow[];
+        try {
+          rows = parse(req.file.buffer.toString('utf-8'), {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            bom: true,
+          }) as ImportCsvRow[];
+        } catch {
+          res.status(400).json({ ok: false, error: 'CSV-Datei konnte nicht gelesen werden' });
+          return;
+        }
+
+        // Pre-scan: count each membership number so in-CSV duplicates can be flagged and skipped.
+        const memberIdCounts = new Map<string, number>();
+        for (const row of rows) {
+          const num = row.Mitgliedsnummer?.trim();
+          if (num) {
+            memberIdCounts.set(num, (memberIdCounts.get(num) ?? 0) + 1);
+          }
+        }
+
+        const db = getDatabase<Member>();
+        const errors: MemberImportError[] = [];
+        let inserted = 0;
+        let updated = 0;
+        let skipped = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const rowNumber = i + 2; // +1 for header line, +1 for 1-based numbering
+          const memberId = row.Mitgliedsnummer?.trim() ?? '';
+
+          const fail = (reason: string): void => {
+            errors.push({ row: rowNumber, memberId, reason });
+            skipped++;
+          };
+
+          // Validation
+          if (!memberId) {
+            fail('Mitgliedsnummer fehlt');
+            continue;
+          }
+          const firstName = row.Vorname?.trim() ?? '';
+          const lastName = row.Nachname?.trim() ?? '';
+          if (!firstName) {
+            fail('Vorname fehlt');
+            continue;
+          }
+          if (!lastName) {
+            fail('Nachname fehlt');
+            continue;
+          }
+          const joinDate = parseGermanDate(row.Beitrittsdatum);
+          if (!joinDate) {
+            fail(`Ungültiges Beitrittsdatum: '${row.Beitrittsdatum ?? ''}'`);
+            continue;
+          }
+          const email = row['E-Mail']?.trim();
+          if (email && !email.includes('@')) {
+            fail(`Ungültige E-Mail: '${email}'`);
+            continue;
+          }
+          const phone = row.Telefonnummer?.trim();
+
+          // In-CSV duplicate: skip every occurrence of a multiply-listed membership number.
+          if ((memberIdCounts.get(memberId) ?? 0) > 1) {
+            fail('Duplikat in CSV: Mitgliedsnummer mehrfach vorhanden');
+            continue;
+          }
+
+          try {
+            const existingResult = await db.find({
+              selector: { memberId: { $eq: memberId } },
+              limit: 1,
+            });
+            const now = new Date().toISOString();
+
+            if (existingResult.docs.length > 0) {
+              // Update: refresh mapped fields, preserve roles/tagUid and CouchDB metadata.
+              const existing = existingResult.docs[0];
+              const updatedMember: Member = {
+                ...existing,
+                firstName,
+                lastName,
+                memberId,
+                joinDate,
+                ...(email ? { email } : {}),
+                ...(phone ? { phone } : {}),
+                _id: existing._id,
+                _rev: existing._rev,
+                id: existing.id,
+                roles: existing.roles, // not overwritten on import
+                tagUid: existing.tagUid, // NFC link stays manual, not overwritten
+                createdAt: existing.createdAt ?? now,
+                updatedAt: now,
+              };
+              await db.insert(updatedMember);
+              updated++;
+            } else {
+              // Insert: new CouchDB UUID, default role, active (source is the active-member list).
+              const newMember: Omit<Member, '_id' | '_rev'> = {
+                id: randomUUID(),
+                memberId,
+                firstName,
+                lastName,
+                ...(email ? { email } : {}),
+                ...(phone ? { phone } : {}),
+                roles: ['mitglied'],
+                joinDate,
+                isActive: true,
+                createdAt: now,
+                updatedAt: now,
+              };
+              await db.insert(newMember);
+              inserted++;
+            }
+          } catch {
+            fail('Fehler beim Speichern in der Datenbank');
+          }
+        }
+
+        void logAuditEvent(
+          {
+            action: 'member.import',
+            targetType: 'member',
+            targetId: 'bulk',
+          },
+          req
+        );
+
+        const result: MemberImportResult = {
+          success: true,
+          summary: { total: rows.length, inserted, updated, skipped },
+          errors,
+        };
+        res.status(200).json(result);
+      } catch (err) {
+        res.status(500).json({ ok: false, error: 'Failed to import members' });
+      }
+    }
+  );
 
   // POST /members - Create new member
   router.post('/members', async (req: Request, res: Response) => {

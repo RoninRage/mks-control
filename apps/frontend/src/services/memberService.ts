@@ -1,4 +1,4 @@
-import type { Member, Tag } from '@mks-control/shared-types';
+import type { Member, Tag, MemberImportResult } from '@mks-control/shared-types';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
 
 interface MemberResponse {
@@ -168,6 +168,31 @@ export const memberService = {
       return data.data;
     } catch (error) {
       console.error('[memberService] Error updating theme:', error);
+      throw error;
+    }
+  },
+
+  async importMembers(file: File): Promise<MemberImportResult> {
+    try {
+      const apiUrl = getApiBaseUrl();
+      const url = `${apiUrl}/members/import`;
+      const formData = new FormData();
+      formData.append('file', file);
+      // No manual Content-Type (the browser sets the multipart boundary) and no auth headers —
+      // X-User-ID / X-User-Role are injected globally by boot/fetch-headers.ts.
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Import fehlgeschlagen');
+      }
+
+      return (await response.json()) as MemberImportResult;
+    } catch (error) {
+      console.error('[memberService] Error importing members:', error);
       throw error;
     }
   },

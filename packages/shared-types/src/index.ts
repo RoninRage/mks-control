@@ -106,6 +106,9 @@ export interface Member {
   _id?: string;
   _rev?: string;
   id: string;
+  // Business membership number from the Vereinsplaner (e.g. "[A]-1006"), distinct from the
+  // CouchDB-internal `id`. Used as the upsert key for the CSV member import.
+  memberId?: string;
   firstName: string;
   lastName: string;
   tagUid?: string;
@@ -140,4 +143,23 @@ export interface UpdateMemberRequest {
   preferredTheme?: 'light' | 'dark' | 'auto';
   isActive?: boolean;
   equipmentPermissions?: Record<string, boolean>;
+}
+
+// Per-row failure reported by the CSV member import (POST /api/members/import).
+export interface MemberImportError {
+  row: number;
+  memberId: string;
+  reason: string;
+}
+
+// Result returned by the CSV member import endpoint.
+export interface MemberImportResult {
+  success: boolean;
+  summary: {
+    total: number;
+    inserted: number;
+    updated: number;
+    skipped: number;
+  };
+  errors: MemberImportError[];
 }
