@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phasen 1–4 umgesetzt, Phasen 5–7 offen
+**Stand:** 2026-10-24 · **Status:** Phasen 1–5 umgesetzt, Phasen 6–7 offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -358,7 +358,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
    Audit.
 4. ✅ **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
    Nutzungsansicht mit Sichtbarkeit je Rolle, Aufbewahrungsfrist.
-5. **Eingänge und Zusatzfunktionen:** Sicherheits-Eingänge, Dimmer, Rollladen, Zusatzrelais.
+5. ✅ **Eingänge und Zusatzfunktionen:** Sicherheits-Eingänge, Dimmer, Rollladen, Zusatzrelais.
 6. **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
    Push vom Shelly statt Polling (Gen2: Webhooks/Outbound-WebSocket, Gen1: Action-URLs), damit
    Eingänge sofort reagieren.
@@ -460,6 +460,31 @@ Umgesetzt:
 - **Aufbewahrung:** beendete Nutzungen werden nach `USAGE_RETENTION_DAYS` (Standard 365) gelöscht.
 
 Tests: `tests/e2e/machine-metering.spec.ts`, gemeinsame Hilfen in `tests/helpers/machines.ts`.
+
+### Stand Phase 5
+
+Umgesetzt:
+
+- **Sicherheits-Eingänge** (`control.interlocks`): Shelly-Eingänge mit Bezeichnung und sicherem
+  Zustand („Kontakt geschlossen" oder „offen"). Freigabe nur, wenn alle sicher und lesbar sind
+  (sonst `blockReason: 'interlock-open'`, der Pi nennt den Eingang). Verlässt ein Eingang während
+  der Freigabe den sicheren Zustand, schaltet die Maschine sofort ab, auch während „läuft bis zum
+  Jobende" (Grund `interlock`); das Mitglied bleibt angemeldet. Ist ein Eingang nicht lesbar,
+  wird das eine Timer-Periode lang toleriert, danach ebenfalls abgeschaltet.
+- **Zusatzfunktionen** (`control.extras`): weitere Relais, Dimmer und Rollläden, am Pi bedienbar,
+  solange die Maschine freigegeben ist (`POST /api/terminal/extras/:id`). Relais und Licht können
+  „mit der Maschine ausschalten" (z. B. Absaugung); Rollläden nie.
+- Einstellungen im Abschnitt „Steuerung" der Ausstattungsseite. Geräte, die als Eingang oder
+  Zusatzfunktion zugeordnet sind, können nicht ausgemustert werden.
+
+Reaktionszeit der Eingänge: Abfrage im Regelkreis (Standard jede Sekunde, Status höchstens 2 s
+alt). Schnellere Reaktion per Push vom Shelly ist Teil von Phase 6. Not-Aus bleibt Sache der
+Maschine.
+
+Behoben: Seit Phase 4 fehlte am Pi der Hinweis, warum eine Maschine mit Leistungsmessung nicht
+freigegeben werden kann (der Button war nur gesperrt).
+
+Tests: `tests/e2e/machine-accessories.spec.ts`.
 
 ## Risiken
 

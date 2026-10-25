@@ -1,5 +1,6 @@
 import type {
   CreateTerminalRequest,
+  MachineExtraRequest,
   TerminalState,
   TerminalSummary,
   TerminalTokenResponse,
@@ -96,6 +97,14 @@ export const terminalClientService = {
 
   stillThere(): Promise<TerminalState> {
     return request('/terminal/still-there', { method: 'POST' }, 'Bestätigung fehlgeschlagen');
+  },
+
+  extra(extraId: string, body: MachineExtraRequest): Promise<TerminalState> {
+    return request(
+      `/terminal/extras/${encodeURIComponent(extraId)}`,
+      { method: 'POST', body: JSON.stringify(body) },
+      'Aktion fehlgeschlagen'
+    );
   },
 
   logout(): Promise<TerminalState> {

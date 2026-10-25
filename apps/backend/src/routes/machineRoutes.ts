@@ -2,9 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import type { Equipment } from '../types/equipment';
+import { nanoid } from 'nanoid';
 import type {
   EquipmentControl,
   MachineControlKind,
+  MachineExtra,
+  MachineExtraKind,
+  MachineInterlock,
   MachineMeterRef,
   MachineShutdown,
 } from '../types/machine';
@@ -50,6 +54,72 @@ const parseShutdown = (raw: unknown): Parsed<MachineShutdown> => {
     return { ok: false, error: 'Maximale Wartezeit muss zwischen 1 und 1440 Minuten liegen' };
   }
   return { ok: true, value: { mode: 'when-idle', idleThresholdW, idleSeconds, maxWaitMinutes } };
+};
+
+const EXTRA_KINDS: MachineExtraKind[] = ['switch', 'light', 'cover'];
+const MAX_LABEL_LENGTH = 60;
+const MAX_ITEMS = 10;
+
+const readLabel = (value: unknown): string | null => {
+  const label = typeof value === 'string' ? value.trim() : '';
+  return label && label.length <= MAX_LABEL_LENGTH ? label : null;
+};
+
+const parseInterlocks = (raw: unknown): Parsed<MachineInterlock[]> => {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: [] };
+  }
+  if (!Array.isArray(raw) || raw.length > MAX_ITEMS) {
+    return { ok: false, error: `Höchstens ${MAX_ITEMS} Sicherheits-Eingänge` };
+  }
+  const result: MachineInterlock[] = [];
+  for (const item of raw as Array<Record<string, unknown>>) {
+    const label = readLabel(item?.label);
+    if (!label) {
+      return { ok: false, error: `Bezeichnung des Eingangs: 1–${MAX_LABEL_LENGTH} Zeichen` };
+    }
+    if (typeof item.deviceId !== 'string' || !isInt(item.index, 0, 64)) {
+      return { ok: false, error: `Eingang „${label}“ ist ungültig` };
+    }
+    if (item.okWhen !== 'closed' && item.okWhen !== 'open') {
+      return { ok: false, error: `Sicherer Zustand für „${label}“ fehlt` };
+    }
+    result.push({ deviceId: item.deviceId, index: item.index, label, okWhen: item.okWhen });
+  }
+  return { ok: true, value: result };
+};
+
+const parseExtras = (raw: unknown): Parsed<MachineExtra[]> => {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: [] };
+  }
+  if (!Array.isArray(raw) || raw.length > MAX_ITEMS) {
+    return { ok: false, error: `Höchstens ${MAX_ITEMS} Zusatzfunktionen` };
+  }
+  const result: MachineExtra[] = [];
+  for (const item of raw as Array<Record<string, unknown>>) {
+    const label = readLabel(item?.label);
+    if (!label) {
+      return { ok: false, error: `Bezeichnung der Zusatzfunktion: 1–${MAX_LABEL_LENGTH} Zeichen` };
+    }
+    const kind = item.kind as MachineExtraKind;
+    if (
+      typeof item.deviceId !== 'string' ||
+      !EXTRA_KINDS.includes(kind) ||
+      !isInt(item.index, 0, 64)
+    ) {
+      return { ok: false, error: `Zusatzfunktion „${label}“ ist ungültig` };
+    }
+    result.push({
+      id: typeof item.id === 'string' && item.id ? item.id : nanoid(8),
+      label,
+      deviceId: item.deviceId,
+      kind,
+      index: item.index,
+      offWithMachine: item.offWithMachine === true && kind !== 'cover',
+    });
+  }
+  return { ok: true, value: result };
 };
 
 const parseMeter = (raw: unknown): Parsed<MachineMeterRef | null> => {
@@ -192,6 +262,49 @@ router.put('/:id/control', requireAdmin, async (req: Request, res: Response) => 
       }
     }
 
+    const interlocksInput = parseInterlocks(body.interlocks);
+    if (!interlocksInput.ok) {
+      res.status(400).json({ error: interlocksInput.error });
+      return;
+    }
+    const extrasInput = parseExtras(body.extras);
+    if (!extrasInput.ok) {
+      res.status(400).json({ error: extrasInput.error });
+      return;
+    }
+
+    // Every referenced component must exist with the right kind, and nothing may reuse the
+    // machine's own power output.
+    const deviceCache = new Map<string, Awaited<ReturnType<typeof findShellyDevice>>>([
+      [device.id, device],
+    ]);
+    const lookup = async (id: string): Promise<Awaited<ReturnType<typeof findShellyDevice>>> => {
+      if (!deviceCache.has(id)) {
+        deviceCache.set(id, await findShellyDevice(id));
+      }
+      return deviceCache.get(id) ?? null;
+    };
+    for (const interlock of interlocksInput.value) {
+      const d = await lookup(interlock.deviceId);
+      if (!d?.components.some((c) => c.kind === 'input' && c.index === interlock.index)) {
+        res.status(400).json({ error: `„${interlock.label}“ ist kein Eingang dieses Geräts` });
+        return;
+      }
+    }
+    for (const extra of extrasInput.value) {
+      const d = await lookup(extra.deviceId);
+      if (!d?.components.some((c) => c.kind === extra.kind && c.index === extra.index)) {
+        res.status(400).json({ error: `„${extra.label}“: Kanal existiert auf dem Gerät nicht` });
+        return;
+      }
+      if (extra.deviceId === deviceId && extra.kind === kind && extra.index === index) {
+        res.status(400).json({
+          error: `„${extra.label}“ ist der Hauptschalter der Maschine und kann keine Zusatzfunktion sein`,
+        });
+        return;
+      }
+    }
+
     // "When idle" needs to know the power.
     const outputMeasures = device.components.some(
       (c) => c.kind === kind && c.index === index && c.hasPowerMeter
@@ -210,6 +323,8 @@ router.put('/:id/control', requireAdmin, async (req: Request, res: Response) => 
       watchdogMinutes,
       shutdown: shutdownInput.value,
       ...(meter ? { meter } : {}),
+      ...(interlocksInput.value.length ? { interlocks: interlocksInput.value } : {}),
+      ...(extrasInput.value.length ? { extras: extrasInput.value } : {}),
     };
     const updated: StoredEquipment = {
       ...equipment,
