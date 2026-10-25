@@ -221,6 +221,9 @@ export interface ShellyDevice {
   // Secret in the webhook URL the Shelly calls (phase 6). Never sent to the frontend.
   eventKey?: string;
   push?: ShellyPushStatus;
+  // Maintenance mode (phase 7): no releases, no health/push handling.
+  maintenance?: boolean;
+  maintenanceSince?: string;
   isActive: boolean;
   deletedAt?: string;
   createdAt?: string;
@@ -306,7 +309,12 @@ export interface TerminalTokenResponse {
 export type TerminalDenyReason = 'no-permission' | 'equipment-unavailable';
 
 // Why the machine cannot be released right now, independent of who is logged in.
-export type MachineBlockReason = 'not-configured' | 'device-offline' | 'interlock-open';
+export type MachineBlockReason =
+  | 'not-configured'
+  | 'device-offline'
+  | 'interlock-open'
+  // The machine's Shelly is in maintenance mode (e.g. firmware update).
+  | 'maintenance';
 
 export interface TerminalSessionInfo {
   memberId: string;
@@ -543,4 +551,23 @@ export interface ShellyPushStatus {
   state: 'active' | 'error' | 'unsupported';
   at: string;
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7: discovery, maintenance, firmware
+// ---------------------------------------------------------------------------
+
+// A Shelly found in the local network (mDNS) that is not registered yet.
+export interface ShellyDiscovery {
+  host: string;
+  name: string;
+  lastSeenAt: string;
+}
+
+export interface ShellyFirmwareInfo {
+  current?: string;
+  // Newer stable firmware offered by the device, if any.
+  available?: string;
+  // Update running (Gen1 reports this; Gen2 reboots when done).
+  updating?: boolean;
 }

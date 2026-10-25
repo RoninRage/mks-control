@@ -396,6 +396,9 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
       'not-configured'
     );
   }
+  if (device.maintenance) {
+    throw new MachineError('Der Shelly dieser Maschine ist in Wartung', 409, 'maintenance');
+  }
   const meterDevice = await resolveMeterDevice(control, device);
   const lookup = cachedDeviceLookup();
 
@@ -898,7 +901,9 @@ export const getMachineState = async (
   ]);
 
   let blockReason: TerminalMachineState['blockReason'];
-  if (!status.online) {
+  if (device.maintenance) {
+    blockReason = 'maintenance';
+  } else if (!status.online) {
     blockReason = 'device-offline';
   } else if (interlocks.some((i) => i.ok !== true)) {
     blockReason = 'interlock-open';

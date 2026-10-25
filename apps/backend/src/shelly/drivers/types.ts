@@ -1,4 +1,9 @@
-import type { ShellyComponent, ShellyComponentStatus, ShellyProbeResult } from '../../types/shelly';
+import type {
+  ShellyComponent,
+  ShellyComponentStatus,
+  ShellyFirmwareInfo,
+  ShellyProbeResult,
+} from '../../types/shelly';
 
 export type CoverAction = 'open' | 'close' | 'stop';
 
@@ -21,6 +26,10 @@ export interface ShellyDriver {
     index: number,
     action: CoverAction | { positionPct: number }
   ): Promise<void>;
+  // Installed firmware and a newer stable one, if the device offers it.
+  checkFirmware(host: string): Promise<ShellyFirmwareInfo>;
+  // Starts the update to the newest stable firmware; the device reboots afterwards.
+  updateFirmware(host: string): Promise<void>;
 }
 
 // Response of GET /shelly. Gen1 and Gen2+ share the endpoint but not the fields.

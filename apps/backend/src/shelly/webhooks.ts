@@ -140,7 +140,7 @@ export const syncAllWebhooks = async (onlyDeviceId?: string): Promise<void> => {
     limit: 1000,
   });
   for (const device of devices.docs as StoredDevice[]) {
-    if (onlyDeviceId && device.id !== onlyDeviceId) {
+    if ((onlyDeviceId && device.id !== onlyDeviceId) || device.maintenance) {
       continue;
     }
     try {

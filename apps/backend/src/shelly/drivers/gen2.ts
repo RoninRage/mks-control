@@ -1,4 +1,5 @@
 import type {
+  ShellyFirmwareInfo,
   ShellyComponent,
   ShellyComponentKind,
   ShellyComponentStatus,
@@ -191,6 +192,20 @@ export const gen2Driver: ShellyDriver = {
       ...(brightness !== undefined ? { brightness } : {}),
       ...(autoOffSec !== undefined ? { toggle_after: autoOffSec } : {}),
     });
+  },
+
+  async checkFirmware(host: string): Promise<ShellyFirmwareInfo> {
+    const info = await shellyRequest<ShellyInfoResponse>({ host, path: '/shelly' });
+    const result = await rpc(host, 'Shelly.CheckForUpdate');
+    const stable = isRecord(result) && isRecord(result.stable) ? result.stable : null;
+    return {
+      current: asString(info.ver) ?? asString(info.fw_id),
+      available: stable ? asString(stable.version) : undefined,
+    };
+  },
+
+  async updateFirmware(host: string): Promise<void> {
+    await rpc(host, 'Shelly.Update', { stage: 'stable' });
   },
 
   async setCover(host, index, action: CoverAction | { positionPct: number }): Promise<void> {

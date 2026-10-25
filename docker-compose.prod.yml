@@ -36,6 +36,7 @@ services:
       SHELLY_PASSWORD: ${SHELLY_PASSWORD:-}
       SHELLY_GEN1_USER: ${SHELLY_GEN1_USER:-admin}
       SHELLY_CALLBACK_URL: ${SHELLY_CALLBACK_URL:-}
+      SHELLY_DISCOVERY_TOKEN: ${SHELLY_DISCOVERY_TOKEN:-}
     depends_on:
       couchdb:
         condition: service_healthy
@@ -70,6 +71,23 @@ services:
       - 'com.centurylinklabs.watchtower.enable=true'
     networks:
       - mks-network
+    restart: unless-stopped
+
+  # Finds Shellys in the network via mDNS and reports them to the backend (docs/shelly-plan.md,
+  # phase 7). Needs the host network: multicast does not reach the Docker network.
+  shelly-discovery:
+    image: ghcr.io/${GITHUB_OWNER}/mks-control-backend:${TAG:-latest}
+    container_name: mks-control-shelly-discovery
+    network_mode: host
+    command: ['npx', 'ts-node', '--transpile-only', 'src/shelly/discoveryRelay.ts']
+    environment:
+      BACKEND_URL: http://127.0.0.1:3000
+      SHELLY_DISCOVERY_TOKEN: ${SHELLY_DISCOVERY_TOKEN:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      - 'com.centurylinklabs.watchtower.enable=true'
     restart: unless-stopped
 
   nfc-bridge:
