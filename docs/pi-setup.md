@@ -2,7 +2,8 @@
 
 Diese Anleitung richtet ein **Terminal** ein: einen Raspberry Pi mit Touchscreen und NFC-Leser
 an einer Maschine. Mitglieder melden sich dort per Tag an und geben die Maschine frei. Wie das
-Ganze funktioniert, steht in [`shelly-plan.md`](shelly-plan.md).
+Ganze funktioniert, steht in [`shelly-plan.md`](shelly-plan.md); Server und Shellys vorbereiten:
+[`inbetriebnahme.md`](inbetriebnahme.md).
 
 Pro Maschine braucht es:
 
