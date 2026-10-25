@@ -78,6 +78,12 @@ cp .env.example .env
 npm run dev
 ```
 
+### Machine Control (Shelly)
+
+German guides in `docs/`: [`inbetriebnahme.md`](docs/inbetriebnahme.md) (server, Shellys, test
+checklist), [`pi-setup.md`](docs/pi-setup.md) (terminal at a machine),
+[`bedienung-maschinen.md`](docs/bedienung-maschinen.md) (admin guide).
+
 ### Deployment Notes (Raspberry Pi)
 
 - Set AUTH_WS_URL to the backend WebSocket endpoint (for example, wss://pi-host/ws/auth).
