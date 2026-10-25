@@ -436,6 +436,8 @@ router.delete('/devices/:id', async (req: Request, res: Response) => {
         $or: [
           { 'control.deviceId': { $eq: device.id } },
           { 'control.meter.deviceId': { $eq: device.id } },
+          { 'control.interlocks': { $elemMatch: { deviceId: { $eq: device.id } } } },
+          { 'control.extras': { $elemMatch: { deviceId: { $eq: device.id } } } },
         ],
       },
       limit: 1000,

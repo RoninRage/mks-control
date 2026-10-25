@@ -302,7 +302,7 @@ export interface TerminalTokenResponse {
 export type TerminalDenyReason = 'no-permission' | 'equipment-unavailable';
 
 // Why the machine cannot be released right now, independent of who is logged in.
-export type MachineBlockReason = 'not-configured' | 'device-offline';
+export type MachineBlockReason = 'not-configured' | 'device-offline' | 'interlock-open';
 
 export interface TerminalSessionInfo {
   memberId: string;
@@ -348,6 +348,21 @@ export interface TerminalMachineState {
   powerW?: number;
   blockReason?: MachineBlockReason;
   release: MachineReleaseInfo | null;
+  // Safety inputs; ok is null while an input cannot be read.
+  interlocks: Array<{ label: string; ok: boolean | null }>;
+  // Extra controls on the Pi (only usable while the machine is released).
+  extras: MachineExtraState[];
+}
+
+export interface MachineExtraState {
+  id: string;
+  label: string;
+  kind: MachineExtraKind;
+  online: boolean;
+  on?: boolean;
+  brightness?: number;
+  coverState?: string;
+  positionPct?: number;
 }
 
 export interface TerminalState {
@@ -401,6 +416,38 @@ export interface EquipmentControl {
   shutdown: MachineShutdown;
   // Separate power meter. Without it, the output's own metering is used if it has one.
   meter?: MachineMeterRef;
+  // Inputs that must be in their safe state (e.g. lid closed) to release and keep running.
+  interlocks?: MachineInterlock[];
+  // Extra outputs operated at the Pi while the machine is released (dimmer, blinds, extraction).
+  extras?: MachineExtra[];
+}
+
+// A Shelly input wired to a safety contact. Not a replacement for an emergency stop.
+export interface MachineInterlock {
+  deviceId: string;
+  index: number;
+  label: string;
+  // Safe state of the contact: "closed" (input on) or "open" (input off).
+  okWhen: 'closed' | 'open';
+}
+
+export type MachineExtraKind = 'switch' | 'light' | 'cover';
+
+export interface MachineExtra {
+  id: string;
+  label: string;
+  deviceId: string;
+  kind: MachineExtraKind;
+  index: number;
+  // Switch this output off when the release ends (e.g. extraction). Not for covers.
+  offWithMachine: boolean;
+}
+
+export type MachineExtraAction = 'on' | 'off' | 'open' | 'close' | 'stop';
+
+export interface MachineExtraRequest {
+  action: MachineExtraAction;
+  brightness?: number;
 }
 
 export interface SetEquipmentControlRequest {
@@ -410,6 +457,9 @@ export interface SetEquipmentControlRequest {
   watchdogMinutes?: number;
   shutdown?: MachineShutdown;
   meter?: MachineMeterRef | null;
+  interlocks?: MachineInterlock[];
+  // id may be omitted for new extras; the backend assigns one.
+  extras?: Array<Omit<MachineExtra, 'id'> & { id?: string }>;
 }
 
 export type UsageEndReason =
@@ -420,7 +470,9 @@ export type UsageEndReason =
   | 'terminal-offline'
   | 'system'
   // Another permitted member took over while the machine was waiting to switch off.
-  | 'handover';
+  | 'handover'
+  // A safety input left its safe state (e.g. lid opened).
+  | 'interlock';
 
 // One release of a machine. Open (no endedAt) while the machine is released.
 export interface EquipmentUsage {

@@ -1,11 +1,12 @@
 import { nanoid } from 'nanoid';
-import { getDatabase, getUsageDatabase } from '../db/couchdb';
+import { getUsageDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { getDriver } from '../shelly/driver';
 import type { Equipment } from '../types/equipment';
 import type {
   EquipmentControl,
   EquipmentUsage,
+  MachineExtraRequest,
   MachineMeterRef,
   MachineReleaseInfo,
   TerminalMachineState,
@@ -27,6 +28,25 @@ import {
   type LogoutReason,
 } from '../terminals/sessions';
 import { DEFAULT_STILL_THERE_MINUTES, machineTickMs, minuteMs } from './timing';
+import {
+  findComponent,
+  findShellyDevice,
+  invalidateDeviceStatus,
+  readDeviceStatus,
+  type StoredDevice,
+} from './deviceStatus';
+
+import {
+  cachedDeviceLookup,
+  isValidExtraAction,
+  operateExtra,
+  readExtras,
+  readInterlocks,
+  switchOffExtras,
+  type DeviceLookup,
+} from './accessories';
+
+export { findShellyDevice } from './deviceStatus';
 
 // Machine releases (docs/shelly-plan.md, phases 3 and 4).
 //
@@ -41,7 +61,6 @@ import { DEFAULT_STILL_THERE_MINUTES, machineTickMs, minuteMs } from './timing';
 // latest after a maximum wait. A permitted member can take over during that wait.
 
 type StoredUsage = EquipmentUsage & { _id: string; _rev: string };
-type StoredDevice = ShellyDevice & { _id: string; _rev: string };
 
 interface PendingShutdown {
   since: number;
@@ -57,6 +76,10 @@ interface ActiveRelease {
   device: StoredDevice;
   // Device that measures the power: the output's own device, a separate one, or none.
   meterDevice: StoredDevice | null;
+  // Cached device docs for safety inputs and extras.
+  lookup: DeviceLookup;
+  // Since when a safety input could not be read (null = all readable).
+  interlockUnknownSince: number | null;
   lastRenewOkAt: number;
   lastRenewAttemptAt: number;
   // Start of the current "Noch da?" period (release start or last confirmation).
@@ -83,15 +106,6 @@ export class MachineError extends Error {
 // Shelly access
 // ---------------------------------------------------------------------------
 
-export const findShellyDevice = async (id: string): Promise<StoredDevice | null> => {
-  const db = getDatabase<ShellyDevice>();
-  const result = await db.find({
-    selector: { type: { $eq: 'shellyDevice' }, id: { $eq: id }, isActive: { $eq: true } },
-    limit: 1,
-  });
-  return (result.docs[0] as StoredDevice | undefined) ?? null;
-};
-
 const watchdogMs = (control: EquipmentControl): number => control.watchdogMinutes * minuteMs();
 
 const switchOutput = async (
@@ -115,42 +129,6 @@ const switchOnWithWatchdog = async (
   const autoOffSec = Math.max(1, Math.round(watchdogMs(control) / 1000));
   await switchOutput(device, control, true, autoOffSec);
 };
-
-// Short cache so state polls and the control loop do not query a Shelly every time.
-const statusCacheMs = (): number => Math.min(3000, machineTickMs() * 2);
-
-interface DeviceStatus {
-  at: number;
-  online: boolean;
-  components: ShellyComponentStatus[];
-}
-
-const statusCache = new Map<string, DeviceStatus>();
-
-const readDeviceStatus = async (
-  device: ShellyDevice,
-  options: { fresh?: boolean } = {}
-): Promise<DeviceStatus> => {
-  const cached = statusCache.get(device.id);
-  if (!options.fresh && cached && Date.now() - cached.at < statusCacheMs()) {
-    return cached;
-  }
-  let entry: DeviceStatus;
-  try {
-    const components = await getDriver(device.gen).getStatus(device.host, device.components);
-    entry = { at: Date.now(), online: true, components };
-  } catch {
-    entry = { at: Date.now(), online: false, components: [] };
-  }
-  statusCache.set(device.id, entry);
-  return entry;
-};
-
-const findComponent = (
-  status: DeviceStatus,
-  ref: { kind: string; index: number }
-): ShellyComponentStatus | undefined =>
-  status.components.find((c) => c.kind === ref.kind && c.index === ref.index);
 
 /**
  * Where the machine's power is measured: a separate meter if configured, otherwise the
@@ -386,14 +364,28 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
     );
   }
   const meterDevice = await resolveMeterDevice(control, device);
+  const lookup = cachedDeviceLookup();
+
+  // Safety inputs must be in their safe state (and readable) before switching on.
+  const interlocks = await readInterlocks(control, lookup, { fresh: true });
+  const notOk = interlocks.find((i) => i.ok !== true);
+  if (notOk) {
+    throw new MachineError(
+      notOk.ok === null
+        ? `Sicherheits-Eingang nicht lesbar: ${notOk.label}`
+        : `Sicherheits-Eingang nicht in Ordnung: ${notOk.label}`,
+      409,
+      'interlock-open'
+    );
+  }
 
   try {
     await switchOnWithWatchdog(device, control);
   } catch {
-    statusCache.delete(device.id);
+    invalidateDeviceStatus(device.id);
     throw new MachineError('Shelly nicht erreichbar', 502, 'device-offline');
   }
-  statusCache.delete(device.id);
+  invalidateDeviceStatus(device.id);
 
   const start = await readMeter(control, device, meterDevice, { fresh: true });
   let usage: StoredUsage;
@@ -412,6 +404,8 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
     control,
     device,
     meterDevice,
+    lookup,
+    interlockUnknownSince: null,
     lastRenewOkAt: now,
     lastRenewAttemptAt: now,
     cycleStartedAt: now,
@@ -477,7 +471,8 @@ export const stopMachine = async (terminalId: string, reason: UsageEndReason): P
       }`
     );
   }
-  statusCache.delete(release.device.id);
+  invalidateDeviceStatus(release.device.id);
+  await switchOffExtras(release.control, release.lookup);
 
   const reading = await readMeter(release.control, release.device, release.meterDevice, {
     fresh: true,
@@ -617,6 +612,37 @@ const checkIdleShutdown = async (release: ActiveRelease, now: number): Promise<b
   return false;
 };
 
+/**
+ * A safety input left its safe state: switch off immediately, whatever the shutdown mode.
+ * An input that cannot be read is tolerated for one safety-timer period (Wi-Fi hiccups);
+ * after that the machine is switched off as well. The member stays logged in.
+ */
+const checkInterlocks = async (release: ActiveRelease, now: number): Promise<boolean> => {
+  if (!release.control.interlocks?.length) {
+    return false;
+  }
+  const readings = await readInterlocks(release.control, release.lookup);
+  const open = readings.find((r) => r.ok === false);
+  if (open) {
+    auditMachine('machine.interlock.open', release, {
+      equipmentId: release.usage.equipmentId,
+      terminalId: release.terminalId,
+    });
+    await stopMachine(release.terminalId, 'interlock');
+    return true;
+  }
+  if (readings.some((r) => r.ok === null)) {
+    release.interlockUnknownSince = release.interlockUnknownSince ?? now;
+    if (now - release.interlockUnknownSince >= watchdogMs(release.control)) {
+      await stopMachine(release.terminalId, 'interlock');
+      return true;
+    }
+  } else {
+    release.interlockUnknownSince = null;
+  }
+  return false;
+};
+
 const tickRelease = async (release: ActiveRelease): Promise<void> => {
   if (release.stopping) {
     return;
@@ -627,6 +653,10 @@ const tickRelease = async (release: ActiveRelease): Promise<void> => {
   const terminal = await findTerminalById(release.terminalId);
   if (!terminal) {
     await stopMachine(release.terminalId, 'admin');
+    return;
+  }
+
+  if (await checkInterlocks(release, now)) {
     return;
   }
 
@@ -724,6 +754,8 @@ const restoreReleases = async (): Promise<void> => {
       control,
       device,
       meterDevice: await resolveMeterDevice(control, device),
+      lookup: cachedDeviceLookup(),
+      interlockUnknownSince: null,
       // Unknown whether the Shelly is still on; renew right away and give it one timer period.
       lastRenewOkAt: now,
       lastRenewAttemptAt: 0,
@@ -796,12 +828,27 @@ export const getMachineState = async (
       metered: false,
       blockReason: 'not-configured',
       release: null,
+      interlocks: [],
+      extras: [],
     };
   }
 
+  const lookup = release?.lookup ?? cachedDeviceLookup();
   const status = await readDeviceStatus(device);
   const meterDevice = release?.meterDevice ?? (await resolveMeterDevice(control, device));
-  const reading = await readMeter(control, device, meterDevice);
+  const [reading, interlocks, extras] = await Promise.all([
+    readMeter(control, device, meterDevice),
+    readInterlocks(control, lookup),
+    readExtras(control, lookup),
+  ]);
+
+  let blockReason: TerminalMachineState['blockReason'];
+  if (!status.online) {
+    blockReason = 'device-offline';
+  } else if (interlocks.some((i) => i.ok !== true)) {
+    blockReason = 'interlock-open';
+  }
+
   return {
     configured: true,
     online: status.online,
@@ -809,7 +856,52 @@ export const getMachineState = async (
     metered: meterDevice !== null,
     shutdownMode: meterDevice ? control.shutdown.mode : 'immediate',
     powerW: reading.powerW,
-    blockReason: status.online ? undefined : 'device-offline',
+    blockReason,
     release: release ? releaseInfo(release, terminal) : null,
+    interlocks,
+    extras,
   };
+};
+
+/**
+ * Operates an extra control (dimmer, blinds, extraction) from the Pi. Only while the machine
+ * is released and the logged-in person may release it.
+ */
+export const operateMachineExtra = async (
+  terminal: StoredTerminal,
+  extraId: string,
+  request: MachineExtraRequest
+): Promise<void> => {
+  const release = releases.get(terminal.id);
+  if (!release || release.shutdown) {
+    throw new MachineError('Die Maschine ist nicht freigegeben', 409, 'not-released');
+  }
+  const equipment = await findEquipment(terminal.equipmentId);
+  const session = await getSessionInfo(terminal.id, equipment);
+  if (!session?.canRelease) {
+    throw new MachineError('Keine Berechtigung für diese Maschine', 403, 'no-permission');
+  }
+  const extra = release.control.extras?.find((e) => e.id === extraId);
+  if (!extra) {
+    throw new MachineError('Zusatzfunktion nicht gefunden', 404, 'not-found');
+  }
+  if (!isValidExtraAction(extra, request)) {
+    throw new MachineError('Diese Aktion passt nicht zur Zusatzfunktion', 400, 'invalid-action');
+  }
+  const device = await release.lookup(extra.deviceId);
+  if (!device) {
+    throw new MachineError('Shelly nicht gefunden', 409, 'device-offline');
+  }
+  try {
+    await operateExtra(extra, device, request);
+  } catch {
+    throw new MachineError('Shelly nicht erreichbar', 502, 'device-offline');
+  }
+  touchSession(terminal.id);
+  auditMachine(`machine.extra.${request.action}`, release, {
+    actorId: session.memberId || undefined,
+    equipmentId: release.usage.equipmentId,
+    terminalId: terminal.id,
+  });
+  notifyTerminalChanged(terminal.id);
 };

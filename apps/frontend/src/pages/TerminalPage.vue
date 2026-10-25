@@ -143,6 +143,88 @@
               </template>
               Maschine freigegeben · läuft seit {{ runtimeText }}
             </q-banner>
+            <!-- Extra controls (dimmer, blinds, extraction) -->
+            <div
+              v-if="activeRelease && state.machine.extras.length > 0"
+              class="terminal__extras q-mt-lg"
+              data-testid="terminal-extras"
+            >
+              <q-card
+                v-for="extra in state.machine.extras"
+                :key="extra.id"
+                flat
+                bordered
+                class="terminal__extra"
+                data-testid="terminal-extra"
+                :data-extra-id="extra.id"
+                :data-on="extra.on === undefined ? '' : String(extra.on)"
+              >
+                <div class="text-h6">{{ extra.label }}</div>
+                <div v-if="!extra.online" class="text-negative">Nicht erreichbar</div>
+                <div v-else-if="extra.kind !== 'cover'" class="terminal__extra-buttons">
+                  <q-btn
+                    :unelevated="extra.on === true"
+                    :outline="extra.on !== true"
+                    color="positive"
+                    label="An"
+                    class="terminal__extra-button"
+                    data-testid="terminal-extra-on"
+                    :loading="extraBusy === extra.id + 'on'"
+                    @click="runExtra(extra.id, 'on')"
+                  />
+                  <q-btn
+                    :unelevated="extra.on === false"
+                    :outline="extra.on !== false"
+                    color="grey-8"
+                    label="Aus"
+                    class="terminal__extra-button"
+                    data-testid="terminal-extra-off"
+                    :loading="extraBusy === extra.id + 'off'"
+                    @click="runExtra(extra.id, 'off')"
+                  />
+                </div>
+                <q-slider
+                  v-if="extra.online && extra.kind === 'light'"
+                  :model-value="extra.brightness ?? 50"
+                  :min="1"
+                  :max="100"
+                  label
+                  :label-value="`${extra.brightness ?? 50} %`"
+                  class="q-mt-md"
+                  data-testid="terminal-extra-brightness"
+                  @change="(value: number | null) => runExtra(extra.id, 'on', value ?? undefined)"
+                />
+                <div v-if="extra.online && extra.kind === 'cover'" class="terminal__extra-buttons">
+                  <q-btn
+                    outline
+                    color="primary"
+                    icon="arrow_upward"
+                    label="Auf"
+                    class="terminal__extra-button"
+                    data-testid="terminal-extra-open"
+                    @click="runExtra(extra.id, 'open')"
+                  />
+                  <q-btn
+                    outline
+                    color="primary"
+                    icon="stop"
+                    label="Stopp"
+                    class="terminal__extra-button"
+                    data-testid="terminal-extra-stop"
+                    @click="runExtra(extra.id, 'stop')"
+                  />
+                  <q-btn
+                    outline
+                    color="primary"
+                    icon="arrow_downward"
+                    label="Zu"
+                    class="terminal__extra-button"
+                    data-testid="terminal-extra-close"
+                    @click="runExtra(extra.id, 'close')"
+                  />
+                </div>
+              </q-card>
+            </div>
             <!-- Running after logout until the job is done -->
             <q-banner
               v-if="shuttingDown"
@@ -163,7 +245,7 @@
               Leistung: {{ formatPower(state.machine.powerW) }}
             </div>
             <q-banner
-              v-else-if="state.session.canRelease && machineBlockText"
+              v-if="!activeRelease && state.session.canRelease && machineBlockText"
               class="bg-warning terminal__message q-mt-lg"
               data-testid="terminal-machine-blocked"
               :data-reason="state.machine.blockReason"
@@ -262,6 +344,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import type {
   MachineBlockReason,
+  MachineExtraAction,
   TerminalDenyReason,
   TerminalScanResult,
   TerminalState,
@@ -383,12 +466,41 @@ const stillThereRemainingText = computed((): string =>
 const BLOCK_TEXTS: Record<MachineBlockReason, string> = {
   'not-configured': 'Diese Maschine ist noch keinem Shelly zugeordnet.',
   'device-offline': 'Der Shelly dieser Maschine ist nicht erreichbar.',
+  'interlock-open': 'Ein Sicherheits-Eingang ist nicht in Ordnung.',
 };
 
 const machineBlockText = computed((): string | null => {
-  const reason = state.value?.machine.blockReason;
+  const machine = state.value?.machine;
+  const reason = machine?.blockReason;
+  if (reason === 'interlock-open' && machine) {
+    const labels = machine.interlocks.filter((i) => i.ok !== true).map((i) => i.label);
+    return `Sicherheits-Eingang nicht in Ordnung: ${labels.join(', ')}`;
+  }
   return reason ? BLOCK_TEXTS[reason] : null;
 });
+
+const extraBusy = ref<string | null>(null);
+
+async function runExtra(
+  extraId: string,
+  action: MachineExtraAction,
+  brightness?: number
+): Promise<void> {
+  extraBusy.value = extraId + action;
+  releaseError.value = null;
+  try {
+    applyState(
+      await terminalClientService.extra(extraId, {
+        action,
+        ...(brightness !== undefined ? { brightness } : {}),
+      })
+    );
+  } catch (err) {
+    releaseError.value = err instanceof Error ? err.message : 'Aktion fehlgeschlagen';
+  } finally {
+    extraBusy.value = null;
+  }
+}
 
 function denyText(reason: TerminalDenyReason | undefined): string {
   if (reason === 'equipment-unavailable') {
@@ -642,6 +754,33 @@ onBeforeUnmount(() => {
 
   &__message--released {
     font-size: 1.5rem;
+  }
+
+  &__extras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  &__extra {
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+  }
+
+  &__extra-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__extra-button {
+    min-height: 56px;
+    min-width: 88px;
+    flex: 1;
   }
 
   &__still-there {
