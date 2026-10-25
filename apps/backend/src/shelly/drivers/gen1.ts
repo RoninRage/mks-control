@@ -1,4 +1,9 @@
-import type { ShellyComponent, ShellyComponentStatus, ShellyProbeResult } from '../../types/shelly';
+import type {
+  ShellyComponent,
+  ShellyComponentStatus,
+  ShellyFirmwareInfo,
+  ShellyProbeResult,
+} from '../../types/shelly';
 import { ShellyProtocolError } from '../errors';
 import { shellyRequest } from '../http';
 import {
@@ -214,6 +219,21 @@ export const gen1Driver: ShellyDriver = {
       host,
       path: `/light/${index}?${query({ turn: on ? 'on' : 'off', brightness, timer: autoOffSec })}`,
     });
+  },
+
+  async checkFirmware(host: string): Promise<ShellyFirmwareInfo> {
+    const status = await getStatusJson(host);
+    const update = record(status.update);
+    const hasUpdate = asBoolean(update.has_update) === true;
+    return {
+      current: asString(update.old_version),
+      available: hasUpdate ? asString(update.new_version) : undefined,
+      updating: asString(update.status) === 'updating',
+    };
+  },
+
+  async updateFirmware(host: string): Promise<void> {
+    await shellyRequest({ host, path: '/ota?update=true' });
   },
 
   async setCover(host, index, action: CoverAction | { positionPct: number }): Promise<void> {

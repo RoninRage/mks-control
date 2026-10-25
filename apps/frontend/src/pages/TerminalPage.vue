@@ -467,6 +467,7 @@ const BLOCK_TEXTS: Record<MachineBlockReason, string> = {
   'not-configured': 'Diese Maschine ist noch keinem Shelly zugeordnet.',
   'device-offline': 'Der Shelly dieser Maschine ist nicht erreichbar.',
   'interlock-open': 'Ein Sicherheits-Eingang ist nicht in Ordnung.',
+  maintenance: 'Die Maschine ist gerade in Wartung.',
 };
 
 const machineBlockText = computed((): string | null => {

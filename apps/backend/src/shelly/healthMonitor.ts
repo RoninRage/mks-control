@@ -71,8 +71,10 @@ export const runHealthCheck = async (): Promise<void> => {
       selector: { type: { $eq: 'shellyDevice' }, isActive: { $eq: true } },
       limit: 1000,
     });
+    // Devices in maintenance (e.g. rebooting for an update) are left alone.
+    const devices = (result.docs as StoredDevice[]).filter((d) => !d.maintenance);
     await Promise.all(
-      (result.docs as StoredDevice[]).map((device) =>
+      devices.map((device) =>
         checkDevice(device).catch((err) =>
           console.error(`[shelly] Health check of ${device.name} failed:`, err)
         )

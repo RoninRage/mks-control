@@ -41,6 +41,8 @@ import {
 } from './shelly/healthMonitor';
 import { syncAllWebhooks } from './shelly/webhooks';
 import shellyEventRoutes from './routes/shellyEventRoutes';
+import shellyDiscoveryRoutes from './routes/shellyDiscoveryRoutes';
+import { startInProcessDiscovery } from './shelly/discovery';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
@@ -96,6 +98,7 @@ const startServer = async (): Promise<void> => {
   app.use('/api/audit-logs', auditRoutes);
   // Webhook target for Shellys; must come before the admin-only Shelly routes.
   app.use('/api/shelly/events', shellyEventRoutes);
+  app.use('/api/shelly/discovered', shellyDiscoveryRoutes);
   app.use('/api/shelly', shellyRoutes);
   app.use('/api/terminals', terminalRoutes);
   app.use('/api/terminal', terminalClientRoutes);
@@ -119,6 +122,7 @@ const startServer = async (): Promise<void> => {
   });
   startHealthMonitor();
   void syncAllWebhooks();
+  startInProcessDiscovery();
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });

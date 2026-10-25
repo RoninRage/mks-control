@@ -45,6 +45,7 @@ USAGE_CLEANUP_INTERVAL_MS=2000
 # Shelly health monitor and webhooks (phase 6)
 SHELLY_HEALTH_INTERVAL_MS=1000
 SHELLY_CALLBACK_URL=http://127.0.0.1:3000
+SHELLY_DISCOVERY_TOKEN=test-discovery-token
 `;
 
 const envPath = join(process.cwd(), '.env.test');

@@ -17,6 +17,8 @@ import {
   ShellyUnsupportedError,
 } from '../shelly/errors';
 import { normalizeShellyHost } from '../shelly/host';
+import { listFindings } from '../shelly/discovery';
+import { syncAllWebhooks } from '../shelly/webhooks';
 import { isDeviceInUse } from '../machines/machineControl';
 import type { Equipment } from '../types/equipment';
 
@@ -157,6 +159,27 @@ router.get('/devices', async (_req: Request, res: Response) => {
     res.json(devices.map(toPublicDevice));
   } catch (err) {
     sendShellyError(res, err, 'Error listing devices');
+  }
+});
+
+/**
+ * GET /api/shelly/discovered
+ * Shellys found in the network (mDNS) that are not registered yet.
+ */
+router.get('/discovered', async (_req: Request, res: Response) => {
+  try {
+    const db = getDatabase<ShellyDevice>();
+    const result = await db.find({
+      selector: { type: { $eq: 'shellyDevice' }, isActive: { $eq: true } },
+      fields: ['host'],
+      limit: 1000,
+    });
+    const registered = new Set(
+      (result.docs as Array<Pick<ShellyDevice, 'host'>>).map((d) => d.host)
+    );
+    res.json(listFindings(registered));
+  } catch (err) {
+    sendShellyError(res, err, 'Error listing discovered devices');
   }
 });
 
@@ -435,6 +458,107 @@ router.post('/devices/:id/identify', async (req: Request, res: Response) => {
     res.json({ success: true, kind: component.kind, index: component.index });
   } catch (err) {
     sendShellyError(res, err, 'Error identifying device');
+  }
+});
+
+/**
+ * GET /api/shelly/devices/:id/firmware
+ * Installed firmware and a newer stable version, if the device offers one.
+ */
+router.get('/devices/:id/firmware', async (req: Request, res: Response) => {
+  try {
+    const device = await findDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ error: 'Gerät nicht gefunden' });
+      return;
+    }
+    res.json(await getDriver(device.gen).checkFirmware(device.host));
+  } catch (err) {
+    sendShellyError(res, err, 'Error checking firmware');
+  }
+});
+
+/**
+ * POST /api/shelly/devices/:id/firmware/update
+ * Installs the newest stable firmware. Only in maintenance mode: the device reboots and
+ * switches its outputs during the update.
+ */
+router.post('/devices/:id/firmware/update', async (req: Request, res: Response) => {
+  try {
+    const device = await findDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ error: 'Gerät nicht gefunden' });
+      return;
+    }
+    if (!device.maintenance) {
+      throw new ShellyUnsupportedError('Firmware-Updates nur im Wartungsmodus');
+    }
+    const driver = getDriver(device.gen);
+    const firmware = await driver.checkFirmware(device.host);
+    if (!firmware.available) {
+      throw new ShellyUnsupportedError('Keine neuere Firmware verfügbar');
+    }
+    await driver.updateFirmware(device.host);
+    void logAuditEvent(
+      {
+        action: 'shelly.device.firmware-update',
+        targetType: 'shellyDevice',
+        targetId: device.id,
+        relatedId: firmware.available,
+      },
+      req
+    );
+    res.json({ started: true, from: firmware.current, to: firmware.available });
+  } catch (err) {
+    sendShellyError(res, err, 'Error updating firmware');
+  }
+});
+
+/**
+ * PUT /api/shelly/devices/:id/maintenance { enabled }
+ * Maintenance mode: the device cannot release machines and is not monitored. Only possible
+ * while no released machine uses it.
+ */
+router.put('/devices/:id/maintenance', async (req: Request, res: Response) => {
+  const enabled = (req.body as { enabled?: unknown }).enabled;
+  if (typeof enabled !== 'boolean') {
+    res.status(400).json({ error: 'enabled muss true oder false sein' });
+    return;
+  }
+  try {
+    const device = await findDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ error: 'Gerät nicht gefunden' });
+      return;
+    }
+    if (enabled && isDeviceInUse(device.id)) {
+      res.status(409).json({ error: 'Das Gerät schaltet gerade eine freigegebene Maschine' });
+      return;
+    }
+    const now = new Date().toISOString();
+    const updated: StoredShellyDevice = { ...device, maintenance: enabled, updatedAt: now };
+    if (enabled) {
+      updated.maintenanceSince = now;
+    } else {
+      delete updated.maintenanceSince;
+      updated.health = 'unknown';
+    }
+    const saved = await saveDevice(updated);
+    void logAuditEvent(
+      {
+        action: enabled ? 'shelly.device.maintenance.on' : 'shelly.device.maintenance.off',
+        targetType: 'shellyDevice',
+        targetId: device.id,
+      },
+      req
+    );
+    if (!enabled) {
+      // Back in service: set up push again if needed.
+      void syncAllWebhooks(device.id);
+    }
+    res.json(toPublicDevice(saved));
+  } catch (err) {
+    sendShellyError(res, err, 'Error changing maintenance mode');
   }
 });
 

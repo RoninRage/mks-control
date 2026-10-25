@@ -28,6 +28,8 @@ export interface MockShellyOptions {
   covers?: number;
   // Stand-alone power meters (Gen2 pm1, Gen1 emeters).
   meters?: number;
+  // Newer stable firmware the device offers (enables the update check/update).
+  availableFirmware?: string;
 }
 
 export interface MockOutputState {
@@ -71,6 +73,8 @@ export interface MockShelly {
   calls: MockShellyCall[];
   // Gen2 webhooks registered by the backend, and the deliveries made so far.
   webhooks: MockWebhook[];
+  // Installed firmware; changes to availableFirmware when an update is installed.
+  firmware: { current: string; available?: string; updates: number };
   webhookDeliveries: Array<{ url: string; status: number }>;
   // Changes an input like a real contact would and fires matching webhooks (Gen2).
   setInput(index: number, closed: boolean): Promise<void>;
@@ -122,6 +126,18 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     meters: Array.from({ length: options.meters ?? 0 }, () => ({ powerW: 0, energyWh: 0 })),
   };
   const calls: MockShellyCall[] = [];
+  const firmware: { current: string; available?: string; updates: number } = {
+    current: gen === 1 ? 'v1.14.0' : '1.4.4',
+    available: options.availableFirmware,
+    updates: 0,
+  };
+  const installFirmware = (): void => {
+    if (firmware.available) {
+      firmware.current = firmware.available;
+      firmware.available = undefined;
+      firmware.updates++;
+    }
+  };
   const webhooks: MockWebhook[] = [];
   const webhookDeliveries: Array<{ url: string; status: number }> = [];
   let nextWebhookId = 1;
@@ -202,6 +218,12 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
       total: m.energyWh,
     })),
     inputs: state.inputs.map((i) => ({ input: i ? 1 : 0 })),
+    update: {
+      status: 'idle',
+      has_update: Boolean(firmware.available),
+      new_version: firmware.available ?? firmware.current,
+      old_version: firmware.current,
+    },
   });
 
   const handleGen1 = (req: http.IncomingMessage, res: http.ServerResponse, url: URL): void => {
@@ -217,6 +239,13 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     }
     if (path === '/status') {
       sendJson(res, 200, gen1Status());
+      return;
+    }
+    if (path === '/ota') {
+      if (url.searchParams.get('update') === 'true') {
+        installFirmware();
+      }
+      sendJson(res, 200, { status: 'idle' });
       return;
     }
 
@@ -311,6 +340,11 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
   const rpc = (method: string, params: Record<string, unknown>): unknown => {
     const id = Number(params.id ?? 0);
     switch (method) {
+      case 'Shelly.CheckForUpdate':
+        return firmware.available ? { stable: { version: firmware.available } } : {};
+      case 'Shelly.Update':
+        installFirmware();
+        return null;
       case 'Webhook.List':
         return { hooks: webhooks.map((h) => ({ ...h })), rev: nextWebhookId };
       case 'Webhook.Create': {
@@ -434,7 +468,7 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
               model,
               gen,
               fw_id: '20241011-114455/1.4.4-g6d2a586',
-              ver: '1.4.4',
+              ver: firmware.current,
               app: 'Plus1PM',
               auth_en: Boolean(options.password),
               auth_domain: options.password ? shellyId : null,
@@ -466,6 +500,7 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     ...state,
     calls,
     webhooks,
+    firmware,
     webhookDeliveries,
     async setInput(index: number, closed: boolean): Promise<void> {
       const changed = state.inputs[index] !== closed;

@@ -167,20 +167,26 @@ export async function seedDatabase<T extends { _id?: string }>(
 export async function deleteDocumentsByType<
   T extends { _id?: string; _rev?: string; type?: string },
 >(db: DocumentScope<T>, type: string): Promise<void> {
-  const result = await db.find({
-    selector: { type: { $eq: type } },
-    limit: 1000,
-  });
+  // The backend may still be writing (e.g. a terminal's last poll), so retry on conflicts.
+  let errors: unknown[] = [];
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const result = await db.find({
+      selector: { type: { $eq: type } },
+      limit: 1000,
+    });
 
-  if (result.docs.length === 0) return;
+    if (result.docs.length === 0) return;
 
-  const toDelete = result.docs.map((doc) => ({
-    ...doc,
-    _deleted: true,
-  }));
+    const toDelete = result.docs.map((doc) => ({
+      ...doc,
+      _deleted: true,
+    }));
 
-  const response = await db.bulk({ docs: toDelete });
-  const errors = response.filter((r) => !(r as any).ok);
+    const response = await db.bulk({ docs: toDelete });
+    errors = response.filter((r) => !(r as any).ok);
+    if (errors.length === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 
   if (errors.length > 0) {
     throw new Error(`Failed to delete documents: ${JSON.stringify(errors)}`);

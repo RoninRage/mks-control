@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phasen 1–6 umgesetzt, Phase 7 (optional) offen
+**Stand:** 2026-10-25 · **Status:** Phasen 1–7 umgesetzt
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -362,7 +362,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
 6. ✅ **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
    Push vom Shelly statt Polling (Gen2: Webhooks/Outbound-WebSocket, Gen1: Action-URLs), damit
    Eingänge sofort reagieren.
-7. **Später/optional:** mDNS-Erkennung, Firmware-Updates, Wartungsmodus, Einrichtungsanleitung
+7. ✅ **Später/optional:** mDNS-Erkennung, Firmware-Updates, Wartungsmodus, Einrichtungsanleitung
    für das Pi-Image.
 
 ### Stand Phase 1
@@ -512,11 +512,36 @@ Modell verschieden).
 
 Tests: `tests/e2e/monitoring.spec.ts`.
 
+### Stand Phase 7
+
+Umgesetzt:
+
+- **Automatische Erkennung (mDNS):** Shellys melden sich als `_shelly._tcp` bzw. `_http._tcp`
+  mit Namen `shelly…`. mDNS erreicht das Docker-Netz des Backends nicht, deshalb sucht ein eigener
+  Container `shelly-discovery` (gleiches Image, `network_mode: host`, `discoveryRelay.ts`) jede
+  Minute und meldet Funde an `POST /api/shelly/discovered` (Bearer `SHELLY_DISCOVERY_TOKEN`). Das
+  Backend hält Funde 15 Minuten im Speicher und nimmt nur lokale IPv4-Adressen an. Im Dialog
+  „Shelly hinzufügen" erscheinen sie unter „Im Netz gefunden" (ohne bereits angelegte Geräte);
+  ein Klick prüft das Gerät. Für die Entwicklung kann das Backend selbst suchen
+  (`SHELLY_DISCOVERY_MDNS=true`).
+- **Wartungsmodus:** `PUT /api/shelly/devices/:id/maintenance`. Nicht möglich, solange eine
+  Maschine an dem Gerät freigegeben ist. In Wartung wird nicht freigegeben (Grund `maintenance`
+  am Pi), der Health-Monitor und der Webhook-Abgleich lassen das Gerät aus. Beim Beenden wird es
+  neu geprüft und die Webhooks werden abgeglichen.
+- **Firmware:** „Firmware prüfen" (Gen2: `Shelly.CheckForUpdate`, Gen1: `/status` → `update`)
+  zeigt die installierte und eine neuere stabile Version. Installieren (Gen2: `Shelly.Update`,
+  Gen1: `/ota?update=true`) geht nur im Wartungsmodus und mit Bestätigung; wird im Audit-Log
+  vermerkt.
+- **Einrichtungsanleitung:** [`pi-setup.md`](pi-setup.md) für Pi, NFC-Leser, `nfc-bridge` als
+  Dienst und Chromium im Kiosk-Modus.
+
+Tests: `tests/e2e/device-maintenance.spec.ts`.
+
 ## Risiken
 
 - **Abschalten unter Last:** Deshalb pro Maschine „sofort" oder „im Leerlauf", und ein
   einstellbarer Totmannschalter.
-- **Reaktionszeit der Eingänge:** Bis Phase 6 werden Eingänge abgefragt (alle 5 s während einer
+- **Reaktionszeit der Eingänge:** Gen1-Eingänge werden nur abgefragt (jede Sekunde während einer
   Freigabe). Für zeitkritische Fälle reicht das nicht. Not-Aus bleibt ohnehin Sache der Maschine.
 - **„Identifizieren" schaltet das Relais:** Nur für Geräte ohne Zuordnung oder nach ausdrücklicher
   Bestätigung.

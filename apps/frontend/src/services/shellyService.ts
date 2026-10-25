@@ -1,5 +1,7 @@
 import type {
   ShellyDevice,
+  ShellyDiscovery,
+  ShellyFirmwareInfo,
   ShellyDeviceStatus,
   ShellyProbeResult,
 } from '@mks-control/shared-types';
@@ -36,6 +38,14 @@ export const shellyService = {
     return request(baseUrl(), { method: 'GET' }, 'Geräte konnten nicht geladen werden');
   },
 
+  discovered(): Promise<ShellyDiscovery[]> {
+    return request(
+      `${getApiBaseUrl()}/shelly/discovered`,
+      { method: 'GET' },
+      'Gefundene Geräte konnten nicht geladen werden'
+    );
+  },
+
   probe(host: string): Promise<ShellyProbeResponse> {
     return request(
       `${baseUrl()}/probe`,
@@ -70,6 +80,30 @@ export const shellyService = {
 
   getStatus(id: string): Promise<ShellyDeviceStatus> {
     return request(`${baseUrl()}/${id}/status`, { method: 'GET' }, 'Status nicht verfügbar');
+  },
+
+  checkFirmware(id: string): Promise<ShellyFirmwareInfo> {
+    return request(
+      `${baseUrl()}/${id}/firmware`,
+      { method: 'GET' },
+      'Firmware-Prüfung fehlgeschlagen'
+    );
+  },
+
+  async updateFirmware(id: string): Promise<void> {
+    await request(
+      `${baseUrl()}/${id}/firmware/update`,
+      { method: 'POST' },
+      'Firmware-Update fehlgeschlagen'
+    );
+  },
+
+  setMaintenance(id: string, enabled: boolean): Promise<ShellyDevice> {
+    return request(
+      `${baseUrl()}/${id}/maintenance`,
+      { method: 'PUT', body: JSON.stringify({ enabled }) },
+      'Wartungsmodus konnte nicht geändert werden'
+    );
   },
 
   async identify(id: string): Promise<void> {

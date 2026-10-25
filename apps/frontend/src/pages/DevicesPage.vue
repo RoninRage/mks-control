@@ -96,6 +96,16 @@
                   {{ device.model }} · Gen{{ device.gen }} · {{ device.host }}
                 </div>
                 <q-chip
+                  v-if="device.maintenance"
+                  dense
+                  size="sm"
+                  color="warning"
+                  icon="build"
+                  data-testid="device-maintenance"
+                >
+                  Wartung
+                </q-chip>
+                <q-chip
                   v-if="device.push"
                   dense
                   size="sm"
@@ -154,6 +164,48 @@
             {{ statuses[device.id]?.error }}
           </div>
 
+          <!-- Firmware -->
+          <div class="q-px-md q-pb-sm device-card__firmware" data-testid="device-firmware">
+            <template v-if="firmware[device.id]">
+              <span data-testid="device-firmware-current">
+                Firmware {{ firmware[device.id]?.current ?? 'unbekannt' }}
+              </span>
+              <span
+                v-if="firmware[device.id]?.available"
+                class="text-warning"
+                data-testid="device-firmware-available"
+              >
+                · Update auf {{ firmware[device.id]?.available }} verfügbar
+              </span>
+              <span v-else class="text-positive"> · aktuell</span>
+            </template>
+            <q-btn
+              v-if="firmware[device.id]?.available"
+              dense
+              unelevated
+              color="warning"
+              label="Firmware installieren"
+              class="touch-button q-ml-sm"
+              data-testid="device-firmware-update"
+              :disable="!device.maintenance"
+              @click="confirmFirmwareUpdate(device)"
+            >
+              <q-tooltip v-if="!device.maintenance">Nur im Wartungsmodus möglich</q-tooltip>
+            </q-btn>
+            <q-btn
+              v-else
+              dense
+              flat
+              color="primary"
+              label="Firmware prüfen"
+              icon="system_update"
+              class="touch-button"
+              data-testid="device-firmware-check"
+              :loading="busy[device.id] === 'firmware'"
+              @click="checkFirmware(device)"
+            />
+          </div>
+
           <q-card-actions class="device-card__actions">
             <q-btn
               flat
@@ -173,6 +225,15 @@
               class="touch-button"
               data-testid="device-edit"
               @click="openEditDialog(device)"
+            />
+            <q-btn
+              flat
+              color="primary"
+              :label="device.maintenance ? 'Wartung beenden' : 'Wartung'"
+              icon="build"
+              class="touch-button"
+              data-testid="device-maintenance-toggle"
+              @click="toggleMaintenance(device)"
             />
             <q-btn
               flat
@@ -199,6 +260,27 @@
         </q-card-section>
 
         <q-card-section class="q-gutter-md">
+          <div v-if="discovered.length > 0" data-testid="devices-discovered">
+            <div class="text-subtitle2 q-mb-sm">Im Netz gefunden</div>
+            <div class="device-dialog__found">
+              <q-btn
+                v-for="found in discovered"
+                :key="found.host"
+                outline
+                no-caps
+                color="primary"
+                class="touch-button"
+                data-testid="devices-discovered-item"
+                :data-host="found.host"
+                @click="pickDiscovered(found.host)"
+              >
+                <div class="text-left">
+                  <div>{{ found.name }}</div>
+                  <div class="text-caption text-grey-7">{{ found.host }}</div>
+                </div>
+              </q-btn>
+            </div>
+          </div>
           <div class="row no-wrap items-start device-dialog__host">
             <q-input
               v-model="addDialog.host"
@@ -374,6 +456,8 @@ import type {
   ShellyDevice,
   ShellyDeviceStatus,
   ShellyHealth,
+  ShellyDiscovery,
+  ShellyFirmwareInfo,
   ShellyPushStatus,
 } from '@mks-control/shared-types';
 import { shellyService, type ShellyProbeResponse } from 'src/services/shellyService';
@@ -556,6 +640,23 @@ function openAddDialog(): void {
   addDialog.name = '';
   addDialog.error = null;
   addDialog.probe = null;
+  void loadDiscovered();
+}
+
+// Shellys found automatically in the network (mDNS), not registered yet.
+const discovered = ref<ShellyDiscovery[]>([]);
+
+async function loadDiscovered(): Promise<void> {
+  try {
+    discovered.value = await shellyService.discovered();
+  } catch {
+    discovered.value = [];
+  }
+}
+
+function pickDiscovered(host: string): void {
+  addDialog.host = host;
+  void probeHost();
 }
 
 async function probeHost(): Promise<void> {
@@ -666,6 +767,77 @@ async function identify(device: ShellyDevice): Promise<void> {
   }
 }
 
+const firmware = ref<Record<string, ShellyFirmwareInfo | undefined>>({});
+
+async function checkFirmware(device: ShellyDevice): Promise<void> {
+  busy.value = { ...busy.value, [device.id]: 'firmware' };
+  try {
+    const info = await shellyService.checkFirmware(device.id);
+    firmware.value = { ...firmware.value, [device.id]: info };
+  } catch (err) {
+    $q.notify({
+      type: 'negative',
+      message: errorMessage(err, 'Firmware-Prüfung fehlgeschlagen'),
+      position: 'top',
+    });
+  } finally {
+    busy.value = { ...busy.value, [device.id]: undefined };
+  }
+}
+
+function confirmFirmwareUpdate(device: ShellyDevice): void {
+  $q.dialog({
+    title: 'Firmware installieren',
+    message:
+      '„' +
+      device.name +
+      '“ installiert Firmware ' +
+      (firmware.value[device.id]?.available ?? '') +
+      ' und startet danach neu. Die Ausgänge können dabei kurz schalten.',
+    cancel: { flat: true, label: 'Abbrechen' },
+    ok: { unelevated: true, color: 'warning', label: 'Installieren' },
+    persistent: true,
+  }).onOk(() => {
+    void updateFirmware(device);
+  });
+}
+
+async function updateFirmware(device: ShellyDevice): Promise<void> {
+  try {
+    await shellyService.updateFirmware(device.id);
+    $q.notify({
+      type: 'positive',
+      message: 'Update gestartet. Das Gerät startet gleich neu.',
+      position: 'top',
+    });
+    firmware.value = { ...firmware.value, [device.id]: undefined };
+  } catch (err) {
+    $q.notify({
+      type: 'negative',
+      message: errorMessage(err, 'Firmware-Update fehlgeschlagen'),
+      position: 'top',
+    });
+  }
+}
+
+async function toggleMaintenance(device: ShellyDevice): Promise<void> {
+  try {
+    await shellyService.setMaintenance(device.id, !device.maintenance);
+    $q.notify({
+      type: 'positive',
+      message: device.maintenance ? 'Wartung beendet' : 'Gerät ist in Wartung',
+      position: 'top',
+    });
+    await loadDevices();
+  } catch (err) {
+    $q.notify({
+      type: 'negative',
+      message: errorMessage(err, 'Wartungsmodus konnte nicht geändert werden'),
+      position: 'top',
+    });
+  }
+}
+
 function confirmRetire(device: ShellyDevice): void {
   $q.dialog({
     title: 'Gerät ausmustern',
@@ -729,6 +901,13 @@ async function retire(device: ShellyDevice): Promise<void> {
     padding: 8px 0;
   }
 
+  &__firmware {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
   &__actions {
     flex-wrap: wrap;
     gap: 8px;
@@ -742,6 +921,12 @@ async function retire(device: ShellyDevice): Promise<void> {
 
   &__host {
     gap: 12px;
+  }
+
+  &__found {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   &__actions {
