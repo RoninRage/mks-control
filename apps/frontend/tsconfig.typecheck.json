@@ -1,0 +1,5 @@
+{
+  "//": "Typecheck for CI (vue-tsc). Leaves out the Quasar config and the unused PWA files.",
+  "extends": "./tsconfig.json",
+  "include": [".quasar/**/*.d.ts", "src/**/*"]
+}

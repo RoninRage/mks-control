@@ -355,7 +355,8 @@ const themeOptions = [
 
 const availableRoleOptions = computed(() => {
   if (!member.value) return [];
-  return ROLE_OPTIONS.filter((option) => !member.value.roles.includes(option.value));
+  const roles = member.value.roles;
+  return ROLE_OPTIONS.filter((option) => !roles.includes(option.value));
 });
 
 const memberId = computed(() => route.params.id as string);
@@ -585,10 +586,12 @@ async function loadTags() {
   try {
     const fetchedTags = await memberService.getTags(memberId.value);
     tags.value = fetchedTags.sort((a, b) => {
-      const aTime = Date.parse(a.createdAt);
-      const bTime = Date.parse(b.createdAt);
+      const aCreated = a.createdAt ?? '';
+      const bCreated = b.createdAt ?? '';
+      const aTime = Date.parse(aCreated);
+      const bTime = Date.parse(bCreated);
       if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
-        return a.createdAt.localeCompare(b.createdAt);
+        return aCreated.localeCompare(bCreated);
       }
       return aTime - bTime;
     });

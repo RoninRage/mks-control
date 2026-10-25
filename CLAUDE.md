@@ -23,6 +23,10 @@ npm run lint
 npm run test
 npm run format --workspace=apps/frontend
 
+# Typecheck (same as CI; .npmrc breaks npx inside workspace folders, so call binaries directly)
+npx tsc --noEmit -p apps/backend   # also packages/shared-types, nfc-bridge
+cd apps/frontend && ../../node_modules/.bin/vue-tsc --noEmit -p tsconfig.typecheck.json
+
 # E2E tests (Playwright) — there are no unit tests
 npm run test:e2e
 npm run test:e2e:ui        # Interactive UI
@@ -128,6 +132,7 @@ Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` 
 - `ws/authWs.ts` — WebSocket server for real-time tag events
 - `db/couchdb.ts` — CouchDB connection and initialization
 - `db/migrations.ts` — Schema migrations
+- `db/backup.ts` / `db/restore.ts` — nightly JSON backup of all databases (`couchdb-backup` service in `docker-compose.prod.yml`, `--once` for one run) and restore
 - `db/seed*.ts` — Individual seeders; `seedMass.ts` seeds 150 members / 20 areas / 200 equipment
 - `types/` — Re-exports from `shared-types` (don't define domain types here directly)
 - `GET /health` — Backend health check endpoint

@@ -2,8 +2,9 @@ services:
   couchdb:
     image: couchdb:3.3
     container_name: mks-control-couchdb
+    # Only reachable from the server itself (backend and backup use the Docker network)
     ports:
-      - '5984:5984'
+      - '127.0.0.1:5984:5984'
     environment:
       COUCHDB_USER: ${COUCHDB_USER:-admin}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
@@ -96,6 +97,30 @@ services:
         condition: service_healthy
     labels:
       - 'com.centurylinklabs.watchtower.enable=true'
+    restart: unless-stopped
+
+  # Nightly backup of all CouchDB databases as JSON to /opt/mks/backup (src/db/backup.ts)
+  couchdb-backup:
+    image: ghcr.io/${GITHUB_OWNER}/mks-control-backend:${TAG:-latest}
+    container_name: mks-control-couchdb-backup
+    command: ['npx', 'ts-node', '--transpile-only', 'src/db/backup.ts']
+    environment:
+      COUCHDB_URL: http://couchdb:5984
+      COUCHDB_USER: ${COUCHDB_USER:-admin}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
+      BACKUP_DIR: /backup
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      # Hour in UTC
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+    volumes:
+      - /opt/mks/backup:/backup
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    labels:
+      - 'com.centurylinklabs.watchtower.enable=true'
+    networks:
+      - mks-network
     restart: unless-stopped
 
   nfc-bridge:

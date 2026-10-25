@@ -310,9 +310,11 @@ async function saveEquipment() {
       const created = await equipmentService.createEquipment({
         id: equipment.value.id,
         name: trimmedName,
-        areaId: equipment.value.areaId,
+        ...(equipment.value.areaId ? { areaId: equipment.value.areaId } : {}),
         isAvailable: equipment.value.isAvailable,
-        configuration: equipment.value.configuration,
+        ...(equipment.value.configuration !== undefined
+          ? { configuration: equipment.value.configuration }
+          : {}),
       });
       equipment.value = { ...equipment.value, ...created };
       $q.notify({
@@ -327,9 +329,11 @@ async function saveEquipment() {
     const updated = await equipmentService.updateEquipment(equipmentId.value as string, {
       id: equipment.value.id,
       name: trimmedName,
-      areaId: equipment.value.areaId,
+      ...(equipment.value.areaId ? { areaId: equipment.value.areaId } : {}),
       isAvailable: equipment.value.isAvailable,
-      configuration: equipment.value.configuration,
+      ...(equipment.value.configuration !== undefined
+        ? { configuration: equipment.value.configuration }
+        : {}),
     });
     equipment.value = { ...equipment.value, ...updated };
     $q.notify({

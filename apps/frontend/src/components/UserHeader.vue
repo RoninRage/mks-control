@@ -41,8 +41,8 @@ const userStore = useUserStore();
 
 async function handleLogout() {
   // Log audit event for logout before clearing user session
-  if (userStore.userId) {
-    await authService.logoutWithAudit(userStore.userId, 'user-initiated');
+  if (userStore.memberId) {
+    await authService.logoutWithAudit(userStore.memberId, 'user-initiated');
   }
 
   userStore.logout();

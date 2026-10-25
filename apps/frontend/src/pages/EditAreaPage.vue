@@ -326,7 +326,9 @@ async function saveArea() {
         id: area.value.id,
         name: trimmedName,
         description: area.value.description,
-        bereichsleiterIds: area.value.bereichsleiterIds,
+        ...(area.value.bereichsleiterIds
+          ? { bereichsleiterIds: area.value.bereichsleiterIds }
+          : {}),
       });
       area.value = { ...area.value, ...created };
       $q.notify({
@@ -341,7 +343,7 @@ async function saveArea() {
       id: area.value.id,
       name: trimmedName,
       description: area.value.description,
-      bereichsleiterIds: area.value.bereichsleiterIds,
+      ...(area.value.bereichsleiterIds ? { bereichsleiterIds: area.value.bereichsleiterIds } : {}),
     });
     area.value = { ...area.value, ...updated };
     $q.notify({

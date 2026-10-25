@@ -89,27 +89,39 @@ docker logs mks-control-shelly-discovery --tail 20  # keine Meldung "token missi
   erlauben.
 - **Pis → Server Port 80 (und 3000):** Kiosk-Browser auf Port 80, `nfc-bridge` auf Port 3000
   (oder ebenfalls Port 80, die Anfragen an `/api` leitet das Frontend weiter).
-- **CouchDB Port 5984** ist in `docker-compose.prod.yml` nach außen freigegeben. Von außerhalb
-  des Servers wird er nicht gebraucht. Entweder in der Firewall sperren oder in der Compose-Datei
-  `'127.0.0.1:5984:5984'` eintragen. In jedem Fall ein starkes `COUCHDB_PASSWORD`.
+- **CouchDB Port 5984** ist nur vom Server selbst erreichbar (`127.0.0.1`). Fauxton daher per
+  SSH-Tunnel öffnen: `ssh -L 5984:localhost:5984 <server>`, dann `http://localhost:5984/_utils`.
+  In jedem Fall ein starkes `COUCHDB_PASSWORD`.
 - Der Server sollte nicht aus dem Internet erreichbar sein. Wer im Netz der Shellys ist, kann
   sie mit dem Passwort direkt schalten.
 
 ### 2.5 Sicherung
 
-Alle Daten liegen in CouchDB (Volume `couchdb_data`): Mitglieder, Tags, Shellys, Terminals,
-Nutzungen, Audit-Log. Regelmäßig sichern, z. B. nachts per cron:
+Alle Daten liegen in CouchDB: Mitglieder, Tags, Shellys, Terminals, Nutzungen, Audit-Log. Der
+Dienst `couchdb-backup` sichert jede Nacht alle Datenbanken als JSON nach
+`/opt/mks/backup/<Datum>/` und löscht Sicherungen, die älter als `BACKUP_KEEP_DAYS` (30) Tage
+sind. Uhrzeit: `BACKUP_HOUR` (2, in UTC).
 
 ```bash
 mkdir -p /opt/mks/backup
-docker run --rm -v mks_couchdb_data:/data -v /opt/mks/backup:/backup alpine \
-  tar czf /backup/couchdb-$(date +%F).tar.gz -C /data .
-find /opt/mks/backup -name 'couchdb-*.tar.gz' -mtime +30 -delete
+# Sofort eine Sicherung machen (z. B. vor einem Update):
+docker exec mks-control-couchdb-backup npx ts-node --transpile-only src/db/backup.ts --once
+ls /opt/mks/backup
 ```
 
-Den Namen des Volumes zeigt `docker volume ls | grep couchdb`. Die Sicherung zusätzlich auf
-einen anderen Rechner kopieren. Zurückspielen: Container stoppen, Volume leeren, Archiv
-entpacken, starten.
+Die Sicherungen zusätzlich auf einen anderen Rechner kopieren (z. B. per `rsync` oder einem
+NAS); ein Ausfall der Festplatte des Servers trifft sonst auch die Sicherung.
+
+**Zurückspielen** (überschreibt nichts, was neuer ist, und legt fehlende Datenbanken an):
+
+```bash
+docker stop mks-control-backend
+docker exec mks-control-couchdb-backup \
+  npx ts-node --transpile-only src/db/restore.ts /backup/2026-10-25
+docker start mks-control-backend
+```
+
+Für einen kompletten Neuanfang vorher die Datenbanken in Fauxton löschen.
 
 ## 3. Shellys vorbereiten
 
