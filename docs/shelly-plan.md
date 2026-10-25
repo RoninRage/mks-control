@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phasen 1–3 umgesetzt, Phasen 4–7 offen
+**Stand:** 2026-10-24 · **Status:** Phasen 1–4 umgesetzt, Phasen 5–7 offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -356,7 +356,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
 3. ✅ **Maschine freigeben:** `control`-Konfiguration, Kiosk-Seite, Freigeben (inkl. Admin),
    Abmelden mit „sofort aus", Totmannschalter, Pi ohne Verbindung, „Noch da?", Nutzungen ohne kWh,
    Audit.
-4. **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
+4. ✅ **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
    Nutzungsansicht mit Sichtbarkeit je Rolle, Aufbewahrungsfrist.
 5. **Eingänge und Zusatzfunktionen:** Sicherheits-Eingänge, Dimmer, Rollladen, Zusatzrelais.
 6. **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
@@ -438,6 +438,28 @@ Verhalten im Detail:
 Noch nicht in Phase 3: Wird die Berechtigung entzogen oder die Maschine während einer Freigabe als
 nicht verfügbar markiert, läuft die Freigabe weiter bis zum Abmelden. Fernabschaltung durch Admins
 kommt mit Phase 6.
+
+### Stand Phase 4
+
+Umgesetzt:
+
+- **Leistungsmessung:** am Ausgang selbst (z. B. Plus 1PM) oder über ein separates Messgerät
+  (`control.meter`, z. B. PM Mini, EM). Der Pi zeigt die Leistung live.
+- **Abschalten im Leerlauf** (`control.shutdown.mode = 'when-idle'`): Nach dem Abmelden (oder ohne
+  Antwort auf „Noch da?") läuft die Maschine weiter, bis die Leistung `idleSeconds` lang unter
+  `idleThresholdW` liegt, spätestens nach `maxWaitMinutes`. Der Pi zeigt „läuft bis zum Jobende".
+  Ein berechtigtes Mitglied kann in dieser Zeit übernehmen („Maschine übernehmen"); die alte
+  Nutzung endet dann mit `handover`, ohne dass die Maschine ausgeht. Ein wartender Abschaltvorgang
+  übersteht einen Neustart (`shutdownRequestedAt` in der Nutzung). Ohne Messung ist nur „sofort"
+  möglich.
+- **kWh je Nutzung:** Zählerstand beim Start (`startEnergyWh`) und am Ende; gespeichert wird die
+  Differenz (`energyWh`). Wurde der Zähler zurückgesetzt, bleibt der Wert leer.
+- **Nutzungsansicht** `/usage` (Kachel „Nutzungen" für alle) und `GET /api/usage` mit Filtern
+  (Maschine, Mitglied, Zeitraum) und Summen. Sichtbarkeit wie beim Audit-Log: admin und vorstand
+  alles, bereichsleitung die Maschinen der eigenen Bereiche und eigene, mitglied nur eigene.
+- **Aufbewahrung:** beendete Nutzungen werden nach `USAGE_RETENTION_DAYS` (Standard 365) gelöscht.
+
+Tests: `tests/e2e/machine-metering.spec.ts`, gemeinsame Hilfen in `tests/helpers/machines.ts`.
 
 ## Risiken
 

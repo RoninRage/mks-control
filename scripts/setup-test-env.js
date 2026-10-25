@@ -40,6 +40,8 @@ TERMINAL_IDLE_TIMEOUT_MS=10000
 TERMINAL_MINUTE_MS=1000
 TERMINAL_OFFLINE_AFTER_MS=5000
 MACHINE_TICK_MS=250
+# Usage retention cleanup runs every 2 s in tests
+USAGE_CLEANUP_INTERVAL_MS=2000
 `;
 
 const envPath = join(process.cwd(), '.env.test');

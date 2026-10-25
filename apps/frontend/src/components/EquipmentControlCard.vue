@@ -52,9 +52,60 @@
           hint="Fällt der Server oder der Pi aus, schaltet der Shelly die Maschine nach dieser Zeit selbst ab."
           data-testid="equipment-control-watchdog"
         />
-        <div class="text-body2 text-grey-7">
-          Abschalten beim Abmelden: sofort. Abschalten erst im Leerlauf folgt mit der
-          Leistungsmessung.
+        <q-select
+          v-model="meterKey"
+          outlined
+          emit-value
+          map-options
+          label="Leistungsmessung"
+          :options="meterOptions"
+          :hint="meterHint"
+          data-testid="equipment-control-meter"
+        />
+        <q-select
+          v-model="shutdownMode"
+          outlined
+          emit-value
+          map-options
+          label="Beim Abmelden"
+          :options="shutdownOptions"
+          data-testid="equipment-control-shutdown"
+        />
+        <div v-if="shutdownMode === 'when-idle'" class="row q-col-gutter-md">
+          <div class="col-12 col-sm-4">
+            <q-input
+              v-model.number="idleThresholdW"
+              outlined
+              type="number"
+              min="1"
+              label="Leerlauf unter (W)"
+              data-testid="equipment-control-idle-threshold"
+            />
+          </div>
+          <div class="col-12 col-sm-4">
+            <q-input
+              v-model.number="idleSeconds"
+              outlined
+              type="number"
+              min="1"
+              label="für (Sekunden)"
+              data-testid="equipment-control-idle-seconds"
+            />
+          </div>
+          <div class="col-12 col-sm-4">
+            <q-input
+              v-model.number="maxWaitMinutes"
+              outlined
+              type="number"
+              min="1"
+              label="spätestens nach (Minuten)"
+              data-testid="equipment-control-max-wait"
+            />
+          </div>
+          <div class="col-12 text-body2 text-grey-7">
+            Nach dem Abmelden läuft die Maschine weiter, bis die Leistung so lange unter der
+            Schwelle liegt (Job fertig), spätestens bis zur maximalen Wartezeit.
+          </div>
         </div>
       </template>
 
@@ -91,7 +142,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
-import type { Equipment, MachineControlKind, ShellyDevice } from '@mks-control/shared-types';
+import type {
+  Equipment,
+  MachineControlKind,
+  MachineShutdown,
+  ShellyComponentKind,
+  ShellyDevice,
+} from '@mks-control/shared-types';
 import { machineService } from 'src/services/machineService';
 import { shellyService } from 'src/services/shellyService';
 import { componentLabel } from 'src/utils/shellyLabels';
@@ -125,6 +182,73 @@ const outputKey = ref<string | null>(
     : null
 );
 const watchdogMinutes = ref<number>(props.equipment.control?.watchdogMinutes ?? 3);
+
+// '' = use the output's own metering (if it has one).
+const initialMeter = props.equipment.control?.meter;
+const meterKey = ref<string>(
+  initialMeter ? `${initialMeter.deviceId}|${initialMeter.kind}|${initialMeter.index}` : ''
+);
+const initialShutdown = props.equipment.control?.shutdown;
+const shutdownMode = ref<MachineShutdown['mode']>(initialShutdown?.mode ?? 'immediate');
+const idleThresholdW = ref<number>(
+  initialShutdown?.mode === 'when-idle' ? initialShutdown.idleThresholdW : 20
+);
+const idleSeconds = ref<number>(
+  initialShutdown?.mode === 'when-idle' ? initialShutdown.idleSeconds : 60
+);
+const maxWaitMinutes = ref<number>(
+  initialShutdown?.mode === 'when-idle' ? initialShutdown.maxWaitMinutes : 30
+);
+
+const outputMeasures = computed((): boolean => {
+  if (!outputKey.value) {
+    return false;
+  }
+  const [kind, index] = outputKey.value.split(':');
+  const device = devices.value.find((d) => d.id === deviceId.value);
+  return Boolean(
+    device?.components.some((c) => c.kind === kind && c.index === Number(index) && c.hasPowerMeter)
+  );
+});
+
+// Every component of any Shelly that measures power.
+const meterOptions = computed((): SelectOption[] => [
+  {
+    label: outputMeasures.value ? 'Am Ausgang selbst' : 'Keine (Ausgang misst nicht)',
+    value: '',
+  },
+  ...devices.value.flatMap((device) =>
+    device.components
+      .filter((c) => c.kind === 'meter' || c.hasPowerMeter)
+      .map((c) => ({
+        label: `${device.name} · ${componentLabel(c)}`,
+        value: `${device.id}|${c.kind}|${c.index}`,
+      }))
+  ),
+]);
+
+const hasMetering = computed((): boolean => meterKey.value !== '' || outputMeasures.value);
+
+const meterHint = computed((): string =>
+  hasMetering.value
+    ? 'Zeigt die Leistung am Pi und zählt die kWh je Nutzung.'
+    : 'Ohne Messung gibt es keine Leistungsanzeige, keine kWh und kein Abschalten im Leerlauf.'
+);
+
+const shutdownOptions = computed(() => [
+  { label: 'Sofort ausschalten', value: 'immediate' },
+  {
+    label: 'Erst im Leerlauf ausschalten (Job zu Ende laufen lassen)',
+    value: 'when-idle',
+    disable: !hasMetering.value,
+  },
+]);
+
+watch(hasMetering, (measures) => {
+  if (!measures) {
+    shutdownMode.value = 'immediate';
+  }
+});
 
 const deviceOptions = computed((): SelectOption[] =>
   devices.value.map((d) => ({ label: `${d.name} (${d.model}, ${d.host})`, value: d.id }))
@@ -162,11 +286,30 @@ async function save(): Promise<void> {
   saving.value = true;
   error.value = null;
   try {
+    const [meterDeviceId, meterKind, meterIndex] = meterKey.value.split('|');
+    const shutdown: MachineShutdown =
+      shutdownMode.value === 'when-idle'
+        ? {
+            mode: 'when-idle',
+            idleThresholdW: Number(idleThresholdW.value),
+            idleSeconds: Number(idleSeconds.value),
+            maxWaitMinutes: Number(maxWaitMinutes.value),
+          }
+        : { mode: 'immediate' };
     const updated = await machineService.setControl(props.equipment.id, {
       deviceId: deviceId.value,
       kind: kind as MachineControlKind,
       index: Number(index),
       watchdogMinutes: Number(watchdogMinutes.value),
+      shutdown,
+      meter:
+        meterKey.value && meterDeviceId
+          ? {
+              deviceId: meterDeviceId,
+              kind: meterKind as ShellyComponentKind,
+              index: Number(meterIndex),
+            }
+          : null,
     });
     emit('updated', updated);
     $q.notify({ type: 'positive', message: 'Steuerung gespeichert', position: 'top' });

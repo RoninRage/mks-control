@@ -1,6 +1,10 @@
 export type {
   EquipmentControl,
   EquipmentUsage,
+  EquipmentUsageView,
+  MachineMeterRef,
+  MachineShutdown,
+  UsageListResponse,
   MachineBlockReason,
   MachineControlKind,
   MachineReleaseInfo,

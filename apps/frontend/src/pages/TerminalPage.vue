@@ -79,6 +79,25 @@
             >
               {{ scanMessage.text }}
             </q-banner>
+            <!-- Running after logout until the job is done -->
+            <q-banner
+              v-if="shuttingDown"
+              class="bg-warning terminal__message q-mt-lg"
+              data-testid="terminal-shutting-down"
+            >
+              <template #avatar>
+                <q-icon name="hourglass_bottom" />
+              </template>
+              Maschine läuft bis zum Jobende und wird dann abgeschaltet (spätestens in
+              {{ shutdownRemainingText }}).
+            </q-banner>
+            <div
+              v-if="state.machine.metered && state.machine.powerW !== undefined"
+              class="text-h5 q-mt-md"
+              data-testid="terminal-power"
+            >
+              Leistung: {{ formatPower(state.machine.powerW) }}
+            </div>
           </section>
 
           <!-- Logged in -->
@@ -115,7 +134,7 @@
 
             <!-- Machine -->
             <q-banner
-              v-if="release"
+              v-if="activeRelease"
               class="bg-primary text-white terminal__message terminal__message--released q-mt-lg"
               data-testid="terminal-released"
             >
@@ -124,6 +143,25 @@
               </template>
               Maschine freigegeben · läuft seit {{ runtimeText }}
             </q-banner>
+            <!-- Running after logout until the job is done -->
+            <q-banner
+              v-if="shuttingDown"
+              class="bg-warning terminal__message q-mt-lg"
+              data-testid="terminal-shutting-down"
+            >
+              <template #avatar>
+                <q-icon name="hourglass_bottom" />
+              </template>
+              Maschine läuft bis zum Jobende und wird dann abgeschaltet (spätestens in
+              {{ shutdownRemainingText }}).
+            </q-banner>
+            <div
+              v-if="state.machine.metered && state.machine.powerW !== undefined"
+              class="text-h5 q-mt-md"
+              data-testid="terminal-power"
+            >
+              Leistung: {{ formatPower(state.machine.powerW) }}
+            </div>
             <q-banner
               v-else-if="state.session.canRelease && machineBlockText"
               class="bg-warning terminal__message q-mt-lg"
@@ -144,7 +182,7 @@
             </q-banner>
 
             <div
-              v-if="!release"
+              v-if="!activeRelease"
               class="text-body1 text-grey-7 q-mt-lg"
               data-testid="terminal-auto-logout"
             >
@@ -153,12 +191,12 @@
 
             <div class="terminal__actions q-mt-xl">
               <q-btn
-                v-if="!release && state.session.canRelease"
+                v-if="!activeRelease && state.session.canRelease"
                 unelevated
                 color="positive"
                 size="xl"
                 icon="power_settings_new"
-                label="Maschine freigeben"
+                :label="shuttingDown ? 'Maschine übernehmen' : 'Maschine freigeben'"
                 class="terminal__big-button"
                 data-testid="terminal-release"
                 :disable="Boolean(state.machine.blockReason)"
@@ -170,7 +208,7 @@
                 color="primary"
                 size="xl"
                 icon="logout"
-                :label="release ? 'Abmelden und Maschine ausschalten' : 'Abmelden'"
+                :label="logoutLabel"
                 class="terminal__big-button"
                 data-testid="terminal-logout"
                 :loading="loggingOut"
@@ -301,6 +339,24 @@ const remainingText = computed((): string => {
 });
 
 const release = computed(() => state.value?.machine.release ?? null);
+const shuttingDown = computed(() => release.value?.shuttingDown ?? null);
+// Released and not yet waiting to switch off.
+const activeRelease = computed(() => (release.value && !shuttingDown.value ? release.value : null));
+
+const logoutLabel = computed((): string => {
+  if (!activeRelease.value) {
+    return 'Abmelden';
+  }
+  return state.value?.machine.shutdownMode === 'when-idle'
+    ? 'Abmelden (Maschine läuft bis Jobende)'
+    : 'Abmelden und Maschine ausschalten';
+});
+
+function formatPower(watts: number): string {
+  return watts >= 1000
+    ? `${(watts / 1000).toLocaleString('de-DE', { maximumFractionDigits: 2 })} kW`
+    : `${watts.toLocaleString('de-DE', { maximumFractionDigits: 0 })} W`;
+}
 const stillThere = computed(() => release.value?.stillThere ?? null);
 
 const formatDuration = (ms: number): string => {
@@ -314,6 +370,10 @@ const formatDuration = (ms: number): string => {
 
 const runtimeText = computed((): string =>
   release.value ? formatDuration(now.value - Date.parse(release.value.startedAt)) : '–'
+);
+
+const shutdownRemainingText = computed((): string =>
+  shuttingDown.value ? formatDuration(Date.parse(shuttingDown.value.deadline) - now.value) : '–'
 );
 
 const stillThereRemainingText = computed((): string =>
