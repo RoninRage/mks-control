@@ -2,7 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import type { Equipment } from '../types/equipment';
-import type { EquipmentControl, MachineControlKind } from '../types/machine';
+import type {
+  EquipmentControl,
+  MachineControlKind,
+  MachineMeterRef,
+  MachineShutdown,
+} from '../types/machine';
+import type { ShellyComponentKind } from '../types/shelly';
 import { findShellyDevice, isEquipmentReleased } from '../machines/machineControl';
 import { DEFAULT_WATCHDOG_MINUTES } from '../machines/timing';
 
@@ -13,6 +19,53 @@ const router = Router();
 
 const MAX_WATCHDOG_MINUTES = 60;
 const CONTROL_KINDS: MachineControlKind[] = ['switch', 'light'];
+const METER_KINDS: ShellyComponentKind[] = ['switch', 'light', 'cover', 'meter'];
+
+const isInt = (value: unknown, min: number, max: number): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
+
+type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
+
+const parseShutdown = (raw: unknown): Parsed<MachineShutdown> => {
+  const value = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  if (value.mode === 'immediate') {
+    return { ok: true, value: { mode: 'immediate' } };
+  }
+  if (value.mode !== 'when-idle') {
+    return { ok: false, error: 'Unbekannter Abschaltmodus' };
+  }
+  const { idleThresholdW, idleSeconds, maxWaitMinutes } = value;
+  if (
+    typeof idleThresholdW !== 'number' ||
+    !Number.isFinite(idleThresholdW) ||
+    idleThresholdW <= 0 ||
+    idleThresholdW > 100_000
+  ) {
+    return { ok: false, error: 'Leerlauf-Schwelle muss zwischen 0 und 100000 W liegen' };
+  }
+  if (!isInt(idleSeconds, 1, 3600)) {
+    return { ok: false, error: 'Leerlauf-Dauer muss zwischen 1 und 3600 Sekunden liegen' };
+  }
+  if (!isInt(maxWaitMinutes, 1, 24 * 60)) {
+    return { ok: false, error: 'Maximale Wartezeit muss zwischen 1 und 1440 Minuten liegen' };
+  }
+  return { ok: true, value: { mode: 'when-idle', idleThresholdW, idleSeconds, maxWaitMinutes } };
+};
+
+const parseMeter = (raw: unknown): Parsed<MachineMeterRef | null> => {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: null };
+  }
+  const value = (typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const kind = value.kind as ShellyComponentKind;
+  if (typeof value.deviceId !== 'string' || !value.deviceId) {
+    return { ok: false, error: 'Messgerät ist ungültig' };
+  }
+  if (!METER_KINDS.includes(kind) || !isInt(value.index, 0, 64)) {
+    return { ok: false, error: 'Messkanal ist ungültig' };
+  }
+  return { ok: true, value: { deviceId: value.deviceId, kind, index: value.index } };
+};
 
 type StoredEquipment = Equipment & { _id: string; _rev: string };
 
@@ -108,12 +161,55 @@ router.put('/:id/control', requireAdmin, async (req: Request, res: Response) => 
       return;
     }
 
+    const shutdownInput =
+      body.shutdown === undefined
+        ? {
+            ok: true as const,
+            value: equipment.control?.shutdown ?? { mode: 'immediate' as const },
+          }
+        : parseShutdown(body.shutdown);
+    if (!shutdownInput.ok) {
+      res.status(400).json({ error: shutdownInput.error });
+      return;
+    }
+    const meterInput = parseMeter(body.meter);
+    if (!meterInput.ok) {
+      res.status(400).json({ error: meterInput.error });
+      return;
+    }
+
+    // The meter must exist and measure power.
+    const meter = meterInput.value;
+    if (meter) {
+      const meterDevice =
+        meter.deviceId === device.id ? device : await findShellyDevice(meter.deviceId);
+      const component = meterDevice?.components.find(
+        (c) => c.kind === meter.kind && c.index === meter.index
+      );
+      if (!component || (component.kind !== 'meter' && !component.hasPowerMeter)) {
+        res.status(400).json({ error: 'Dieser Kanal misst keine Leistung' });
+        return;
+      }
+    }
+
+    // "When idle" needs to know the power.
+    const outputMeasures = device.components.some(
+      (c) => c.kind === kind && c.index === index && c.hasPowerMeter
+    );
+    if (shutdownInput.value.mode === 'when-idle' && !meter && !outputMeasures) {
+      res.status(400).json({
+        error: 'Abschalten im Leerlauf braucht eine Leistungsmessung (Ausgang oder Messgerät)',
+      });
+      return;
+    }
+
     const control: EquipmentControl = {
       deviceId,
       kind,
       index,
       watchdogMinutes,
-      shutdown: { mode: 'immediate' },
+      shutdown: shutdownInput.value,
+      ...(meter ? { meter } : {}),
     };
     const updated: StoredEquipment = {
       ...equipment,

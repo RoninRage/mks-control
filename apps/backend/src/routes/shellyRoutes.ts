@@ -431,7 +431,13 @@ router.delete('/devices/:id', async (req: Request, res: Response) => {
     }
 
     const assigned = await getDatabase<Equipment>().find({
-      selector: { type: { $eq: 'equipment' }, 'control.deviceId': { $eq: device.id } },
+      selector: {
+        type: { $eq: 'equipment' },
+        $or: [
+          { 'control.deviceId': { $eq: device.id } },
+          { 'control.meter.deviceId': { $eq: device.id } },
+        ],
+      },
       limit: 1000,
     });
     const machine = assigned.docs.find((e) => e.isActive !== false);

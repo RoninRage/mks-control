@@ -127,6 +127,24 @@
         </q-card>
 
         <q-card
+          v-if="userStore.can('view:profile')"
+          flat
+          bordered
+          class="action-card"
+          data-testid="dashboard-usage"
+          @click="$router.replace('/usage')"
+        >
+          <q-card-section>
+            <q-icon name="timer" size="48px" color="primary" />
+            <div class="text-h6 q-mt-md">Nutzungen</div>
+            <div class="text-body2 text-grey-7">Maschinenfreigaben, Dauer und Energie</div>
+          </q-card-section>
+          <q-card-actions>
+            <q-btn flat color="primary" label="Öffnen" class="action-card__button" />
+          </q-card-actions>
+        </q-card>
+
+        <q-card
           v-if="canViewAuditLogs"
           flat
           bordered

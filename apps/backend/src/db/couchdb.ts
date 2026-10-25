@@ -161,6 +161,15 @@ export const initializeDatabase = async (): Promise<void> => {
       // Index might already exist
     }
 
+    try {
+      await usageDbInstance.createIndex({
+        index: { fields: ['startedAt'] },
+        name: 'started-at-index',
+      });
+    } catch (err) {
+      // Index might already exist
+    }
+
     // Create indexes for audit database
     try {
       await auditDbInstance.createIndex({

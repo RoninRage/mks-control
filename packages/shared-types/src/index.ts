@@ -333,6 +333,8 @@ export interface MachineReleaseInfo {
   adminOverride: boolean;
   // Set while the Pi asks "Noch da?"; the machine is switched off at the deadline.
   stillThere?: { askedAt: string; deadline: string };
+  // Set after logout in "when idle" mode: the machine runs until it is idle.
+  shuttingDown?: { since: string; deadline: string; idleThresholdW: number };
 }
 
 export interface TerminalMachineState {
@@ -340,6 +342,10 @@ export interface TerminalMachineState {
   configured: boolean;
   online: boolean;
   on?: boolean;
+  // Power metering available (output's own or a separate meter).
+  metered: boolean;
+  shutdownMode?: MachineShutdown['mode'];
+  powerW?: number;
   blockReason?: MachineBlockReason;
   release: MachineReleaseInfo | null;
 }
@@ -368,14 +374,33 @@ export interface TerminalStateEvent {
 
 export type MachineControlKind = 'switch' | 'light';
 
+// What happens to the machine when the release ends by logout or "Noch da?" timeout.
+export type MachineShutdown =
+  | { mode: 'immediate' }
+  | {
+      // Keep running until the machine is idle (job finished), then switch off.
+      mode: 'when-idle';
+      idleThresholdW: number; // below this power the machine counts as idle
+      idleSeconds: number; // ... for this long
+      maxWaitMinutes: number; // switch off after this at the latest
+    };
+
+// A Shelly component that measures the machine's power.
+export interface MachineMeterRef {
+  deviceId: string;
+  kind: ShellyComponentKind;
+  index: number;
+}
+
 export interface EquipmentControl {
   deviceId: string;
   kind: MachineControlKind;
   index: number;
   // Safety timer on the Shelly; the backend renews it while the release lasts.
   watchdogMinutes: number;
-  // Phase 3 only switches off immediately; "when idle" follows with power metering.
-  shutdown: { mode: 'immediate' };
+  shutdown: MachineShutdown;
+  // Separate power meter. Without it, the output's own metering is used if it has one.
+  meter?: MachineMeterRef;
 }
 
 export interface SetEquipmentControlRequest {
@@ -383,6 +408,8 @@ export interface SetEquipmentControlRequest {
   kind: MachineControlKind;
   index: number;
   watchdogMinutes?: number;
+  shutdown?: MachineShutdown;
+  meter?: MachineMeterRef | null;
 }
 
 export type UsageEndReason =
@@ -391,7 +418,9 @@ export type UsageEndReason =
   | 'admin'
   | 'device-offline'
   | 'terminal-offline'
-  | 'system';
+  | 'system'
+  // Another permitted member took over while the machine was waiting to switch off.
+  | 'handover';
 
 // One release of a machine. Open (no endedAt) while the machine is released.
 export interface EquipmentUsage {
@@ -408,4 +437,19 @@ export interface EquipmentUsage {
   endedAt?: string;
   durationSec?: number;
   endReason?: UsageEndReason;
+  // Energy counter of the meter at the start, and the energy used (end minus start).
+  startEnergyWh?: number;
+  energyWh?: number;
+  // Set when the member logged out in "when idle" mode; the machine runs until idle.
+  shutdownRequestedAt?: string;
+  shutdownReason?: UsageEndReason;
+}
+
+export interface EquipmentUsageView extends EquipmentUsage {
+  equipmentName: string;
+}
+
+export interface UsageListResponse {
+  usages: EquipmentUsageView[];
+  totals: { count: number; durationSec: number; energyWh: number };
 }

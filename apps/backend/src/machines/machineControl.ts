@@ -6,11 +6,13 @@ import type { Equipment } from '../types/equipment';
 import type {
   EquipmentControl,
   EquipmentUsage,
+  MachineMeterRef,
   MachineReleaseInfo,
   TerminalMachineState,
   UsageEndReason,
 } from '../types/machine';
 import type { ShellyComponentStatus, ShellyDevice } from '../types/shelly';
+import type { TerminalSessionInfo } from '../types/terminal';
 import { isTerminalOnline } from '../terminals/contact';
 import { findTerminalById, type StoredTerminal } from '../terminals/repository';
 import {
@@ -26,27 +28,41 @@ import {
 } from '../terminals/sessions';
 import { DEFAULT_STILL_THERE_MINUTES, machineTickMs, minuteMs } from './timing';
 
-// Machine releases (docs/shelly-plan.md, phase 3).
+// Machine releases (docs/shelly-plan.md, phases 3 and 4).
 //
 // Releasing switches the machine's Shelly output on with an auto-off timer ("watchdog").
 // While the release lasts and the Pi keeps calling in, the backend renews that timer.
 // If the backend, the network or the Pi fails, the Shelly switches the machine off by itself
 // when the timer runs out. Every release is stored as an EquipmentUsage document; open
 // documents are picked up again after a backend restart.
+//
+// Shutdown modes (per machine): "immediate" switches off at logout; "when-idle" keeps the
+// machine running after logout until its power stays below a threshold (job finished), at the
+// latest after a maximum wait. A permitted member can take over during that wait.
 
 type StoredUsage = EquipmentUsage & { _id: string; _rev: string };
 type StoredDevice = ShellyDevice & { _id: string; _rev: string };
+
+interface PendingShutdown {
+  since: number;
+  // Since when the power has been below the threshold (null = not idle).
+  idleSince: number | null;
+  reason: UsageEndReason;
+}
 
 interface ActiveRelease {
   usage: StoredUsage;
   terminalId: string;
   control: EquipmentControl;
   device: StoredDevice;
+  // Device that measures the power: the output's own device, a separate one, or none.
+  meterDevice: StoredDevice | null;
   lastRenewOkAt: number;
   lastRenewAttemptAt: number;
   // Start of the current "Noch da?" period (release start or last confirmation).
   cycleStartedAt: number;
   stillThereAskedAt: number | null;
+  shutdown: PendingShutdown | null;
   stopping: boolean;
 }
 
@@ -100,52 +116,107 @@ const switchOnWithWatchdog = async (
   await switchOutput(device, control, true, autoOffSec);
 };
 
-// Short cache so state polls from the Pi do not query the Shelly every time.
-const STATUS_CACHE_MS = 3000;
-const statusCache = new Map<
-  string,
-  { at: number; online: boolean; components: ShellyComponentStatus[] }
->();
+// Short cache so state polls and the control loop do not query a Shelly every time.
+const statusCacheMs = (): number => Math.min(3000, machineTickMs() * 2);
 
-const readOutputStatus = async (
+interface DeviceStatus {
+  at: number;
+  online: boolean;
+  components: ShellyComponentStatus[];
+}
+
+const statusCache = new Map<string, DeviceStatus>();
+
+const readDeviceStatus = async (
   device: ShellyDevice,
-  control: EquipmentControl
-): Promise<{ online: boolean; on?: boolean }> => {
+  options: { fresh?: boolean } = {}
+): Promise<DeviceStatus> => {
   const cached = statusCache.get(device.id);
-  let entry = cached && Date.now() - cached.at < STATUS_CACHE_MS ? cached : undefined;
-  if (!entry) {
-    try {
-      const components = await getDriver(device.gen).getStatus(device.host, device.components);
-      entry = { at: Date.now(), online: true, components };
-    } catch {
-      entry = { at: Date.now(), online: false, components: [] };
-    }
-    statusCache.set(device.id, entry);
+  if (!options.fresh && cached && Date.now() - cached.at < statusCacheMs()) {
+    return cached;
   }
-  const output = entry.components.find((c) => c.kind === control.kind && c.index === control.index);
-  return { online: entry.online, on: output?.on };
+  let entry: DeviceStatus;
+  try {
+    const components = await getDriver(device.gen).getStatus(device.host, device.components);
+    entry = { at: Date.now(), online: true, components };
+  } catch {
+    entry = { at: Date.now(), online: false, components: [] };
+  }
+  statusCache.set(device.id, entry);
+  return entry;
+};
+
+const findComponent = (
+  status: DeviceStatus,
+  ref: { kind: string; index: number }
+): ShellyComponentStatus | undefined =>
+  status.components.find((c) => c.kind === ref.kind && c.index === ref.index);
+
+/**
+ * Where the machine's power is measured: a separate meter if configured, otherwise the
+ * output itself if it has metering (e.g. Plus 1PM), otherwise nowhere.
+ */
+export const meterRefFor = (
+  control: EquipmentControl,
+  outputDevice: ShellyDevice
+): MachineMeterRef | null => {
+  if (control.meter) {
+    return control.meter;
+  }
+  const output = outputDevice.components.find(
+    (c) => c.kind === control.kind && c.index === control.index
+  );
+  return output?.hasPowerMeter
+    ? { deviceId: outputDevice.id, kind: control.kind, index: control.index }
+    : null;
+};
+
+const resolveMeterDevice = async (
+  control: EquipmentControl,
+  outputDevice: StoredDevice
+): Promise<StoredDevice | null> => {
+  const ref = meterRefFor(control, outputDevice);
+  if (!ref) {
+    return null;
+  }
+  return ref.deviceId === outputDevice.id ? outputDevice : findShellyDevice(ref.deviceId);
+};
+
+interface MeterReading {
+  powerW?: number;
+  energyWh?: number;
+}
+
+const readMeter = async (
+  control: EquipmentControl,
+  outputDevice: ShellyDevice,
+  meterDevice: ShellyDevice | null,
+  options: { fresh?: boolean } = {}
+): Promise<MeterReading> => {
+  const ref = meterRefFor(control, outputDevice);
+  if (!ref || !meterDevice) {
+    return {};
+  }
+  const status = await readDeviceStatus(meterDevice, options);
+  const component = findComponent(status, ref);
+  return { powerW: component?.powerW, energyWh: component?.energyWh };
 };
 
 // ---------------------------------------------------------------------------
 // Usage records
 // ---------------------------------------------------------------------------
 
-const closeUsage = async (usage: StoredUsage, reason: UsageEndReason): Promise<void> => {
+const updateUsage = async (
+  usage: StoredUsage,
+  patch: (current: StoredUsage) => StoredUsage
+): Promise<StoredUsage> => {
   const db = getUsageDatabase();
-  const endedAt = new Date();
   let current: StoredUsage = usage;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await db.insert({
-        ...current,
-        endedAt: endedAt.toISOString(),
-        durationSec: Math.max(
-          0,
-          Math.round((endedAt.getTime() - Date.parse(current.startedAt)) / 1000)
-        ),
-        endReason: reason,
-      });
-      return;
+      const next = patch(current);
+      const result = await db.insert(next);
+      return { ...next, _rev: result.rev };
     } catch (err) {
       if ((err as { statusCode?: number }).statusCode !== 409) {
         throw err;
@@ -153,6 +224,57 @@ const closeUsage = async (usage: StoredUsage, reason: UsageEndReason): Promise<v
       current = (await db.get(usage._id)) as StoredUsage;
     }
   }
+  throw new Error('Usage record could not be updated (conflict)');
+};
+
+const energyUsed = (startWh: number | undefined, endWh: number | undefined): number | undefined => {
+  if (startWh === undefined || endWh === undefined || endWh < startWh) {
+    // Counter missing or reset (e.g. Shelly rebooted): unknown.
+    return undefined;
+  }
+  return Math.round((endWh - startWh) * 100) / 100;
+};
+
+const closeUsage = async (
+  usage: StoredUsage,
+  reason: UsageEndReason,
+  endEnergyWh?: number
+): Promise<void> => {
+  const endedAt = new Date();
+  await updateUsage(usage, (current) => {
+    const energyWh = energyUsed(current.startEnergyWh, endEnergyWh);
+    return {
+      ...current,
+      endedAt: endedAt.toISOString(),
+      durationSec: Math.max(
+        0,
+        Math.round((endedAt.getTime() - Date.parse(current.startedAt)) / 1000)
+      ),
+      endReason: reason,
+      ...(energyWh !== undefined ? { energyWh } : {}),
+    };
+  });
+};
+
+const createUsage = async (
+  terminal: StoredTerminal,
+  equipment: Equipment,
+  session: TerminalSessionInfo,
+  startEnergyWh: number | undefined
+): Promise<StoredUsage> => {
+  const usage: EquipmentUsage = {
+    type: 'equipmentUsage',
+    id: nanoid(),
+    equipmentId: equipment.id,
+    terminalId: terminal.id,
+    memberId: session.memberId || null,
+    memberName: `${session.firstName} ${session.lastName}`.trim(),
+    adminOverride: session.adminOverride,
+    startedAt: new Date().toISOString(),
+    ...(startEnergyWh !== undefined ? { startEnergyWh } : {}),
+  };
+  const result = await getUsageDatabase().insert(usage);
+  return { ...usage, _id: result.id, _rev: result.rev };
 };
 
 // ---------------------------------------------------------------------------
@@ -162,13 +284,23 @@ const closeUsage = async (usage: StoredUsage, reason: UsageEndReason): Promise<v
 export const isReleased = (terminalId: string): boolean => releases.has(terminalId);
 
 export const isDeviceInUse = (deviceId: string): boolean =>
-  [...releases.values()].some((r) => r.device.id === deviceId);
+  [...releases.values()].some((r) => r.device.id === deviceId || r.meterDevice?.id === deviceId);
 
 export const isEquipmentReleased = (equipmentId: string): boolean =>
   [...releases.values()].some((r) => r.usage.equipmentId === equipmentId);
 
+const shutdownDeadline = (release: ActiveRelease): number | null => {
+  const { shutdown } = release;
+  if (!shutdown || release.control.shutdown.mode !== 'when-idle') {
+    return null;
+  }
+  return shutdown.since + release.control.shutdown.maxWaitMinutes * minuteMs();
+};
+
 const releaseInfo = (release: ActiveRelease, terminal: StoredTerminal): MachineReleaseInfo => {
   const stillThereMinutes = terminal.stillThereTimeoutMinutes ?? DEFAULT_STILL_THERE_MINUTES;
+  const deadline = shutdownDeadline(release);
+  const shutdownConfig = release.control.shutdown;
   return {
     usageId: release.usage.id,
     memberId: release.usage.memberId,
@@ -183,15 +315,45 @@ const releaseInfo = (release: ActiveRelease, terminal: StoredTerminal): MachineR
           ).toISOString(),
         }
       : undefined,
+    shuttingDown:
+      release.shutdown && deadline !== null && shutdownConfig.mode === 'when-idle'
+        ? {
+            since: new Date(release.shutdown.since).toISOString(),
+            deadline: new Date(deadline).toISOString(),
+            idleThresholdW: shutdownConfig.idleThresholdW,
+          }
+        : undefined,
   };
+};
+
+const auditMachine = (
+  action: string,
+  release: ActiveRelease | null,
+  extra: {
+    actorId?: string;
+    equipmentId: string;
+    terminalId: string;
+  }
+): void => {
+  void logAuditEvent({
+    action,
+    actorId: extra.actorId ?? release?.usage.memberId ?? undefined,
+    targetType: 'equipment',
+    targetId: extra.equipmentId,
+    relatedId: extra.terminalId,
+    source: 'terminal',
+  });
 };
 
 /**
  * "Maschine freigeben" at a terminal. Requires a logged-in person who may release this
  * machine, a configured Shelly output and a reachable Shelly. Releasing twice is a no-op.
+ * While the machine waits to switch off after a logout ("when idle"), a permitted member can
+ * take it over without interruption.
  */
 export const releaseMachine = async (terminal: StoredTerminal): Promise<void> => {
-  if (releases.has(terminal.id)) {
+  const existing = releases.get(terminal.id);
+  if (existing && !existing.shutdown) {
     return;
   }
 
@@ -201,15 +363,17 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
     throw new MachineError('Niemand angemeldet', 409, 'not-logged-in');
   }
   if (!session.canRelease) {
-    void logAuditEvent({
-      action: 'machine.release.denied',
+    auditMachine('machine.release.denied', null, {
       actorId: session.memberId || undefined,
-      targetType: 'equipment',
-      targetId: terminal.equipmentId,
-      relatedId: terminal.id,
-      source: 'terminal',
+      equipmentId: terminal.equipmentId,
+      terminalId: terminal.id,
     });
     throw new MachineError('Keine Berechtigung für diese Maschine', 403, 'no-permission');
+  }
+
+  if (existing?.shutdown) {
+    await takeOver(existing, terminal, equipment, session);
+    return;
   }
 
   const control = equipment?.control;
@@ -221,6 +385,7 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
       'not-configured'
     );
   }
+  const meterDevice = await resolveMeterDevice(control, device);
 
   try {
     await switchOnWithWatchdog(device, control);
@@ -230,55 +395,71 @@ export const releaseMachine = async (terminal: StoredTerminal): Promise<void> =>
   }
   statusCache.delete(device.id);
 
-  const now = Date.now();
-  const usage: EquipmentUsage = {
-    type: 'equipmentUsage',
-    id: nanoid(),
-    equipmentId: equipment.id,
-    terminalId: terminal.id,
-    memberId: session.memberId || null,
-    memberName: `${session.firstName} ${session.lastName}`.trim(),
-    adminOverride: session.adminOverride,
-    startedAt: new Date(now).toISOString(),
-  };
-
-  let stored: StoredUsage;
+  const start = await readMeter(control, device, meterDevice, { fresh: true });
+  let usage: StoredUsage;
   try {
-    const result = await getUsageDatabase().insert(usage);
-    stored = { ...usage, _id: result.id, _rev: result.rev };
+    usage = await createUsage(terminal, equipment, session, start.energyWh);
   } catch (err) {
     // Without a record the release must not continue.
     await switchOutput(device, control, false).catch(() => undefined);
     throw err;
   }
 
+  const now = Date.now();
   releases.set(terminal.id, {
-    usage: stored,
+    usage,
     terminalId: terminal.id,
     control,
     device,
+    meterDevice,
     lastRenewOkAt: now,
     lastRenewAttemptAt: now,
     cycleStartedAt: now,
     stillThereAskedAt: null,
+    shutdown: null,
     stopping: false,
   });
   touchSession(terminal.id);
 
-  void logAuditEvent({
-    action: session.adminOverride ? 'machine.release.admin-override' : 'machine.release',
+  auditMachine(session.adminOverride ? 'machine.release.admin-override' : 'machine.release', null, {
     actorId: session.memberId || undefined,
-    targetType: 'equipment',
-    targetId: equipment.id,
-    relatedId: terminal.id,
-    source: 'terminal',
+    equipmentId: equipment.id,
+    terminalId: terminal.id,
+  });
+  notifyTerminalChanged(terminal.id);
+};
+
+// A new member takes over a machine that is waiting to switch off.
+const takeOver = async (
+  release: ActiveRelease,
+  terminal: StoredTerminal,
+  equipment: Equipment | null,
+  session: TerminalSessionInfo
+): Promise<void> => {
+  if (!equipment) {
+    throw new MachineError('Ausstattung nicht gefunden', 409, 'not-configured');
+  }
+  const reading = await readMeter(release.control, release.device, release.meterDevice, {
+    fresh: true,
+  });
+  await closeUsage(release.usage, 'handover', reading.energyWh);
+  release.usage = await createUsage(terminal, equipment, session, reading.energyWh);
+  release.shutdown = null;
+  release.cycleStartedAt = Date.now();
+  release.stillThereAskedAt = null;
+  touchSession(terminal.id);
+
+  auditMachine('machine.release.handover', release, {
+    actorId: session.memberId || undefined,
+    equipmentId: equipment.id,
+    terminalId: terminal.id,
   });
   notifyTerminalChanged(terminal.id);
 };
 
 /**
  * Ends a release: switches the output off (best effort; the Shelly's own timer is the
- * fallback) and closes the usage record.
+ * fallback) and closes the usage record with the energy used.
  */
 export const stopMachine = async (terminalId: string, reason: UsageEndReason): Promise<void> => {
   const release = releases.get(terminalId);
@@ -298,20 +479,52 @@ export const stopMachine = async (terminalId: string, reason: UsageEndReason): P
   }
   statusCache.delete(release.device.id);
 
+  const reading = await readMeter(release.control, release.device, release.meterDevice, {
+    fresh: true,
+  });
   try {
-    await closeUsage(release.usage, reason);
+    await closeUsage(release.usage, reason, reading.energyWh);
   } catch (err) {
     console.error('[machines] Failed to close usage record:', err);
   }
 
   releases.delete(terminalId);
-  void logAuditEvent({
-    action: `machine.off.${reason}`,
-    actorId: release.usage.memberId ?? undefined,
-    targetType: 'equipment',
-    targetId: release.usage.equipmentId,
-    relatedId: terminalId,
-    source: 'terminal',
+  auditMachine(`machine.off.${reason}`, release, {
+    equipmentId: release.usage.equipmentId,
+    terminalId,
+  });
+  notifyTerminalChanged(terminalId);
+};
+
+/**
+ * Logout or "Noch da?" timeout: "immediate" machines switch off now, "when idle" machines
+ * keep running until their power stays low.
+ */
+const beginShutdown = async (terminalId: string, reason: UsageEndReason): Promise<void> => {
+  const release = releases.get(terminalId);
+  if (!release || release.stopping || release.shutdown) {
+    return;
+  }
+  if (release.control.shutdown.mode !== 'when-idle' || !release.meterDevice) {
+    await stopMachine(terminalId, reason);
+    return;
+  }
+
+  const now = Date.now();
+  release.shutdown = { since: now, idleSince: null, reason };
+  release.stillThereAskedAt = null;
+  try {
+    release.usage = await updateUsage(release.usage, (current) => ({
+      ...current,
+      shutdownRequestedAt: new Date(now).toISOString(),
+      shutdownReason: reason,
+    }));
+  } catch (err) {
+    console.error('[machines] Failed to store pending shutdown:', err);
+  }
+  auditMachine('machine.shutdown.when-idle', release, {
+    equipmentId: release.usage.equipmentId,
+    terminalId,
   });
   notifyTerminalChanged(terminalId);
 };
@@ -319,7 +532,7 @@ export const stopMachine = async (terminalId: string, reason: UsageEndReason): P
 // "Ja, noch da" on the Pi: starts a new period.
 export const confirmStillThere = (terminalId: string): boolean => {
   const release = releases.get(terminalId);
-  if (!release) {
+  if (!release || release.shutdown) {
     return false;
   }
   release.cycleStartedAt = Date.now();
@@ -337,30 +550,28 @@ const LOGOUT_TO_USAGE_REASON: Record<LogoutReason, UsageEndReason> = {
   'terminal-offline': 'terminal-offline',
 };
 
+// Logout reasons after which a "when idle" machine may keep running until its job ends.
+const GRACEFUL_LOGOUTS: LogoutReason[] = ['scan', 'button', 'timeout'];
+
 // ---------------------------------------------------------------------------
 // Control loop
 // ---------------------------------------------------------------------------
 
-const checkStillThere = async (release: ActiveRelease, now: number): Promise<boolean> => {
-  const terminal = await findTerminalById(release.terminalId);
-  if (!terminal) {
-    await stopMachine(release.terminalId, 'admin');
-    return true;
-  }
-  if (!terminal.maxSessionMinutes) {
+const checkStillThere = async (
+  release: ActiveRelease,
+  terminal: StoredTerminal,
+  now: number
+): Promise<boolean> => {
+  if (!terminal.maxSessionMinutes || release.shutdown) {
     return false;
   }
 
   if (release.stillThereAskedAt === null) {
     if (now - release.cycleStartedAt >= terminal.maxSessionMinutes * minuteMs()) {
       release.stillThereAskedAt = now;
-      void logAuditEvent({
-        action: 'machine.still-there.asked',
-        actorId: release.usage.memberId ?? undefined,
-        targetType: 'equipment',
-        targetId: release.usage.equipmentId,
-        relatedId: release.terminalId,
-        source: 'terminal',
+      auditMachine('machine.still-there.asked', release, {
+        equipmentId: release.usage.equipmentId,
+        terminalId: release.terminalId,
       });
       notifyTerminalChanged(release.terminalId);
     }
@@ -369,10 +580,39 @@ const checkStillThere = async (release: ActiveRelease, now: number): Promise<boo
 
   const answerMs = (terminal.stillThereTimeoutMinutes ?? DEFAULT_STILL_THERE_MINUTES) * minuteMs();
   if (now - release.stillThereAskedAt >= answerMs) {
-    // No answer: log out, which switches the machine off with reason "timeout".
-    await endSession(release.terminalId, 'timeout');
-    await stopMachine(release.terminalId, 'timeout');
+    // No answer: log out; the session end handler switches off (or waits for idle).
+    if (!(await endSession(release.terminalId, 'timeout'))) {
+      await beginShutdown(release.terminalId, 'timeout');
+    }
     return true;
+  }
+  return false;
+};
+
+// Waiting for the machine to become idle after a logout.
+const checkIdleShutdown = async (release: ActiveRelease, now: number): Promise<boolean> => {
+  const { shutdown } = release;
+  const config = release.control.shutdown;
+  if (!shutdown || config.mode !== 'when-idle') {
+    return false;
+  }
+
+  const deadline = shutdownDeadline(release);
+  if (deadline !== null && now >= deadline) {
+    await stopMachine(release.terminalId, shutdown.reason);
+    return true;
+  }
+
+  const { powerW } = await readMeter(release.control, release.device, release.meterDevice);
+  // Unknown power counts as busy; the maximum wait still applies.
+  if (powerW !== undefined && powerW < config.idleThresholdW) {
+    shutdown.idleSince = shutdown.idleSince ?? now;
+    if (now - shutdown.idleSince >= config.idleSeconds * 1000) {
+      await stopMachine(release.terminalId, shutdown.reason);
+      return true;
+    }
+  } else {
+    shutdown.idleSince = null;
   }
   return false;
 };
@@ -384,10 +624,21 @@ const tickRelease = async (release: ActiveRelease): Promise<void> => {
   const now = Date.now();
   const piOnline = isTerminalOnline(release.terminalId);
 
-  // A released machine never runs into the idle logout.
-  touchSession(release.terminalId);
+  const terminal = await findTerminalById(release.terminalId);
+  if (!terminal) {
+    await stopMachine(release.terminalId, 'admin');
+    return;
+  }
 
-  if (await checkStillThere(release, now)) {
+  if (!release.shutdown) {
+    // A released machine never runs into the idle logout.
+    touchSession(release.terminalId);
+  }
+
+  if (await checkStillThere(release, terminal, now)) {
+    return;
+  }
+  if (await checkIdleShutdown(release, now)) {
     return;
   }
 
@@ -459,19 +710,30 @@ const restoreReleases = async (): Promise<void> => {
     }
 
     const now = Date.now();
+    const pendingShutdown =
+      doc.shutdownRequestedAt && control.shutdown.mode === 'when-idle'
+        ? {
+            since: Date.parse(doc.shutdownRequestedAt),
+            idleSince: null,
+            reason: doc.shutdownReason ?? 'logout',
+          }
+        : null;
     releases.set(terminal.id, {
       usage: doc,
       terminalId: terminal.id,
       control,
       device,
+      meterDevice: await resolveMeterDevice(control, device),
       // Unknown whether the Shelly is still on; renew right away and give it one timer period.
       lastRenewOkAt: now,
       lastRenewAttemptAt: 0,
       cycleStartedAt: now,
       stillThereAskedAt: null,
+      shutdown: pendingShutdown,
       stopping: false,
     });
-    if (!hasSession(terminal.id)) {
+    // The member is still logged in unless they had already logged out.
+    if (!pendingShutdown && !hasSession(terminal.id)) {
       const [firstName, ...rest] = doc.memberName.split(' ');
       startSession(
         terminal,
@@ -491,9 +753,14 @@ const restoreReleases = async (): Promise<void> => {
 let loop: ReturnType<typeof setInterval> | null = null;
 
 export const startMachineControl = async (): Promise<void> => {
-  // Logging out at a terminal switches its machine off.
+  // Logging out at a terminal ends its release (immediately or once the machine is idle).
   setSessionEndHandler(async (terminalId: string, reason: LogoutReason) => {
-    await stopMachine(terminalId, LOGOUT_TO_USAGE_REASON[reason]);
+    const usageReason = LOGOUT_TO_USAGE_REASON[reason];
+    if (GRACEFUL_LOGOUTS.includes(reason)) {
+      await beginShutdown(terminalId, usageReason);
+    } else {
+      await stopMachine(terminalId, usageReason);
+    }
   });
 
   try {
@@ -523,14 +790,25 @@ export const getMachineState = async (
   const device = control ? await findShellyDevice(control.deviceId) : null;
 
   if (!control || !device) {
-    return { configured: false, online: false, blockReason: 'not-configured', release: null };
+    return {
+      configured: false,
+      online: false,
+      metered: false,
+      blockReason: 'not-configured',
+      release: null,
+    };
   }
 
-  const status = await readOutputStatus(device, control);
+  const status = await readDeviceStatus(device);
+  const meterDevice = release?.meterDevice ?? (await resolveMeterDevice(control, device));
+  const reading = await readMeter(control, device, meterDevice);
   return {
     configured: true,
     online: status.online,
-    on: status.on,
+    on: findComponent(status, control)?.on,
+    metered: meterDevice !== null,
+    shutdownMode: meterDevice ? control.shutdown.mode : 'immediate',
+    powerW: reading.powerW,
     blockReason: status.online ? undefined : 'device-offline',
     release: release ? releaseInfo(release, terminal) : null,
   };
