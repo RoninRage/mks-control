@@ -11,22 +11,22 @@
             icon="upload_file"
             color="primary"
             label="CSV-Import"
-            @click="goToImport"
             size="md"
             padding="sm md"
             min-height="48px"
             aria-label="Mitglieder per CSV importieren"
+            @click="goToImport"
           />
           <q-btn
             flat
             icon="arrow_back"
             color="primary"
-            @click="goBack"
             size="lg"
             padding="md"
             min-width="48px"
             min-height="48px"
             aria-label="Go back"
+            @click="goBack"
           />
         </div>
       </div>
@@ -50,13 +50,13 @@
     <!-- Members List -->
     <div v-if="!loading && members.length > 0" class="ms-section">
       <q-table
+        v-model:pagination="pagination"
         flat
         bordered
         :rows="members"
         :columns="columns"
         row-key="id"
         class="members-table"
-        v-model:pagination="pagination"
         :rows-per-page-options="[5, 10, 25, 50]"
       >
         <template #body-cell-name="props">
@@ -103,9 +103,9 @@
               icon="edit"
               color="primary"
               size="md"
-              @click="editMember(props.row)"
               class="touch-button"
               aria-label="Edit member"
+              @click="editMember(props.row)"
             />
             <q-btn
               flat
@@ -113,9 +113,9 @@
               icon="delete"
               color="negative"
               size="md"
-              @click="deleteMember(props.row.id)"
               class="touch-button"
               aria-label="Delete member"
+              @click="deleteMember(props.row.id)"
             />
           </q-td>
         </template>

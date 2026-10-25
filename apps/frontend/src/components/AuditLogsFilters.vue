@@ -158,10 +158,10 @@
           icon="refresh"
           label="Filter zuruecksetzen"
           color="primary"
-          @click="emitReset"
           class="full-width"
           padding="sm md"
           min-height="44px"
+          @click="emitReset"
         />
       </div>
     </div>

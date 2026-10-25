@@ -6,12 +6,10 @@
       :label="scanning ? 'Wird gescannt…' : 'Scan starten'"
       icon="nfc"
       color="primary"
-      @click="startScan"
       class="touch-target"
+      @click="startScan"
     />
-    <div v-if="scanning" class="text-caption text-grey q-mt-sm">
-      Karte ans Telefon halten…
-    </div>
+    <div v-if="scanning" class="text-caption text-grey q-mt-sm">Karte ans Telefon halten…</div>
     <div v-if="errorMsg" class="text-caption text-negative q-mt-sm">
       {{ errorMsg }}
     </div>

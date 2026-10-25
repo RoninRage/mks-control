@@ -303,11 +303,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { copyToClipboard, useQuasar } from 'quasar';
-import type {
-  Equipment,
-  TerminalRuntimeStatus,
-  TerminalSummary,
-} from '@mks-control/shared-types';
+import type { Equipment, TerminalRuntimeStatus, TerminalSummary } from '@mks-control/shared-types';
 import { authEventSource } from 'src/services/authEventSource';
 import { machineService } from 'src/services/machineService';
 import { equipmentService } from 'src/services/equipmentService';

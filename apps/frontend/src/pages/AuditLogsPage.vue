@@ -14,21 +14,21 @@
             icon="delete_sweep"
             label="Audit-Protokolle loeschen"
             color="negative"
-            @click="confirmClearAuditLogs"
             padding="md"
             min-height="44px"
             aria-label="Audit-Protokolle loeschen"
+            @click="confirmClearAuditLogs"
           />
           <q-btn
             flat
             icon="arrow_back"
             color="primary"
-            @click="goBack"
             size="lg"
             padding="md"
             min-width="48px"
             min-height="48px"
             aria-label="Zurueck"
+            @click="goBack"
           />
         </div>
       </div>
