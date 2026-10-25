@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { ENTRANCE_HEADERS, ENTRANCE_KEY } from './session';
 
 /**
  * Custom error for WebSocket connection failures
@@ -30,6 +31,8 @@ async function waitForWebSocketConnection(page: Page, timeout: number = 500): Pr
     }
 
     await page.waitForFunction('window.__WS_CONNECTED__ === true', { timeout });
+    // The browser is the entrance kiosk: the server must have accepted its entrance key.
+    await page.waitForFunction('window.__WS_ENTRANCE__ === true', { timeout: timeout + 2000 });
   } catch (error) {
     const elapsed = Date.now() - startTime;
     throw new WebSocketConnectionError(
@@ -51,7 +54,9 @@ async function postTagEvent(
   tagUid: string,
   source: 'manual' | 'acr122u' | 'webnfc' = 'manual'
 ): Promise<void> {
+  // Scans come from the entrance reader, which carries the entrance key.
   const response = await page.request.post('http://localhost:3000/api/auth/tag', {
+    headers: ENTRANCE_HEADERS,
     data: {
       type: 'tag',
       uid: tagUid,
@@ -135,9 +140,10 @@ export async function loginAs(
   if (!page.url().includes('localhost:9000')) {
     await page.goto('/');
   }
+  await makeEntranceKiosk(page);
 
   // Wait for WebSocket connection (fail fast if not ready)
-  await waitForWebSocketConnection(page, 500);
+  await waitForWebSocketConnection(page, 5000);
 
   // Post tag event to backend
   await postTagEvent(page, uid, 'manual');
@@ -147,6 +153,21 @@ export async function loginAs(
 
   // Additional wait for page to stabilize
   await page.waitForLoadState('networkidle');
+}
+
+/**
+ * Turns the browser into the entrance kiosk (stores the entrance key) so it receives scans of the
+ * entrance reader. Reloads once when the key was missing.
+ */
+export async function makeEntranceKiosk(page: Page): Promise<void> {
+  const hasKey = await page.evaluate(
+    (key) => window.localStorage.getItem('mks.entranceKey') === key,
+    ENTRANCE_KEY
+  );
+  if (!hasKey) {
+    await page.evaluate((key) => window.localStorage.setItem('mks.entranceKey', key), ENTRANCE_KEY);
+    await page.reload();
+  }
 }
 
 /**
@@ -218,5 +239,8 @@ export async function clearAuthState(page: Page): Promise<void> {
     localStorage.removeItem('firstName');
     localStorage.removeItem('lastName');
     localStorage.removeItem('preferredTheme');
+    localStorage.removeItem('mks.sessionToken');
+    localStorage.removeItem('sessionKind');
+    localStorage.removeItem('idleTimeoutMs');
   });
 }

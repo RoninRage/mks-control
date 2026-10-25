@@ -1,5 +1,10 @@
 export type {
   AuthEvent,
+  AuthSessionInfo,
+  AuthSessionKind,
+  RoleId,
+  WsHelloMessage,
+  WsHelloReply,
   HeartbeatEvent,
   ReaderErrorEvent,
   TagEvent,

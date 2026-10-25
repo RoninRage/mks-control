@@ -4,88 +4,105 @@ import { getTagDatabase, getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Tag, CreateTagRequest } from '../types/tag';
 import { Member } from '../types/member';
+import { currentMemberId, currentRole, hasRole, requireRole } from '../auth/middleware';
+import { canActOn, MEMBER_MANAGERS } from '../auth/roles';
+import { findMemberById } from '../db/memberLookup';
+
+const NO_RIGHTS = 'Keine Berechtigung für dieses Mitglied';
 
 export const createTagRoutes = (): Router => {
   const router = Router();
 
   // POST /members/:memberId/tags - Add a tag to a member
-  router.post('/members/:memberId/tags', async (req: Request, res: Response) => {
-    try {
-      const { memberId } = req.params;
-      const { tagUid } = req.body as CreateTagRequest;
+  router.post(
+    '/members/:memberId/tags',
+    requireRole(...MEMBER_MANAGERS),
+    async (req: Request, res: Response) => {
+      try {
+        const { memberId } = req.params;
+        const { tagUid } = req.body as CreateTagRequest;
 
-      if (!tagUid || typeof tagUid !== 'string') {
-        res.status(400).json({ ok: false, error: 'Tag-UID ist erforderlich' });
-        return;
-      }
-
-      const db = getDatabase();
-      const tagDb = getTagDatabase();
-
-      // Verify member exists
-      const memberResult = await db.find({
-        selector: { id: { $eq: memberId } },
-        limit: 1,
-      });
-
-      if (memberResult.docs.length === 0) {
-        res.status(404).json({ ok: false, error: 'Mitglied nicht gefunden' });
-        return;
-      }
-
-      // Check if tag is already assigned to another member
-      const existingTagResult = await tagDb.find({
-        selector: { tagUid: { $eq: tagUid }, isActive: { $eq: true } },
-        limit: 1,
-      });
-
-      if (existingTagResult.docs.length > 0) {
-        const existingTag = existingTagResult.docs[0];
-        if (existingTag.memberId !== memberId) {
-          res.status(409).json({
-            ok: false,
-            error: `Tag ist bereits einem anderen Mitglied zugewiesen`,
-          });
+        if (!tagUid || typeof tagUid !== 'string') {
+          res.status(400).json({ ok: false, error: 'Tag-UID ist erforderlich' });
           return;
         }
-        // Tag already assigned to this member, return it
-        res.status(200).json({ ok: true, data: existingTag });
-        return;
+
+        const db = getDatabase();
+        const tagDb = getTagDatabase();
+
+        // Verify member exists
+        const memberResult = await db.find({
+          selector: { id: { $eq: memberId } },
+          limit: 1,
+        });
+
+        if (memberResult.docs.length === 0) {
+          res.status(404).json({ ok: false, error: 'Mitglied nicht gefunden' });
+          return;
+        }
+        if (!canActOn(currentRole(req), memberResult.docs[0].roles)) {
+          res.status(403).json({ ok: false, error: NO_RIGHTS });
+          return;
+        }
+
+        // Check if tag is already assigned to another member
+        const existingTagResult = await tagDb.find({
+          selector: { tagUid: { $eq: tagUid }, isActive: { $eq: true } },
+          limit: 1,
+        });
+
+        if (existingTagResult.docs.length > 0) {
+          const existingTag = existingTagResult.docs[0];
+          if (existingTag.memberId !== memberId) {
+            res.status(409).json({
+              ok: false,
+              error: `Tag ist bereits einem anderen Mitglied zugewiesen`,
+            });
+            return;
+          }
+          // Tag already assigned to this member, return it
+          res.status(200).json({ ok: true, data: existingTag });
+          return;
+        }
+
+        // Create new tag
+        const tagId = nanoid();
+        const now = new Date().toISOString();
+        const newTag: Tag = {
+          id: tagId,
+          tagUid,
+          memberId,
+          createdAt: now,
+          updatedAt: now,
+          isActive: true,
+        };
+
+        await tagDb.insert(newTag);
+
+        void logAuditEvent(
+          {
+            action: 'tag.add',
+            targetType: 'tag',
+            targetId: newTag.id,
+          },
+          req
+        );
+
+        res.status(201).json({ ok: true, data: newTag });
+      } catch (err) {
+        res.status(500).json({ ok: false, error: 'Fehler beim Hinzufügen des Tags' });
       }
-
-      // Create new tag
-      const tagId = nanoid();
-      const now = new Date().toISOString();
-      const newTag: Tag = {
-        id: tagId,
-        tagUid,
-        memberId,
-        createdAt: now,
-        updatedAt: now,
-        isActive: true,
-      };
-
-      await tagDb.insert(newTag);
-
-      void logAuditEvent(
-        {
-          action: 'tag.add',
-          targetType: 'tag',
-          targetId: newTag.id,
-        },
-        req
-      );
-
-      res.status(201).json({ ok: true, data: newTag });
-    } catch (err) {
-      res.status(500).json({ ok: false, error: 'Fehler beim Hinzufügen des Tags' });
     }
-  });
+  );
 
   // GET /members/:memberId/tags - Get all tags for a member
   router.get('/members/:memberId/tags', async (req: Request, res: Response) => {
     try {
       const { memberId } = req.params;
+      if (memberId !== currentMemberId(req) && !hasRole(req, ...MEMBER_MANAGERS)) {
+        res.status(403).json({ ok: false, error: NO_RIGHTS });
+        return;
+      }
 
       const tagDb = getTagDatabase();
       const result = await tagDb.find({
@@ -100,82 +117,97 @@ export const createTagRoutes = (): Router => {
   });
 
   // DELETE /tags/:tagId - Remove a tag
-  router.delete('/tags/:tagId', async (req: Request, res: Response) => {
-    try {
-      const { tagId } = req.params;
+  router.delete(
+    '/tags/:tagId',
+    requireRole(...MEMBER_MANAGERS),
+    async (req: Request, res: Response) => {
+      try {
+        const { tagId } = req.params;
 
-      const tagDb = getTagDatabase();
-      const result = await tagDb.find({
-        selector: { id: { $eq: tagId } },
-        limit: 1,
-      });
+        const tagDb = getTagDatabase();
+        const result = await tagDb.find({
+          selector: { id: { $eq: tagId } },
+          limit: 1,
+        });
 
-      if (result.docs.length === 0) {
-        res.status(404).json({ ok: false, error: 'Tag nicht gefunden' });
-        return;
+        if (result.docs.length === 0) {
+          res.status(404).json({ ok: false, error: 'Tag nicht gefunden' });
+          return;
+        }
+
+        const tag = result.docs[0];
+        const owner = await findMemberById(tag.memberId);
+        if (owner && !canActOn(currentRole(req), owner.roles)) {
+          res.status(403).json({ ok: false, error: NO_RIGHTS });
+          return;
+        }
+        const now = new Date().toISOString();
+        tag.isActive = false;
+        tag.createdAt = tag.createdAt ?? now;
+        tag.updatedAt = now;
+        await tagDb.insert(tag);
+
+        void logAuditEvent(
+          {
+            action: 'tag.remove',
+            targetType: 'tag',
+            targetId: tag.id,
+          },
+          req
+        );
+
+        res.status(200).json({ ok: true, message: 'Tag deleted' });
+      } catch (err) {
+        res.status(500).json({ ok: false, error: 'Fehler beim Löschen des Tags' });
       }
-
-      const tag = result.docs[0];
-      const now = new Date().toISOString();
-      tag.isActive = false;
-      tag.createdAt = tag.createdAt ?? now;
-      tag.updatedAt = now;
-      await tagDb.insert(tag);
-
-      void logAuditEvent(
-        {
-          action: 'tag.remove',
-          targetType: 'tag',
-          targetId: tag.id,
-        },
-        req
-      );
-
-      res.status(200).json({ ok: true, message: 'Tag deleted' });
-    } catch (err) {
-      res.status(500).json({ ok: false, error: 'Fehler beim Löschen des Tags' });
     }
-  });
+  );
 
   // GET /tags/by-uid/:tagUid - Get tag and associated member by UID
-  router.get('/tags/by-uid/:tagUid', async (req: Request, res: Response) => {
-    try {
-      const { tagUid } = req.params;
+  router.get(
+    '/tags/by-uid/:tagUid',
+    requireRole(...MEMBER_MANAGERS),
+    async (req: Request, res: Response) => {
+      try {
+        const { tagUid } = req.params;
 
-      const tagDb = getTagDatabase();
-      const result = await tagDb.find({
-        selector: { tagUid: { $eq: tagUid }, isActive: { $eq: true } },
-        limit: 1,
-      });
+        const tagDb = getTagDatabase();
+        const result = await tagDb.find({
+          selector: { tagUid: { $eq: tagUid }, isActive: { $eq: true } },
+          limit: 1,
+        });
 
-      if (result.docs.length === 0) {
-        res.status(404).json({ ok: false, error: 'Tag nicht gefunden', found: false });
-        return;
-      }
+        if (result.docs.length === 0) {
+          res.status(404).json({ ok: false, error: 'Tag nicht gefunden', found: false });
+          return;
+        }
 
-      const tag = result.docs[0];
-      const db = getDatabase();
-      const memberResult = await db.find({
-        selector: { id: { $eq: tag.memberId } },
-        limit: 1,
-      });
+        const tag = result.docs[0];
+        const db = getDatabase();
+        const memberResult = await db.find({
+          selector: { id: { $eq: tag.memberId } },
+          limit: 1,
+        });
 
-      if (memberResult.docs.length === 0) {
+        if (memberResult.docs.length === 0) {
+          res
+            .status(404)
+            .json({ ok: false, error: 'Zugehöriges Mitglied nicht gefunden', found: false });
+          return;
+        }
+
+        res.status(200).json({
+          ok: true,
+          found: true,
+          data: { tag, member: memberResult.docs[0] },
+        });
+      } catch (err) {
         res
-          .status(404)
-          .json({ ok: false, error: 'Zugehöriges Mitglied nicht gefunden', found: false });
-        return;
+          .status(500)
+          .json({ ok: false, error: 'Fehler beim Nachschlagen des Tags', found: false });
       }
-
-      res.status(200).json({
-        ok: true,
-        found: true,
-        data: { tag, member: memberResult.docs[0] },
-      });
-    } catch (err) {
-      res.status(500).json({ ok: false, error: 'Fehler beim Nachschlagen des Tags', found: false });
     }
-  });
+  );
 
   return router;
 };

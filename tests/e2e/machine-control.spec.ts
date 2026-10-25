@@ -7,6 +7,7 @@ import {
 } from '../helpers/database';
 import { createTestUser } from '../helpers/factories';
 import { startMockShelly, type MockShelly, type MockShellyOptions } from '../helpers/mockShelly';
+import { ADMIN_HEADERS, MEMBER_HEADERS, VORSTAND_HEADERS } from '../helpers/machines';
 
 // Phase 3 of docs/shelly-plan.md: releasing machines at their terminal.
 //
@@ -15,7 +16,6 @@ import { startMockShelly, type MockShelly, type MockShellyOptions } from '../hel
 // timer defaults to 3 "minutes" = 3 s.
 
 const API = 'http://localhost:3000/api';
-const ADMIN_HEADERS = { 'x-user-role': 'admin', 'x-user-id': 'test-admin-001' };
 const SHELLY_PASSWORD = 'test-shelly-secret';
 const WATCHDOG_S = 3;
 
@@ -213,14 +213,7 @@ test.describe('Machine control', () => {
 
       expect(
         (
-          await put(
-            LASER.id,
-            { deviceId: device.id, kind: 'switch', index: 0 },
-            {
-              'x-user-role': 'vorstand',
-              'x-user-id': 'x',
-            }
-          )
+          await put(LASER.id, { deviceId: device.id, kind: 'switch', index: 0 }, VORSTAND_HEADERS)
         ).status()
       ).toBe(403);
       expect((await put(LASER.id, { deviceId: 'nope', kind: 'switch', index: 0 })).status()).toBe(
@@ -479,7 +472,9 @@ test.describe('Machine control', () => {
       await page.getByTestId('equipment-control-save').click();
       await expect(page.getByTestId('equipment-control-remove')).toBeVisible();
 
-      const equipment = await (await request.get(`${API}/equipment/${LASER.id}`)).json();
+      const equipment = await (
+        await request.get(`${API}/equipment/${LASER.id}`, { headers: ADMIN_HEADERS })
+      ).json();
       expect(equipment.control).toMatchObject({ kind: 'switch', index: 1 });
     });
 

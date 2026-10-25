@@ -46,6 +46,11 @@ USAGE_CLEANUP_INTERVAL_MS=2000
 SHELLY_HEALTH_INTERVAL_MS=1000
 SHELLY_CALLBACK_URL=http://127.0.0.1:3000
 SHELLY_DISCOVERY_TOKEN=test-discovery-token
+# Login (docs/auth-plan.md): entrance key of the kiosk; kiosk sessions end after 30 s idle
+# (5 min in production) so auth-security.spec.ts can test it; many Web NFC logins in tests.
+ENTRANCE_KEY=mke_test-entrance-key
+SESSION_IDLE_TIMEOUT_MS=30000
+WEBNFC_FAILURE_LIMIT=1000
 `;
 
 const envPath = join(process.cwd(), '.env.test');

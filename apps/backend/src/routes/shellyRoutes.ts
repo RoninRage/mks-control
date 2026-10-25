@@ -21,6 +21,7 @@ import { listFindings } from '../shelly/discovery';
 import { syncAllWebhooks } from '../shelly/webhooks';
 import { isDeviceInUse } from '../machines/machineControl';
 import type { Equipment } from '../types/equipment';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 // Shelly device management (admin only).
 // Mounted at /api/shelly.
@@ -35,7 +36,7 @@ const INVALID_HOST_MESSAGE =
 type StoredShellyDevice = ShellyDevice & { _id: string; _rev: string };
 
 const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.get('x-user-role') !== 'admin') {
+  if (currentRole(req) !== 'admin') {
     res.status(403).json({ error: 'Nur Admins dürfen Shelly-Geräte verwalten' });
     return;
   }

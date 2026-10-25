@@ -2,11 +2,11 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
 import { loginAsAdmin, loginAsMember } from '../helpers/auth';
 import { deleteDocumentsByType, getTestDatabaseConnection } from '../helpers/database';
 import { startMockShelly, type MockShelly } from '../helpers/mockShelly';
+import { ADMIN_HEADERS, MEMBER_HEADERS, VORSTAND_HEADERS } from '../helpers/machines';
 
 // Must match SHELLY_PASSWORD in .env.test (scripts/setup-test-env.js).
 const SHELLY_PASSWORD = 'test-shelly-secret';
 const API = 'http://localhost:3000/api/shelly';
-const ADMIN_HEADERS = { 'x-user-role': 'admin', 'x-user-id': 'test-admin-001' };
 
 interface DeviceJson {
   id: string;
@@ -52,7 +52,7 @@ test.describe('Shelly devices', () => {
   test.describe('API', () => {
     test('rejects non-admins', async ({ request }) => {
       const response = await request.get(`${API}/devices`, {
-        headers: { 'x-user-role': 'mitglied' },
+        headers: MEMBER_HEADERS,
       });
       expect(response.status()).toBe(403);
     });

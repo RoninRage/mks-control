@@ -38,6 +38,12 @@ services:
       SHELLY_GEN1_USER: ${SHELLY_GEN1_USER:-admin}
       SHELLY_CALLBACK_URL: ${SHELLY_CALLBACK_URL:-}
       SHELLY_DISCOVERY_TOKEN: ${SHELLY_DISCOVERY_TOKEN:-}
+      # Login (docs/auth-plan.md): key of the entrance reader and kiosk; without it nobody can
+      # log in at the entrance
+      ENTRANCE_KEY: ${ENTRANCE_KEY:-}
+      SESSION_IDLE_TIMEOUT_MS: ${SESSION_IDLE_TIMEOUT_MS:-300000}
+      SESSION_WEBNFC_MAX_MS: ${SESSION_WEBNFC_MAX_MS:-28800000}
+      WEBNFC_LOGIN: ${WEBNFC_LOGIN:-true}
       SHELLY_TIMEOUT_MS: ${SHELLY_TIMEOUT_MS:-3000}
       SHELLY_HEALTH_INTERVAL_MS: ${SHELLY_HEALTH_INTERVAL_MS:-30000}
       TERMINAL_IDLE_TIMEOUT_MS: ${TERMINAL_IDLE_TIMEOUT_MS:-300000}
@@ -132,6 +138,8 @@ services:
       DEVICE_ID: ${NFC_DEVICE_ID:-prod-reader-01}
       SOURCE: acr122u
       DEBOUNCE_MS: ${NFC_DEBOUNCE_MS:-2000}
+      # The entrance reader proves itself with the entrance key
+      ENTRANCE_KEY: ${ENTRANCE_KEY:-}
     privileged: true
     volumes:
       - /run/pcscd:/run/pcscd

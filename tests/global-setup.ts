@@ -2,6 +2,7 @@ import { FullConfig } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createTestDatabases, seedDatabase } from './helpers/database';
+import { loginWithWebNfc, TEST_ADMIN_API_TAG } from './helpers/session';
 import {
   createTestAdminUser,
   createTestAreas,
@@ -93,11 +94,37 @@ async function globalSetup(_config: FullConfig) {
       },
     });
 
+    // A board member for permission tests
+    const boardUser = createTestUser({
+      member: {
+        id: 'test-vorstand-001',
+        firstName: 'Test',
+        lastName: 'Vorstand',
+        roles: ['vorstand', 'mitglied'],
+      },
+      tag: { tagUid: 'test-vorstand-tag-001' },
+    });
+
     // Seed members
-    await seedDatabase(membersDb, [adminUser.member, regularUser.member, inactiveUser.member]);
+    await seedDatabase(membersDb, [
+      adminUser.member,
+      regularUser.member,
+      inactiveUser.member,
+      boardUser.member,
+    ]);
+
+    // Second tag of the admin for API logins in tests: tags in ADMIN_TAG_UIDS do not work via
+    // Web NFC (docs/auth-plan.md), so API tests log in with this one.
+    const adminApiTag = { ...adminUser.tag, id: 'test-admin-api-tag', tagUid: TEST_ADMIN_API_TAG };
 
     // Seed tags
-    await seedDatabase(tagsDb, [adminUser.tag, regularUser.tag, inactiveUser.tag]);
+    await seedDatabase(tagsDb, [
+      adminUser.tag,
+      adminApiTag,
+      regularUser.tag,
+      inactiveUser.tag,
+      boardUser.tag,
+    ]);
 
     // Seed areas in primary database
     const areas = createTestAreas(3, {
@@ -109,6 +136,13 @@ async function globalSetup(_config: FullConfig) {
 
     // Wait a moment for database indexes to be ready
     await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Sessions for API requests in the tests (ADMIN_HEADERS, MEMBER_HEADERS). The web server
+    // is already running; set here, the tokens reach the test workers through process.env.
+    process.env.TEST_ADMIN_TOKEN = await loginWithWebNfc(TEST_ADMIN_API_TAG);
+    process.env.TEST_MEMBER_TOKEN = await loginWithWebNfc('test-member-tag-001');
+    process.env.TEST_VORSTAND_TOKEN = await loginWithWebNfc('test-vorstand-tag-001');
+    console.log('🔑 Test sessions created');
 
     console.log('✅ Global setup complete!\n');
   } catch (error) {

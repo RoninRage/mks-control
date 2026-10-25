@@ -17,6 +17,16 @@ aus. Ohne Bedienung und ohne Freigabe meldet sich der Pi nach 5 Minuten von selb
 Wer eine Maschine benutzen darf, richtet sich nach den bestehenden **Ausstattungsberechtigungen**
 (Dashboard → „Ausstattungsberechtigungen"). Admins dürfen jede Maschine freigeben.
 
+## Anmelden im Admin-Bereich
+
+- **Am Eingang:** Tag an den Leser neben dem Bildschirm halten. Erneut scannen oder „Abmelden"
+  meldet ab; nach 5 Minuten ohne Bedienung meldet der Bildschirm von selbst ab.
+- **Mit dem Handy** (Android, Chrome): Startseite öffnen, „Per Handy anmelden" und den Tag an das
+  Handy halten. Die Anmeldung gilt höchstens 8 Stunden.
+- Wer was darf, richtet sich nach der Rolle (Admin, Vorstand, Bereichsleitung, Mitglied).
+  Niemand kann ein Mitglied mit höherer Rolle bearbeiten oder ihm einen Tag geben, und nur
+  Admins vergeben die Rolle Admin.
+
 ## Eine Maschine einrichten (Admin)
 
 Die Einrichtung erfolgt in drei Schritten: Shelly anlegen, Maschine mit dem Shelly verbinden,

@@ -2,14 +2,16 @@ import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { getAuditDatabase } from './couchdb';
 import type { AuditLog, AuditLogInput } from '../types/audit';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 const retentionDays = Number(process.env.AUDIT_RETENTION_DAYS ?? 365);
 const cleanupIntervalMs = Number(process.env.AUDIT_CLEANUP_INTERVAL_MS ?? 86_400_000);
 
 const buildAuditEntry = (input: AuditLogInput, req?: Request): AuditLog => {
   const now = new Date().toISOString();
-  const actorId = input.actorId ?? req?.get('x-user-id') ?? undefined;
-  const actorRole = input.actorRole ?? req?.get('x-user-role') ?? undefined;
+  // Actor and role come from the login session, never from client headers.
+  const actorId = input.actorId ?? (req ? currentMemberId(req) : undefined);
+  const actorRole = input.actorRole ?? (req ? currentRole(req) : undefined);
   const source = input.source ?? req?.get('x-source') ?? process.env.MACHINE_NAME ?? undefined;
 
   return {

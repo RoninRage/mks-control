@@ -460,12 +460,7 @@ async function updateRoles(newRoles: string[]) {
   isSavingRoles.value = true;
 
   try {
-    const updatedMember = await memberService.updateMemberRoles(
-      memberId.value,
-      newRoles,
-      userStore.memberId,
-      userStore.selectedRole.id
-    );
+    const updatedMember = await memberService.updateMemberRoles(memberId.value, newRoles);
 
     // Update local member data
     member.value.roles = updatedMember.roles;

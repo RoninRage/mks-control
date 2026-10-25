@@ -4,6 +4,7 @@ import { deleteDocumentsByType, getTestDatabaseConnection } from '../helpers/dat
 import { createTestUser } from '../helpers/factories';
 import {
   ADMIN_HEADERS,
+  MEMBER_HEADERS,
   API,
   SHELLY_PASSWORD,
   addShellyDevice,
@@ -109,9 +110,7 @@ test.describe('Device discovery, maintenance and firmware', () => {
       expect(await accepted.json()).toEqual({ accepted: 2 });
 
       expect(
-        (
-          await request.get(`${API}/shelly/discovered`, { headers: { 'x-user-role': 'mitglied' } })
-        ).status()
+        (await request.get(`${API}/shelly/discovered`, { headers: MEMBER_HEADERS })).status()
       ).toBe(403);
       const list = await (
         await request.get(`${API}/shelly/discovered`, { headers: ADMIN_HEADERS })

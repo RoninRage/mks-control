@@ -1,6 +1,6 @@
 # Plan: Sichere Anmeldung
 
-**Stand:** 2026-10-25 · **Status:** Plan, noch nicht umgesetzt
+**Stand:** 2026-10-25 · **Status:** umgesetzt (siehe „Abweichungen vom Plan“)
 
 ## Problem
 
@@ -70,8 +70,8 @@ nimmt Scans von jedem an.
 - Risiko: Wer eine UID kennt, kann sich ohne Tag anmelden (UIDs sind nicht geheim, jedes Handy
   kann sie lesen). Gegenmaßnahmen:
   - **Notfall-Admin-Tags** aus `ADMIN_TAG_UIDS` gehen hier **nicht**, nur am Kiosk.
-  - Begrenzung: höchstens 10 Versuche pro Minute und IP, unbekannte UIDs werden im Audit-Log
-    vermerkt.
+  - Begrenzung der Fehlversuche (siehe „Abweichungen vom Plan“), unbekannte UIDs werden im
+    Audit-Log vermerkt.
   - Einstellung `WEBNFC_LOGIN=false` schaltet die Handy-Anmeldung ganz ab.
 - Tag-Zuweisung per Handy (EditMemberPage) bleibt; sie setzt eine Sitzung mit passender Rolle
   voraus.
@@ -139,6 +139,21 @@ Die Rechte entsprechen dem, was das Frontend heute schon anzeigt (`user-store.ts
 2. Neue Compose-Datei, `docker compose up -d` (nfc-bridge bekommt den Schlüssel).
 3. Am Kiosk „Eingang einrichten" und Schlüssel eintippen.
 4. Alle sind abgemeldet und melden sich neu an.
+
+## Abweichungen vom Plan
+
+- **Begrenzung bei Web NFC:** Hinter dem Proxy des Frontends haben alle Handys dieselbe Adresse.
+  Begrenzt werden deshalb nur **Fehlversuche** (unbekannte Tags), für alle zusammen:
+  `WEBNFC_FAILURE_LIMIT` (10) pro Minute. Erfolgreiche Anmeldungen sind nicht begrenzt. Folge:
+  Wer viele falsche UIDs schickt, sperrt die Handy-Anmeldung für alle für eine Minute; der Kiosk
+  ist davon nicht betroffen.
+- **Rolle Admin:** Nur Admins vergeben die Rolle Admin (vorher auch der Vorstand). Allgemein darf
+  niemand ein Mitglied mit höherer Rolle bearbeiten, ihm Tags geben oder nehmen.
+- **Login-Code statt Token per WebSocket:** Der Kiosk bekommt beim Scan einen Einmal-Code
+  (60 s gültig) und tauscht ihn gegen die Sitzung. So entstehen keine Sitzungen, wenn der Kiosk
+  den Scan nur zum Abmelden oder Zuordnen eines Tags braucht.
+- Heartbeat und Leser-Fehler der `nfc-bridge` gehen nur an den Kiosk und brauchen den
+  Schlüssel; die `nfc-bridge` schickt ihn jetzt bei allen Meldungen mit.
 
 ## Offene Fragen
 

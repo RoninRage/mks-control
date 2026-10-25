@@ -1,15 +1,38 @@
 import { boot } from 'quasar/wrappers';
 import { authEventSource, HeartbeatEvent, TagEvent } from 'src/services/authEventSource';
+import { authService, LoginError } from 'src/services/authService';
 import { useAuthStore } from 'src/stores/auth';
-import { ROLE_NAME_MAP, ROLE_PRIORITY, useUserStore } from 'src/stores/user-store';
+import { useUserStore } from 'src/stores/user-store';
 import { isTerminalMode } from 'src/utils/terminalConfig';
+
+// Login at the entrance kiosk (docs/auth-plan.md): only the kiosk receives scans of the entrance
+// reader, each with a one-time code that is exchanged for a session. Scanning again logs out.
+// At the kiosk the session also ends after a few minutes without activity.
+
+const PING_INTERVAL_MS = 30_000;
+const IDLE_CHECK_MS = 1_000;
 
 export default boot(({ router }) => {
   const store = useAuthStore();
   const userStore = useUserStore();
 
-  // Restore session if it exists
+  const goHome = (): void => {
+    void router.replace('/');
+  };
+
+  const logOut = async (reason: string): Promise<void> => {
+    await userStore.endSession(reason);
+    store.lock();
+    goHome();
+  };
+
+  // Restore the login after a reload and check it with the backend.
   userStore.restoreSession();
+  void Promise.all([userStore.refreshSession(), router.isReady()]).then(([valid]) => {
+    if (!valid && router.currentRoute.value.meta.requiresAuth) {
+      goHome();
+    }
+  });
 
   authEventSource.onTag((event: TagEvent): void => {
     // A machine terminal only reacts to scans at its own reader (handled by the backend
@@ -18,73 +41,71 @@ export default boot(({ router }) => {
       return;
     }
 
-    // If a user is currently logged in, log them out and stop processing
-    // UNLESS we're in tag assignment mode
-    if (userStore.isAuthenticated) {
-      if (authEventSource.isInTagAssignmentMode()) {
-        return;
-      }
-      // Clear all authentication state
-      userStore.logout();
-      store.lock();
-      // Navigate to home/login page
-      void router.replace('/');
-      // Don't process the tag further - just logout
+    // While assigning a tag to a member, the scan is only used for that.
+    if (authEventSource.isInTagAssignmentMode()) {
       return;
     }
 
-    // Check for inactive user first (before unknown user check)
+    // Scanning while logged in logs out.
+    if (userStore.isAuthenticated) {
+      void logOut('tag-scan');
+      return;
+    }
+
     if (event.isInactive === true) {
       authEventSource.emitInactiveUser(event);
       return;
     }
 
-    // Check for unknown user (tag not found in database and not admin)
-    if (event.memberFound === false && event.isAdmin !== true) {
+    if (!event.loginCode) {
       authEventSource.emitUnknownTag(event);
       return;
     }
 
-    // Only process tag if no user is logged in
-    store.unlock(event);
-
-    const memberRoles = event.member?.roles ?? [];
-    const resolvedRoleId =
-      ROLE_PRIORITY.find((roleId) => memberRoles.includes(roleId)) ?? 'mitglied';
-    const resolvedRoleName = ROLE_NAME_MAP[resolvedRoleId] ?? 'Mitglied';
-
-    if (event.isAdmin) {
-      const memberId = event.member?.id;
-      const firstName = event.member?.firstName;
-      const lastName = event.member?.lastName;
-      const preferredTheme = event.member?.preferredTheme;
-      userStore.setRole('admin', 'Admin', memberId, firstName, lastName, preferredTheme);
-    } else {
-      const memberId = event.member?.id;
-      const firstName = event.member?.firstName;
-      const lastName = event.member?.lastName;
-      const preferredTheme = event.member?.preferredTheme;
-      userStore.setRole(
-        resolvedRoleId,
-        resolvedRoleName,
-        memberId,
-        firstName,
-        lastName,
-        preferredTheme
-      );
-    }
-
-    // Use setTimeout to ensure state is committed before navigation
-    setTimeout(() => {
-      router.replace('/dashboard').catch((err) => {
-        console.error('[auth-boot] Navigation to dashboard failed:', err);
+    void authService
+      .exchangeLoginCode(event.loginCode)
+      .then((session) => {
+        store.unlock(event);
+        userStore.setSession(session);
+        lastActivity = Date.now();
+        return router.replace('/dashboard');
+      })
+      .catch((err: unknown) => {
+        console.error('[auth-boot] Login failed:', err instanceof LoginError ? err.message : err);
+        authEventSource.emitUnknownTag(event);
       });
-    }, 100);
   });
 
   authEventSource.onHeartbeat((event: HeartbeatEvent): void => {
     store.setHeartbeat(event);
   });
+
+  // Kiosk: log out after idleTimeoutMs without touch or key press. Activity is reported to the
+  // backend at most every PING_INTERVAL_MS so its session does not time out first.
+  let lastActivity = Date.now();
+  let lastPing = 0;
+  const onActivity = (): void => {
+    lastActivity = Date.now();
+    if (!userStore.isAuthenticated || !userStore.idleTimeoutMs || !userStore.token) {
+      return;
+    }
+    if (lastActivity - lastPing >= PING_INTERVAL_MS) {
+      lastPing = lastActivity;
+      void authService.ping(userStore.token);
+    }
+  };
+  ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach((type) => {
+    window.addEventListener(type, onActivity, { passive: true, capture: true });
+  });
+  window.setInterval(() => {
+    const idleMs = userStore.idleTimeoutMs;
+    if (!userStore.isAuthenticated || !idleMs) {
+      return;
+    }
+    if (Date.now() - lastActivity >= idleMs) {
+      void logOut('idle');
+    }
+  }, IDLE_CHECK_MS);
 
   authEventSource.connect();
 });

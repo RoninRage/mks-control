@@ -4,7 +4,6 @@ import type { Area, Equipment, Member } from '@mks-control/shared-types';
 import { areaService } from '../services/areaService';
 import { equipmentService } from '../services/equipmentService';
 import { memberService } from '../services/memberService';
-import { useUserStore } from './user-store';
 import { getApiBaseUrl } from 'src/utils/apiUrl';
 import { isPrivilegedRole } from 'src/utils/roles';
 
@@ -116,7 +115,6 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
       error.value = null;
 
       // Call backend endpoint
-      const userStore = useUserStore();
       const apiUrl = getApiBaseUrl();
       const response = await fetch(
         `${apiUrl}/members/${memberId}/equipment-permissions/${equipmentId}`,
@@ -124,8 +122,6 @@ export const useAusstattungStore = defineStore('ausstattung', () => {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-User-ID': userStore.memberId || '',
-            'X-User-Role': userStore.roleId || '',
           },
           body: JSON.stringify({ allowed }),
         }

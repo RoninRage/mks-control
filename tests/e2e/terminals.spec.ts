@@ -2,11 +2,11 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 import { loginAsAdmin } from '../helpers/auth';
 import { deleteDocumentsByType, getTestDatabaseConnection } from '../helpers/database';
 import { createTestUser } from '../helpers/factories';
+import { ADMIN_HEADERS, MEMBER_HEADERS, VORSTAND_HEADERS } from '../helpers/machines';
 
 // Phase 2 of docs/shelly-plan.md: terminal keys and login at a machine's Pi.
 
 const API = 'http://localhost:3000/api';
-const ADMIN_HEADERS = { 'x-user-role': 'admin', 'x-user-id': 'test-admin-001' };
 // Must match TERMINAL_IDLE_TIMEOUT_MS in .env.test (scripts/setup-test-env.js).
 const IDLE_TIMEOUT_MS = 10_000;
 
@@ -122,7 +122,7 @@ test.describe('Terminals', () => {
   test.describe('Admin API', () => {
     test('rejects non-admins', async ({ request }) => {
       const response = await request.get(`${API}/terminals`, {
-        headers: { 'x-user-role': 'vorstand' },
+        headers: VORSTAND_HEADERS,
       });
       expect(response.status()).toBe(403);
     });

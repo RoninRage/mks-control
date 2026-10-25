@@ -41,6 +41,14 @@ Ist das Repository privat, die Datei stattdessen mit `scp` vom eigenen Rechner k
 
 ### 2.2 Einstellungen in `/opt/mks/.env`
 
+Pflicht für die Anmeldung (ohne ihn kann sich am Eingang niemand anmelden, siehe 2.4):
+
+```bash
+# Schlüssel des Eingangs (NFC-Leser und Kiosk-Bildschirm), z. B. erzeugt mit:
+#   echo "mke_$(openssl rand -hex 32)"
+ENTRANCE_KEY=mke_…
+```
+
 Pflicht für die Maschinensteuerung:
 
 ```bash
@@ -72,6 +80,9 @@ Optional (Standardwerte in Klammern):
 | `SHELLY_HEALTH_INTERVAL_MS`    | Wie oft alle Shellys geprüft werden (30 000 ms)                  |
 | `SHELLY_TIMEOUT_MS` (3000)     | Wartezeit je Anfrage an einen Shelly                             |
 | `SHELLY_DISCOVERY_INTERVAL_MS` | Wie oft nach neuen Shellys gesucht wird (60 000 ms)              |
+| `SESSION_IDLE_TIMEOUT_MS`      | Abmelden am Eingangs-Kiosk ohne Bedienung (300 000 ms = 5 min)   |
+| `SESSION_WEBNFC_MAX_MS`        | Längste Anmeldung per Handy (28 800 000 ms = 8 h)                |
+| `WEBNFC_LOGIN` (`true`)        | `false` schaltet die Anmeldung per Handy ab                      |
 
 ### 2.3 Starten
 
@@ -82,7 +93,25 @@ docker compose -f docker-compose.prod.yml ps        # alle "running", Backend "h
 docker logs mks-control-shelly-discovery --tail 20  # keine Meldung "token missing"
 ```
 
-### 2.4 Netzwerk und Sicherheit
+### 2.4 Kiosk am Eingang einrichten
+
+Der Bildschirm am Eingang ist der einzige Browser, der Scans des Eingangs-Lesers bekommt. Einmal
+einrichten:
+
+1. Startseite öffnen, unten **„Eingang einrichten"** tippen.
+2. Den Wert von `ENTRANCE_KEY` eintragen und speichern. Die Statusanzeige wechselt auf
+   „Connected", sobald der Leser sich meldet.
+3. Tag scannen: Die Anmeldung erscheint nur auf diesem Bildschirm.
+
+Der `nfc-bridge`-Container bekommt den Schlüssel aus der `.env` automatisch. Steht auf dem Kiosk
+„Der Eingangs-Schlüssel ist ungültig", stimmt der eingetragene Wert nicht mit der `.env` überein.
+
+Nach dem Update auf die sichere Anmeldung sind alle abgemeldet. Andere Browser (z. B. ein Laptop)
+werden durch Scans am Eingang nicht mehr angemeldet; Mitglieder melden sich dort mit dem Handy
+an (Android mit Chrome, „Per Handy anmelden"). Notfall-Admin-Tags aus `ADMIN_TAG_UIDS`
+funktionieren nur am Eingang.
+
+### 2.5 Netzwerk und Sicherheit
 
 - **Shellys → Server Port 3000:** Die Shellys melden Sicherheits-Eingänge an
   `SHELLY_CALLBACK_URL`. Eine Firewall auf dem Server muss Port 3000 aus dem Netz der Shellys
@@ -95,7 +124,7 @@ docker logs mks-control-shelly-discovery --tail 20  # keine Meldung "token missi
 - Der Server sollte nicht aus dem Internet erreichbar sein. Wer im Netz der Shellys ist, kann
   sie mit dem Passwort direkt schalten.
 
-### 2.5 Sicherung
+### 2.6 Sicherung
 
 Alle Daten liegen in CouchDB: Mitglieder, Tags, Shellys, Terminals, Nutzungen, Audit-Log. Der
 Dienst `couchdb-backup` sichert jede Nacht alle Datenbanken als JSON nach
@@ -200,10 +229,9 @@ wichtigsten Punkte wiederholen (Freigabe, Abmelden, bei „Erst im Leerlauf" das
 
 - **Gen1-Shellys** melden Sicherheits-Eingänge nicht sofort. Sie werden während einer Freigabe
   abgefragt (Reaktion nach etwa 1–2 Sekunden); Gen2+ melden per Push.
-- **Rollen beim Lesen:** Wer welche Nutzungen sieht, richtet sich (wie beim Audit-Log) nach
-  Angaben, die der Browser mitschickt. Wer das Netz und die API kennt, kann sie fälschen und
-  fremde Nutzungen lesen. Das **Schalten** der Maschinen ist davon nicht betroffen: Es geht nur
-  mit dem Schlüssel eines Terminals.
+- **Anmeldung per Handy:** Wer die UID eines Tags kennt (jedes Handy kann sie auslesen), kann
+  sich damit auch ohne den Tag anmelden. Fehlversuche sind begrenzt, Notfall-Admin-Tags gehen
+  dort nicht. Wer das nicht will, setzt `WEBNFC_LOGIN=false`.
 - Die automatische Erkennung findet nur Shellys im selben Netzsegment wie der Server (mDNS geht
   nicht über Router hinweg).
 - Ohne Pi läuft eine freigegebene Maschine bis zum Ende des Sicherheits-Timers weiter. Den Timer

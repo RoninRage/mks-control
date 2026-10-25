@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getAuditDatabase } from '../db/couchdb';
 import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 const router = Router();
 
@@ -64,16 +65,8 @@ interface AuditLogFilter {
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userRole = req.get('x-user-role') as string | undefined;
-    const userId = req.get('x-user-id') as string | undefined;
-
-    // Debug logging
-    console.log('🔍 auditRoutes: Received headers:', {
-      'x-user-role': userRole,
-      'x-user-id': userId,
-      'x-source': req.get('x-source'),
-      'all-headers': req.headers,
-    });
+    const userRole = currentRole(req);
+    const userId = currentMemberId(req);
 
     // Only admins, vorstand, and bereichsleitung can view audit logs
     if (!['admin', 'vorstand', 'bereichsleitung'].includes(userRole || '')) {
@@ -254,7 +247,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.delete('/', async (req: Request, res: Response) => {
   try {
-    const userRole = req.get('x-user-role') as string | undefined;
+    const userRole = currentRole(req);
 
     if (userRole !== 'admin') {
       res.status(403).json({ error: 'Insufficient permissions to clear audit logs' });

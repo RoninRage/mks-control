@@ -21,6 +21,9 @@ import http from 'http';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createAuthRoutes } from './routes/authRoutes';
+import { authenticate, requireAuth } from './auth/middleware';
+import { startAuthSessionSweeper } from './auth/sessions';
+import { getEntranceKey } from './auth/keys';
 import { createMemberRoutes } from './routes/memberRoutes';
 import { createTagRoutes } from './routes/tagRoutes';
 import areaRoutes from './routes/areaRoutes';
@@ -89,20 +92,44 @@ const startServer = async (): Promise<void> => {
   const server = http.createServer(app);
   const { broadcast, getClientCount } = setupAuthWs(server);
 
+  // Login session of the browser (docs/auth-plan.md). Role and member of a request come only
+  // from here; X-User-Role / X-User-ID headers are ignored.
+  app.use('/api', authenticate);
+
   app.use('/api/auth', createAuthRoutes(broadcast));
+  // Devices with their own keys: Shelly webhooks, discovery relay, machine terminals (Pis).
+  app.use('/api/shelly/events', shellyEventRoutes);
+  app.use('/api/shelly/discovered', shellyDiscoveryRoutes);
+  app.use('/api/terminal', terminalClientRoutes);
+
+  // Everything else needs a logged-in browser; the routes check the roles.
+  app.use(
+    [
+      '/api/members',
+      '/api/tags',
+      '/api/areas',
+      '/api/equipment',
+      '/api/audit-logs',
+      '/api/shelly',
+      '/api/terminals',
+      '/api/usage',
+    ],
+    requireAuth
+  );
   app.use('/api', createMemberRoutes());
   app.use('/api', createTagRoutes());
   app.use('/api/areas', areaRoutes);
   app.use('/api/equipment', machineRoutes);
   app.use('/api/equipment', equipmentRoutes);
   app.use('/api/audit-logs', auditRoutes);
-  // Webhook target for Shellys; must come before the admin-only Shelly routes.
-  app.use('/api/shelly/events', shellyEventRoutes);
-  app.use('/api/shelly/discovered', shellyDiscoveryRoutes);
   app.use('/api/shelly', shellyRoutes);
   app.use('/api/terminals', terminalRoutes);
-  app.use('/api/terminal', terminalClientRoutes);
   app.use('/api/usage', usageRoutes);
+
+  if (!getEntranceKey()) {
+    console.warn('[server] ENTRANCE_KEY is not set: nobody can log in at the entrance');
+  }
+  startAuthSessionSweeper();
 
   // Tell the Pi (via WebSocket) to reload its state; the notice itself carries no member data.
   setTerminalNotifier((terminalId: string): void => {

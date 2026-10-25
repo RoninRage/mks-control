@@ -3,6 +3,8 @@ import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Area, AreaWithMeta } from '../types/area';
 import { Equipment } from '../types/equipment';
+import { requireRole } from '../auth/middleware';
+import { BOARD } from '../auth/roles';
 
 const router = Router();
 
@@ -61,7 +63,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * POST /api/areas
  * Create a new area
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireRole(...BOARD), async (req: Request, res: Response) => {
   try {
     const { name, description, bereichsleiterIds } = req.body;
 
@@ -129,7 +131,7 @@ router.post('/', async (req: Request, res: Response) => {
  * PUT /api/areas/:id
  * Update an area
  */
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireRole(...BOARD), async (req: Request, res: Response) => {
   try {
     const { name, description, bereichsleiterIds } = req.body;
 
@@ -211,7 +213,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  * DELETE /api/areas/:id
  * Delete an area
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireRole(...BOARD), async (req: Request, res: Response) => {
   try {
     const db = getDatabase<Area>();
     const result = await db.find({

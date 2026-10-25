@@ -6,6 +6,7 @@ import type {
   TagEvent,
   TerminalStateEvent,
 } from '@mks-control/shared-types';
+import { getEntranceKey } from 'src/utils/entranceConfig';
 export type {
   HeartbeatEvent,
   ReaderErrorEvent,
@@ -35,6 +36,11 @@ export interface AuthEventSource {
   emitInactiveUser(event: TagEvent): void;
   setTagAssignmentMode(enabled: boolean): void;
   isInTagAssignmentMode(): boolean;
+  // Entrance kiosk: true once the server accepted the entrance key on this connection.
+  isEntrance(): boolean;
+  onEntranceStatus(cb: (accepted: boolean) => void): () => void;
+  // Connects again, e.g. after the entrance key was changed.
+  reconnect(): void;
 }
 
 const resolveWsUrl = (): string => {
@@ -128,6 +134,12 @@ const isShellyHealthEvent = (value: unknown): value is ShellyHealthEvent => {
   );
 };
 
+const isHelloReply = (value: unknown): value is { type: 'hello'; entrance: boolean } =>
+  typeof value === 'object' &&
+  value !== null &&
+  (value as { type?: unknown }).type === 'hello' &&
+  typeof (value as { entrance?: unknown }).entrance === 'boolean';
+
 const isHeartbeatEvent = (value: unknown): value is HeartbeatEvent => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -158,6 +170,8 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly inactiveUserListeners: Array<(event: TagEvent) => void> = [];
   private readonly terminalStateListeners: Array<(event: TerminalStateEvent) => void> = [];
   private readonly shellyHealthListeners: Array<(event: ShellyHealthEvent) => void> = [];
+  private readonly entranceListeners: Array<(accepted: boolean) => void> = [];
+  private entranceAccepted = false;
 
   public constructor(private readonly url: string) {}
 
@@ -180,6 +194,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
     this.ws.addEventListener('open', () => {
       this.retryCount = 0;
+      const entranceKey = getEntranceKey();
+      if (entranceKey) {
+        this.ws?.send(JSON.stringify({ type: 'hello', entranceKey }));
+      }
       this.setStatus('connected');
     });
 
@@ -191,6 +209,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
 
       try {
         const parsed = JSON.parse(data) as unknown;
+        if (isHelloReply(parsed)) {
+          this.setEntrance(parsed.entrance);
+          return;
+        }
         if (isTagEvent(parsed)) {
           this.emitTag(parsed);
           return;
@@ -219,16 +241,22 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       }
     });
 
-    this.ws.addEventListener('close', () => {
+    const socket = this.ws;
+    socket.addEventListener('close', () => {
+      // An old socket closing after reconnect() must not touch the new one.
+      if (this.ws !== socket) {
+        return;
+      }
       this.ws = null;
+      this.setEntrance(false);
       this.setStatus('disconnected');
       if (this.shouldReconnect) {
         this.scheduleReconnect();
       }
     });
 
-    this.ws.addEventListener('error', () => {
-      this.ws?.close();
+    socket.addEventListener('error', () => {
+      socket.close();
     });
   }
 
@@ -350,6 +378,36 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+  }
+
+  public isEntrance(): boolean {
+    return this.entranceAccepted;
+  }
+
+  public onEntranceStatus(cb: (accepted: boolean) => void): () => void {
+    this.entranceListeners.push(cb);
+    cb(this.entranceAccepted);
+    return () => {
+      const index = this.entranceListeners.indexOf(cb);
+      if (index >= 0) {
+        this.entranceListeners.splice(index, 1);
+      }
+    };
+  }
+
+  public reconnect(): void {
+    const old = this.ws;
+    this.ws = null;
+    old?.close();
+    this.setEntrance(false);
+    this.connect();
+  }
+
+  private setEntrance(accepted: boolean): void {
+    this.entranceAccepted = accepted;
+    // Exposed for E2E tests, like __WS_CONNECTED__
+    (window as Window & { __WS_ENTRANCE__?: boolean }).__WS_ENTRANCE__ = accepted;
+    this.entranceListeners.forEach((listener) => listener(accepted));
   }
 
   public setTagAssignmentMode(enabled: boolean): void {

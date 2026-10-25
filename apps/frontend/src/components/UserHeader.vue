@@ -29,7 +29,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { useUserStore } from 'stores/user-store';
-import { authService } from 'src/services/authService';
 import RoleIcon from 'components/RoleIcon.vue';
 
 defineOptions({
@@ -39,14 +38,9 @@ defineOptions({
 const router = useRouter();
 const userStore = useUserStore();
 
-async function handleLogout() {
-  // Log audit event for logout before clearing user session
-  if (userStore.memberId) {
-    await authService.logoutWithAudit(userStore.memberId, 'user-initiated');
-  }
-
-  userStore.logout();
-  router.replace('/');
+async function handleLogout(): Promise<void> {
+  await userStore.endSession('user-initiated');
+  await router.replace('/');
 }
 </script>
 
