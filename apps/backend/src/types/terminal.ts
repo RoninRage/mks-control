@@ -8,6 +8,7 @@ export type {
   TerminalState,
   TerminalStateEvent,
   TerminalSummary,
+  TerminalRuntimeStatus,
   TerminalTokenResponse,
   UpdateTerminalRequest,
 } from '@mks-control/shared-types';

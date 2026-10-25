@@ -14,3 +14,6 @@ export const isTerminalOnline = (terminalId: string): boolean => {
   const last = lastContact.get(terminalId) ?? startedAt;
   return Date.now() - last < terminalOfflineAfterMs();
 };
+
+export const getLastContact = (terminalId: string): number | undefined =>
+  lastContact.get(terminalId);

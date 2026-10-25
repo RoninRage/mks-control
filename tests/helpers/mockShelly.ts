@@ -49,6 +49,15 @@ export interface MockShellyCall {
   params?: Record<string, unknown>;
 }
 
+export interface MockWebhook {
+  id: number;
+  cid: number;
+  enable: boolean;
+  event: string;
+  name: string;
+  urls: string[];
+}
+
 export interface MockShelly {
   host: string;
   port: number;
@@ -60,6 +69,11 @@ export interface MockShelly {
   inputs: boolean[];
   meters: { powerW: number; energyWh: number }[];
   calls: MockShellyCall[];
+  // Gen2 webhooks registered by the backend, and the deliveries made so far.
+  webhooks: MockWebhook[];
+  webhookDeliveries: Array<{ url: string; status: number }>;
+  // Changes an input like a real contact would and fires matching webhooks (Gen2).
+  setInput(index: number, closed: boolean): Promise<void>;
   setOffline(offline: boolean): void;
   close(): Promise<void>;
 }
@@ -108,6 +122,9 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     meters: Array.from({ length: options.meters ?? 0 }, () => ({ powerW: 0, energyWh: 0 })),
   };
   const calls: MockShellyCall[] = [];
+  const webhooks: MockWebhook[] = [];
+  const webhookDeliveries: Array<{ url: string; status: number }> = [];
+  let nextWebhookId = 1;
   // One pending auto-flip per output. Like a real Shelly, every set command replaces it.
   const timers = new Map<MockOutputState, NodeJS.Timeout>();
   let offline = false;
@@ -294,6 +311,28 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
   const rpc = (method: string, params: Record<string, unknown>): unknown => {
     const id = Number(params.id ?? 0);
     switch (method) {
+      case 'Webhook.List':
+        return { hooks: webhooks.map((h) => ({ ...h })), rev: nextWebhookId };
+      case 'Webhook.Create': {
+        const hook: MockWebhook = {
+          id: nextWebhookId++,
+          cid: Number(params.cid ?? 0),
+          enable: params.enable !== false,
+          event: String(params.event ?? ''),
+          name: String(params.name ?? ''),
+          urls: Array.isArray(params.urls) ? params.urls.map(String) : [],
+        };
+        webhooks.push(hook);
+        return { id: hook.id, rev: nextWebhookId };
+      }
+      case 'Webhook.Delete': {
+        const index = webhooks.findIndex((h) => h.id === Number(params.id));
+        if (index < 0) {
+          throw new Error(`No webhook ${String(params.id)}`);
+        }
+        webhooks.splice(index, 1);
+        return { rev: nextWebhookId };
+      }
       case 'Shelly.GetStatus':
         return gen2Status();
       case 'Switch.Set':
@@ -426,6 +465,27 @@ export async function startMockShelly(options: MockShellyOptions): Promise<MockS
     shellyId,
     ...state,
     calls,
+    webhooks,
+    webhookDeliveries,
+    async setInput(index: number, closed: boolean): Promise<void> {
+      const changed = state.inputs[index] !== closed;
+      state.inputs[index] = closed;
+      if (!changed || gen !== 2) {
+        return;
+      }
+      const event = closed ? 'input.toggle_on' : 'input.toggle_off';
+      const hooks = webhooks.filter((h) => h.enable && h.cid === index && h.event === event);
+      for (const hook of hooks) {
+        for (const url of hook.urls) {
+          try {
+            const response = await fetch(url);
+            webhookDeliveries.push({ url, status: response.status });
+          } catch {
+            webhookDeliveries.push({ url, status: 0 });
+          }
+        }
+      }
+    },
     setOffline(value: boolean): void {
       offline = value;
     },

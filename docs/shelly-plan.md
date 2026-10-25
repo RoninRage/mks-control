@@ -1,6 +1,6 @@
 # Plan: Shelly-Steuerung
 
-**Stand:** 2026-10-24 · **Status:** Phasen 1–5 umgesetzt, Phasen 6–7 offen
+**Stand:** 2026-10-24 · **Status:** Phasen 1–6 umgesetzt, Phase 7 (optional) offen
 
 Ziel: Jede Maschine (Ausstattung) bekommt einen eigenen Raspberry Pi mit NFC-Leser und Touchscreen.
 Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschine, kann es sie per
@@ -359,7 +359,7 @@ Jede Phase ist ein eigener PR und für sich lauffähig.
 4. ✅ **Messung und Leerlauf-Abschaltung:** Live-Messwerte, Modus „im Leerlauf", kWh in Nutzungen,
    Nutzungsansicht mit Sichtbarkeit je Rolle, Aufbewahrungsfrist.
 5. ✅ **Eingänge und Zusatzfunktionen:** Sicherheits-Eingänge, Dimmer, Rollladen, Zusatzrelais.
-6. **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
+6. ✅ **Überwachung und schnellere Reaktion:** Health-Monitor im Frontend, Admin-Abschaltung,
    Push vom Shelly statt Polling (Gen2: Webhooks/Outbound-WebSocket, Gen1: Action-URLs), damit
    Eingänge sofort reagieren.
 7. **Später/optional:** mDNS-Erkennung, Firmware-Updates, Wartungsmodus, Einrichtungsanleitung
@@ -485,6 +485,32 @@ Behoben: Seit Phase 4 fehlte am Pi der Hinweis, warum eine Maschine mit Leistung
 freigegeben werden kann (der Button war nur gesperrt).
 
 Tests: `tests/e2e/machine-accessories.spec.ts`.
+
+### Stand Phase 6
+
+Umgesetzt:
+
+- **Fernabschaltung:** Admins schalten eine laufende Maschine auf der Seite „Terminals" ab
+  (`POST /api/equipment/:id/force-off`, Endgrund `admin`). Das Mitglied bleibt am Pi angemeldet.
+- **Terminal-Übersicht:** `GET /api/terminals/status` und Live-Anzeige je Terminal: Pi online,
+  wer angemeldet ist, ob die Maschine läuft (auch „läuft bis zum Jobende"). Aktualisiert sich bei
+  jeder Änderung am Pi über den WebSocket.
+- **Health-Monitor:** Das Backend fragt alle Shellys regelmäßig ab (`SHELLY_HEALTH_INTERVAL_MS`,
+  Standard 30 s), speichert online/offline und meldet Änderungen per WebSocket
+  (`shelly-health`); die Geräte-Seite aktualisiert sich sofort.
+- **Push vom Shelly (Gen2+):** Für Sicherheits-Eingänge richtet das Backend Webhooks
+  (`input.toggle_on/off`) auf den Shellys ein, die
+  `<SHELLY_CALLBACK_URL>/api/shelly/events/<Gerät>?key=<Schlüssel>` aufrufen. Das Backend prüft
+  dann sofort die betroffenen Maschinen. Der Schlüssel ist pro Gerät zufällig und verlässt den
+  Server nicht. Die Abfrage im Regelkreis bleibt als Rückfallebene. Gen1-Geräte werden nur
+  abgefragt („Nur Abfrage (Gen1)" auf der Geräte-Seite). Ohne `SHELLY_CALLBACK_URL` gibt es keinen
+  Push. Webhooks werden beim Start, nach Änderungen der Steuerung und wenn ein Gerät wieder online
+  kommt abgeglichen; fremde Webhooks auf dem Gerät bleiben unangetastet (Namenspräfix `mks_`).
+
+Nicht umgesetzt: Zustand `degraded` (teilweise erreichbar); Push für Gen1 (Action-URLs sind je
+Modell verschieden).
+
+Tests: `tests/e2e/monitoring.spec.ts`.
 
 ## Risiken
 

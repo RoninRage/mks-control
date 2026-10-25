@@ -95,6 +95,19 @@
                 <div class="text-body2 text-grey-7" data-testid="device-meta">
                   {{ device.model }} · Gen{{ device.gen }} · {{ device.host }}
                 </div>
+                <q-chip
+                  v-if="device.push"
+                  dense
+                  size="sm"
+                  :color="PUSH_COLORS[device.push.state]"
+                  text-color="white"
+                  class="q-ml-none"
+                  data-testid="device-push"
+                  :data-state="device.push.state"
+                >
+                  {{ PUSH_LABELS[device.push.state] }}
+                  <q-tooltip v-if="device.push.error">{{ device.push.error }}</q-tooltip>
+                </q-chip>
               </div>
               <q-chip
                 :color="healthColor(device)"
@@ -361,9 +374,11 @@ import type {
   ShellyDevice,
   ShellyDeviceStatus,
   ShellyHealth,
+  ShellyPushStatus,
 } from '@mks-control/shared-types';
 import { shellyService, type ShellyProbeResponse } from 'src/services/shellyService';
 import { useUserStore } from 'stores/user-store';
+import { authEventSource } from 'src/services/authEventSource';
 import {
   HEALTH_COLORS,
   HEALTH_LABELS,
@@ -385,6 +400,18 @@ interface ComponentRow {
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
 
+// Push of safety inputs from the Shelly (webhooks, Gen2+).
+const PUSH_LABELS: Record<ShellyPushStatus['state'], string> = {
+  active: 'Push aktiv',
+  error: 'Push-Fehler',
+  unsupported: 'Nur Abfrage (Gen1)',
+};
+const PUSH_COLORS: Record<ShellyPushStatus['state'], string> = {
+  active: 'positive',
+  error: 'negative',
+  unsupported: 'grey-6',
+};
+
 const router = useRouter();
 const $q = useQuasar();
 const userStore = useUserStore();
@@ -395,6 +422,7 @@ const devices = ref<ShellyDevice[]>([]);
 const statuses = ref<Record<string, ShellyDeviceStatus>>({});
 const busy = ref<Record<string, string | undefined>>({});
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let removeHealthListener: (() => void) | null = null;
 
 const addDialog = reactive({
   open: false,
@@ -433,9 +461,18 @@ onMounted(async () => {
   pollTimer = setInterval(() => {
     void loadAllStatuses();
   }, STATUS_POLL_INTERVAL_MS);
+  // The backend's health monitor reports online/offline changes right away.
+  removeHealthListener = authEventSource.onShellyHealth((event) => {
+    const device = devices.value.find((d) => d.id === event.deviceId);
+    if (device) {
+      device.health = event.health;
+      void loadStatus(device.id);
+    }
+  });
 });
 
 onBeforeUnmount(() => {
+  removeHealthListener?.();
   if (pollTimer) {
     clearInterval(pollTimer);
   }

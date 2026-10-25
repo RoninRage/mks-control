@@ -34,6 +34,13 @@ import { startMachineControl } from './machines/machineControl';
 import machineRoutes from './routes/machineRoutes';
 import usageRoutes from './routes/usageRoutes';
 import { scheduleUsageRetentionCleanup } from './machines/usageRetention';
+import {
+  setBackOnlineHandler,
+  setHealthNotifier,
+  startHealthMonitor,
+} from './shelly/healthMonitor';
+import { syncAllWebhooks } from './shelly/webhooks';
+import shellyEventRoutes from './routes/shellyEventRoutes';
 import { setupAuthWs } from './ws/authWs';
 import { initializeDatabase } from './db/couchdb';
 import { seedMembers } from './db/seedMembers';
@@ -87,6 +94,8 @@ const startServer = async (): Promise<void> => {
   app.use('/api/equipment', machineRoutes);
   app.use('/api/equipment', equipmentRoutes);
   app.use('/api/audit-logs', auditRoutes);
+  // Webhook target for Shellys; must come before the admin-only Shelly routes.
+  app.use('/api/shelly/events', shellyEventRoutes);
   app.use('/api/shelly', shellyRoutes);
   app.use('/api/terminals', terminalRoutes);
   app.use('/api/terminal', terminalClientRoutes);
@@ -99,6 +108,17 @@ const startServer = async (): Promise<void> => {
   startSessionSweeper();
   await startMachineControl();
   scheduleUsageRetentionCleanup();
+
+  // Shelly online/offline changes go to the admin pages via the WebSocket.
+  setHealthNotifier((deviceId, health) => {
+    broadcast({ type: 'shelly-health', deviceId, health, ts: new Date().toISOString() });
+  });
+  // A device that comes back (e.g. after a power cut) gets its webhooks checked again.
+  setBackOnlineHandler((device) => {
+    void syncAllWebhooks(device.id);
+  });
+  startHealthMonitor();
+  void syncAllWebhooks();
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ ok: true });
