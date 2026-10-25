@@ -8,12 +8,12 @@
           flat
           icon="arrow_back"
           color="primary"
-          @click="goBack"
           size="lg"
           padding="md"
           min-width="48px"
           min-height="48px"
           aria-label="Zurück"
+          @click="goBack"
         />
       </div>
       <p class="text-body1 text-grey-7">
@@ -47,9 +47,9 @@
           label="Import starten"
           :loading="loading"
           :disable="!selectedFile || loading"
-          @click="startImport"
           padding="sm lg"
           min-height="48px"
+          @click="startImport"
         />
       </q-card>
     </div>

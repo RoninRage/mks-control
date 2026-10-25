@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="row items-center justify-between q-mb-lg">
       <h1 class="text-h3 q-my-none">Ausstattungsberechtigungen</h1>
-      <q-btn flat icon="arrow_back" @click="goBack" class="touch-button" />
+      <q-btn flat icon="arrow_back" class="touch-button" @click="goBack" />
     </div>
 
     <!-- Loading state -->
@@ -39,8 +39,8 @@
                 clickable
                 :active="store.selectedAreaId === area.id"
                 active-class="bg-primary text-white"
-                @click="store.selectArea(area.id)"
                 class="touch-item"
+                @click="store.selectArea(area.id)"
               >
                 <q-item-section>
                   <q-item-label>{{ area.name }}</q-item-label>
@@ -69,8 +69,8 @@
                   clickable
                   :active="store.selectedEquipmentId === equip.id"
                   active-class="bg-primary text-white"
-                  @click="store.selectEquipment(equip.id)"
                   class="touch-item"
+                  @click="store.selectEquipment(equip.id)"
                 >
                   <q-item-section>
                     <q-item-label>{{ equip.name }}</q-item-label>
@@ -126,8 +126,8 @@
                   <q-item-section side top>
                     <q-toggle
                       :model-value="store.getMemberPermission(member.id, store.selectedEquipmentId)"
-                      @update:model-value="togglePermission(member.id, $event)"
                       :disable="store.loading"
+                      @update:model-value="togglePermission(member.id, $event)"
                     />
                   </q-item-section>
                 </q-item>
@@ -161,8 +161,8 @@
               v-for="area in displayedAreas"
               :key="area.id"
               clickable
-              @click="selectAreaMobile(area.id)"
               class="touch-item"
+              @click="selectAreaMobile(area.id)"
             >
               <q-item-section>
                 <q-item-label>{{ area.name }}</q-item-label>
@@ -178,7 +178,7 @@
         <!-- Step 2: Equipment -->
         <div v-if="mobileStep === 'equipment'" class="ausstattung-mobile-step">
           <div class="row items-center q-mb-md">
-            <q-btn flat icon="arrow_back" @click="mobileStep = 'areas'" class="touch-button" />
+            <q-btn flat icon="arrow_back" class="touch-button" @click="mobileStep = 'areas'" />
             <h2 class="text-h5 q-my-none flex-grow q-ml-sm">
               {{ store.selectedArea?.name }}
             </h2>
@@ -197,8 +197,8 @@
               v-for="equip in store.areaEquipment"
               :key="equip.id"
               clickable
-              @click="selectEquipmentMobile(equip.id)"
               class="touch-item"
+              @click="selectEquipmentMobile(equip.id)"
             >
               <q-item-section>
                 <q-item-label>{{ equip.name }}</q-item-label>
@@ -214,7 +214,7 @@
         <!-- Step 3: Members & Permissions -->
         <div v-if="mobileStep === 'members'" class="ausstattung-mobile-step">
           <div class="row items-center q-mb-md">
-            <q-btn flat icon="arrow_back" @click="mobileStep = 'equipment'" class="touch-button" />
+            <q-btn flat icon="arrow_back" class="touch-button" @click="mobileStep = 'equipment'" />
             <h2 class="text-h6 q-my-none flex-grow q-ml-sm">
               {{ store.selectedEquipment?.name }}
             </h2>
@@ -251,8 +251,8 @@
                       ? store.getMemberPermission(member.id, store.selectedEquipmentId)
                       : false
                   "
-                  @update:model-value="togglePermission(member.id, $event)"
                   :disable="store.loading"
+                  @update:model-value="togglePermission(member.id, $event)"
                 />
               </q-item-section>
             </q-item>

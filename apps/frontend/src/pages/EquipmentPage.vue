@@ -8,12 +8,12 @@
           flat
           icon="arrow_back"
           color="primary"
-          @click="goBack"
           size="lg"
           padding="md"
           min-width="48px"
           min-height="48px"
           aria-label="Go back"
+          @click="goBack"
         />
       </div>
     </div>
@@ -46,10 +46,10 @@
           color="primary"
           label="Ausstattung hinzufügen"
           icon="add"
-          @click="createEquipment"
           size="lg"
           min-height="44px"
           class="q-mt-md"
+          @click="createEquipment"
         />
       </q-card>
     </div>
@@ -63,9 +63,9 @@
           color="primary"
           label="Ausstattung hinzufügen"
           icon="add"
-          @click="createEquipment"
           size="md"
           min-height="44px"
+          @click="createEquipment"
         />
       </div>
 
@@ -113,9 +113,9 @@
               icon="edit"
               color="primary"
               size="md"
-              @click="editEquipment(props.row)"
               class="touch-button"
               aria-label="Edit equipment"
+              @click="editEquipment(props.row)"
             />
             <q-btn
               flat
@@ -123,9 +123,9 @@
               icon="delete"
               color="negative"
               size="md"
-              @click="deleteEquipment(props.row.id)"
               class="touch-button"
               aria-label="Delete equipment"
+              @click="deleteEquipment(props.row.id)"
             />
           </q-td>
         </template>

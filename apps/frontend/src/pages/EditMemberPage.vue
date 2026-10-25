@@ -8,12 +8,12 @@
           flat
           icon="arrow_back"
           color="primary"
-          @click="goBack"
           size="lg"
           padding="md"
           min-width="48px"
           min-height="48px"
           aria-label="Go back"
+          @click="goBack"
         />
       </div>
     </div>
@@ -154,8 +154,8 @@
             dense
             emit-value
             map-options
-            @update:model-value="updateThemePreference"
             class="full-width"
+            @update:model-value="updateThemePreference"
           >
             <template #prepend>
               <q-icon name="palette" />
@@ -218,8 +218,8 @@
             map-options
             :loading="isSavingRoles"
             :disable="member.id === userStore.memberId || isSavingRoles"
-            @update:model-value="updateRoles"
             class="full-width"
+            @update:model-value="updateRoles"
           >
             <template #prepend>
               <q-icon name="admin_panel_settings" />
@@ -282,7 +282,7 @@
             <div class="text-subtitle2 q-mb-md">Zugewiesene Tags ({{ tags.length }})</div>
             <div class="row q-gutter-md">
               <div v-for="tag in tags" :key="tag.id" class="tag-chip">
-                <q-chip removable @remove="removeTag(tag.id)" class="full-width">
+                <q-chip removable class="full-width" @remove="removeTag(tag.id)">
                   <q-icon name="nfc" size="sm" class="q-mr-sm" />
                   {{ tag.tagUid }}
                 </q-chip>
@@ -298,8 +298,8 @@
               label="Tag Scannen"
               color="primary"
               icon="nfc"
-              @click="startTagScanning"
               class="touch-target"
+              @click="startTagScanning"
             />
             <mobile-nfc-scanner v-if="hasNfc" @scanned="handleTagScanned" />
           </div>
@@ -308,7 +308,7 @@
 
       <!-- Footer with action buttons -->
       <div class="row q-mt-lg q-gutter-md">
-        <q-btn flat label="Zurück" color="primary" @click="goBack" class="touch-target" />
+        <q-btn flat label="Zurück" color="primary" class="touch-target" @click="goBack" />
       </div>
     </div>
   </q-page>

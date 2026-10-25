@@ -14,11 +14,11 @@
         flat
         icon="logout"
         color="primary"
-        @click="handleLogout"
         size="md"
         padding="md"
         min-width="44px"
         class="q-ml-md"
+        @click="handleLogout"
       >
         <q-tooltip>Abmelden</q-tooltip>
       </q-btn>

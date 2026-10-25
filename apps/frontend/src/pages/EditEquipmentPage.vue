@@ -8,12 +8,12 @@
           flat
           icon="arrow_back"
           color="primary"
-          @click="goBack"
           size="lg"
           padding="md"
           min-width="48px"
           min-height="48px"
           aria-label="Go back"
+          @click="goBack"
         />
       </div>
     </div>
@@ -45,9 +45,9 @@
             :disable="loading || saving"
             :error="hasNameError"
             :error-message="nameError"
-            @blur="markNameTouched"
             dense
             class="full-width"
+            @blur="markNameTouched"
           />
         </div>
 
@@ -141,10 +141,10 @@
           :loading="saving"
           :label="saveLabel"
           color="primary"
-          @click="saveEquipment"
           class="touch-target"
+          @click="saveEquipment"
         />
-        <q-btn flat label="Zurück" color="primary" @click="goBack" class="touch-target" />
+        <q-btn flat label="Zurück" color="primary" class="touch-target" @click="goBack" />
       </div>
 
       <!-- Shelly output that powers this machine (admins only) -->

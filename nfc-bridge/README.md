@@ -1,6 +1,7 @@
 # NFC Bridge
 
-A lightweight NFC reader bridge that posts tag UID events to the Auth Gateway.
+A lightweight NFC reader bridge that posts tag UID events to the backend (`POST /api/auth/tag`).
+Every post carries the reader's key; the backend refuses scans without one.
 
 ## Configuration
 
@@ -13,10 +14,15 @@ DEVICE_ID=kiosk-01
 SOURCE=acr122u
 DEBOUNCE_MS=800
 TERMINAL_TOKEN=
+ENTRANCE_KEY=mke_dev-entrance-key
 
-`TERMINAL_TOKEN` is only for a machine terminal (one Raspberry Pi per machine). Create the
-terminal in the admin UI under "Terminals" and copy the key shown there. With the key set, a scan
-only logs in at that terminal; without it, the bridge acts as the entrance reader.
+Set exactly one key:
+
+- `ENTRANCE_KEY` for the reader at the entrance: the same value as in the backend's `.env`.
+  Its scans reach only the entrance kiosk (the browser set up with the same key).
+- `TERMINAL_TOKEN` for a machine terminal (one Raspberry Pi per machine). Create the terminal in
+  the admin UI under "Terminals" and copy the key shown there. A scan then only logs in at that
+  terminal. Setup of a terminal Pi: `docs/pi-setup.md`.
 
 ## Run (Windows)
 
@@ -25,9 +31,8 @@ only logs in at that terminal; without it, the bridge acts as the entrance reade
 
 npm install
 
-3. Start the bridge:
-
-npm run dev
+3. Start the bridge from the monorepo root with `npm run dev` (it refuses to start without
+   `MONOREPO_DEV=true`).
 
 ## Run (Raspberry Pi)
 
@@ -42,10 +47,7 @@ sudo systemctl start pcscd
 
 pcsc_scan
 
-3. Install dependencies and run:
-
-npm install
-npm run dev
+3. For a machine terminal follow `docs/pi-setup.md` (installs the bridge as a systemd service).
 
 ## Troubleshooting
 

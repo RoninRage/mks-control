@@ -8,13 +8,13 @@
           flat
           icon="arrow_back"
           color="primary"
-          @click="goBack"
           size="lg"
           padding="md"
           min-width="48px"
           min-height="48px"
           aria-label="Go back"
           data-testid="areas-back"
+          @click="goBack"
         />
       </div>
     </div>
@@ -45,11 +45,11 @@
           color="primary"
           label="Bereich erstellen"
           icon="add"
-          @click="createArea"
           size="lg"
           min-height="44px"
           class="q-mt-md"
           data-testid="areas-empty-create"
+          @click="createArea"
         />
       </q-card>
     </div>
@@ -63,10 +63,10 @@
           color="primary"
           label="Bereich erstellen"
           icon="add"
-          @click="createArea"
           size="md"
           min-height="44px"
           data-testid="areas-create"
+          @click="createArea"
         />
       </div>
 
@@ -93,20 +93,20 @@
               color="primary"
               label="Bearbeiten"
               icon="edit"
-              @click="editArea(area)"
               class="touch-button"
               min-height="44px"
               data-testid="area-edit"
+              @click="editArea(area)"
             />
             <q-btn
               flat
               color="negative"
               label="Löschen"
               icon="delete"
-              @click="deleteArea(area.id)"
               class="touch-button"
               min-height="44px"
               data-testid="area-delete"
+              @click="deleteArea(area.id)"
             />
           </q-card-actions>
         </q-card>
