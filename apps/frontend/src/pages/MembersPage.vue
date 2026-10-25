@@ -236,18 +236,7 @@ function deleteMember(id: string) {
     },
   }).onOk(async () => {
     try {
-      const currentUserId = userStore.memberId;
-      const currentUserRole = userStore.selectedRole?.id;
-
-      if (!currentUserId || !currentUserRole) {
-        $q.notify({
-          type: 'negative',
-          message: 'Benutzerinformationen fehlen. Bitte melden Sie sich erneut an.',
-        });
-        return;
-      }
-
-      await memberService.deleteMember(id, currentUserId, currentUserRole);
+      await memberService.deleteMember(id);
       await loadMembers(); // Reload list after successful delete
       $q.notify({
         type: 'positive',

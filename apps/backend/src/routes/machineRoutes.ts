@@ -20,6 +20,7 @@ import {
 } from '../machines/machineControl';
 import { DEFAULT_WATCHDOG_MINUTES } from '../machines/timing';
 import { syncAllWebhooks } from '../shelly/webhooks';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 // Which Shelly output powers a machine. Mounted at /api/equipment next to equipmentRoutes,
 // so the admin check is per route (the equipment list stays readable for everyone).
@@ -145,7 +146,7 @@ const parseMeter = (raw: unknown): Parsed<MachineMeterRef | null> => {
 type StoredEquipment = Equipment & { _id: string; _rev: string };
 
 const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.get('x-user-role') !== 'admin') {
+  if (currentRole(req) !== 'admin') {
     res.status(403).json({ error: 'Nur Admins dürfen die Maschinensteuerung ändern' });
     return;
   }

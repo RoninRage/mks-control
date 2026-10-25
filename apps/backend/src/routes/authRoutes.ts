@@ -1,18 +1,35 @@
 import { Request, Response, Router } from 'express';
-import { AuthEvent, TagEvent, TagEventSource } from '../types/auth';
-import { getDatabase, getTagDatabase } from '../db/couchdb';
+import type {
+  AuthEvent,
+  HeartbeatEvent,
+  ReaderErrorEvent,
+  TagEvent,
+  TagEventSource,
+} from '../types/auth';
 import { logAuditEvent } from '../db/audit';
-import { Member } from '../types/member';
 import { findMemberByTagUid, isAdminTagUid } from '../db/memberLookup';
 import type { StoredTerminal } from '../terminals/repository';
 import { resolveTerminal } from '../terminals/terminalAuth';
 import {
-  endSession,
+  endSession as endTerminalSession,
   hasSession,
   loginFromMember,
   reportRejectedScan,
   startSession,
 } from '../terminals/sessions';
+import { ENTRANCE_PREFIX, isEntranceKey, readBearer } from '../auth/keys';
+import { consumeLoginCode, createLoginCode, type PendingLogin } from '../auth/loginCodes';
+import { contextForSession, getAuth, requireAuth, toSessionInfo } from '../auth/middleware';
+import { createSession, endSession, type NewSession } from '../auth/sessions';
+import { recordWebnfcFailure, webnfcAllowed } from '../auth/rateLimit';
+
+// Login (docs/auth-plan.md):
+//   POST /tag       scan from a reader; needs the entrance key or a machine terminal key
+//   POST /session   kiosk exchanges the one-time code from the scan for a session
+//   POST /webnfc    phone sends the UID it read and gets a session directly
+//   GET  /me        current session
+//   POST /logout    ends the current session
+//   POST /ping      activity at the kiosk (keeps the session from timing out)
 
 const allowedSources: TagEventSource[] = ['acr122u', 'webnfc', 'manual'];
 
@@ -48,20 +65,21 @@ const normalizeTagEvent = (req: Request): NormalizationResult => {
   const bodyDevice = typeof body.device === 'string' ? body.device.trim() : '';
   const device = bodyDevice || headerDevice?.trim() || 'unknown';
 
-  return {
-    event: {
-      type: 'tag',
-      uid,
-      ts,
-      source,
-      device,
-    },
-  };
+  return { event: { type: 'tag', uid, ts, source, device } };
+};
+
+const isTestTagInProduction = (uid: string): boolean =>
+  process.env.NODE_ENV === 'production' && /^test-/.test(uid);
+
+/** True when the request carries the entrance key. */
+const fromEntrance = (req: Request): boolean => {
+  const token = readBearer(req.get('authorization'));
+  return Boolean(token && token.startsWith(ENTRANCE_PREFIX) && isEntranceKey(token));
 };
 
 /**
  * A scan at a machine terminal (request carries the terminal key). It only changes the login
- * at that terminal and is not broadcast as a TagEvent, so other browsers do not react to it.
+ * at that terminal and is not sent to any browser, so other browsers do not react to it.
  * Scanning while someone is logged in logs them out, like at the entrance terminal.
  */
 const handleTerminalScan = async (
@@ -71,7 +89,7 @@ const handleTerminalScan = async (
 ): Promise<void> => {
   if (hasSession(terminal.id)) {
     // Logging out also ends a machine release (switches the machine off).
-    await endSession(terminal.id, 'scan');
+    await endTerminalSession(terminal.id, 'scan');
     return;
   }
 
@@ -122,14 +140,90 @@ const handleTerminalScan = async (
   );
 };
 
+/** A scan at the entrance: sent to the kiosk only, with a one-time login code. */
+const handleEntranceScan = async (
+  event: TagEvent,
+  req: Request,
+  broadcast: (event: AuthEvent) => void
+): Promise<void> => {
+  const isAdminByEnv = isAdminTagUid(event.uid);
+  let lookup: Awaited<ReturnType<typeof findMemberByTagUid>> = { member: null, isInactive: false };
+  try {
+    lookup = await findMemberByTagUid(event.uid);
+  } catch (err) {
+    console.error(`[auth-routes] Error looking up member: ${(err as Error).message}`);
+  }
+  const { member, isInactive } = lookup;
+
+  if (member && isInactive) {
+    void logAuditEvent(
+      {
+        action: 'auth.login.inactive',
+        actorId: member.id,
+        targetType: 'member',
+        targetId: member.id,
+      },
+      req
+    );
+  } else if (member) {
+    void logAuditEvent(
+      { action: 'auth.login', actorId: member.id, targetType: 'member', targetId: member.id },
+      req
+    );
+  } else if (isAdminByEnv) {
+    void logAuditEvent(
+      { action: 'auth.login.admin-tag', targetType: 'tag', targetId: event.uid },
+      req
+    );
+  } else {
+    void logAuditEvent(
+      { action: 'auth.login.invalid', targetType: 'tag', targetId: event.uid },
+      req
+    );
+  }
+
+  const isAdmin = isAdminByEnv || (member?.roles.includes('admin') ?? false);
+  const canLogin = (member !== null && !isInactive) || (member === null && isAdminByEnv);
+  const login: PendingLogin | null = canLogin
+    ? member
+      ? { memberId: member.id }
+      : { adminTagUid: event.uid }
+    : null;
+
+  const enriched: TagEvent = {
+    ...event,
+    isAdmin,
+    memberFound: member !== null && !isInactive,
+    isInactive: isInactive && member !== null,
+    ...(member
+      ? {
+          member: {
+            id: member.id,
+            firstName: member.firstName,
+            lastName: member.lastName,
+            roles: member.roles,
+            ...(member.preferredTheme ? { preferredTheme: member.preferredTheme } : {}),
+          },
+        }
+      : {}),
+    ...(login ? { loginCode: createLoginCode(login) } : {}),
+  };
+  broadcast(enriched);
+};
+
+const startSessionResponse = async (res: Response, input: NewSession): Promise<void> => {
+  const { token, session } = await createSession(input);
+  const auth = await contextForSession(session);
+  if (!auth) {
+    await endSession(session);
+    res.status(403).json({ ok: false, error: 'Anmeldung nicht möglich' });
+    return;
+  }
+  res.status(201).json({ ok: true, data: toSessionInfo(auth, token) });
+};
+
 export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router => {
   const router = Router();
-
-  // Load admin tag UIDs from environment variable
-  const adminTagUids = (process.env.ADMIN_TAG_UIDS || '')
-    .split(',')
-    .map((uid) => uid.trim().toLowerCase())
-    .filter((uid) => uid.length > 0);
 
   router.post('/tag', async (req: Request, res: Response) => {
     const { event, error } = normalizeTagEvent(req);
@@ -139,144 +233,177 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
       return;
     }
 
-    // Production safety: reject test tags in production environment
-    if (process.env.NODE_ENV === 'production' && /^test-/.test(event.uid)) {
-      res.status(403).json({
-        ok: false,
-        error: 'Test tags are not allowed in production environment',
-      });
+    if (isTestTagInProduction(event.uid)) {
+      res
+        .status(403)
+        .json({ ok: false, error: 'Test tags are not allowed in production environment' });
       return;
     }
 
-    // Scans from a machine terminal carry its key and are handled separately.
     try {
-      const terminal = await resolveTerminal(req);
-      if (terminal === 'invalid') {
-        res.status(401).json({ ok: false, error: 'Ungültiger Terminal-Schlüssel' });
+      if (fromEntrance(req)) {
+        await handleEntranceScan(event, req, broadcast);
+        res.status(202).json({ ok: true });
         return;
       }
-      if (terminal) {
+
+      // Scans from a machine terminal carry its key and are handled separately.
+      const terminal = await resolveTerminal(req);
+      if (terminal && terminal !== 'invalid') {
         await handleTerminalScan(terminal, event, req);
         res.status(202).json({ ok: true });
         return;
       }
     } catch (err) {
-      console.error(`[auth-routes] Terminal scan failed: ${(err as Error).message}`);
-      res.status(500).json({ ok: false, error: 'Terminal scan failed' });
+      console.error(`[auth-routes] Scan failed: ${(err as Error).message}`);
+      res.status(500).json({ ok: false, error: 'Scan failed' });
       return;
     }
 
-    // Check if this is an admin tag (environment variable)
-    const isAdminByEnv = adminTagUids.includes(event.uid.toLowerCase());
+    res.status(401).json({ ok: false, error: 'Ungültiger oder fehlender Leser-Schlüssel' });
+  });
 
-    // Look up member by tag UID using tags collection (including inactive tags)
-    let member: Member | null = null;
-    let isInactive = false;
-    try {
-      const tagDb = getTagDatabase();
-      // First try to find an active tag
-      let tagResult = await tagDb.find({
-        selector: { tagUid: { $eq: event.uid }, isActive: { $eq: true } },
-        limit: 1,
-      });
-
-      // If no active tag found, try to find an inactive tag (to detect inactive members)
-      if (tagResult.docs.length === 0) {
-        tagResult = await tagDb.find({
-          selector: { tagUid: { $eq: event.uid } },
-          limit: 1,
-        });
-      }
-
-      if (tagResult.docs.length > 0) {
-        const tag = tagResult.docs[0];
-        const db = getDatabase();
-        const memberResult = await db.find({
-          selector: { id: { $eq: tag.memberId } },
-          limit: 1,
-        });
-
-        if (memberResult.docs.length > 0) {
-          member = memberResult.docs[0];
-          isInactive = member.isActive === false;
-        }
-      }
-    } catch (err) {
-      console.error(`[auth-routes] Error looking up member: ${(err as Error).message}`);
+  router.post('/session', async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as { code?: unknown };
+    const login = typeof body.code === 'string' ? consumeLoginCode(body.code) : null;
+    if (!login) {
+      res.status(401).json({ ok: false, error: 'Anmeldung abgelaufen, bitte erneut scannen' });
+      return;
     }
+    try {
+      await startSessionResponse(res, { kind: 'entrance', ...login });
+    } catch (err) {
+      console.error('[auth-routes] Creating session failed:', err);
+      res.status(500).json({ ok: false, error: 'Interner Fehler' });
+    }
+  });
 
-    if (member && isInactive) {
+  router.post('/webnfc', async (req: Request, res: Response) => {
+    if (process.env.WEBNFC_LOGIN === 'false') {
+      res.status(403).json({ ok: false, error: 'Anmeldung per Handy ist abgeschaltet' });
+      return;
+    }
+    if (!webnfcAllowed()) {
+      res.status(429).json({ ok: false, error: 'Zu viele Versuche, bitte kurz warten' });
+      return;
+    }
+    const body = (req.body ?? {}) as { uid?: unknown };
+    const uid = typeof body.uid === 'string' ? body.uid.trim() : '';
+    if (!uid) {
+      res.status(400).json({ ok: false, error: 'uid is required' });
+      return;
+    }
+    if (isTestTagInProduction(uid)) {
+      res
+        .status(403)
+        .json({ ok: false, error: 'Test tags are not allowed in production environment' });
+      return;
+    }
+    // Emergency admin tags only work at the entrance reader.
+    if (isAdminTagUid(uid)) {
+      recordWebnfcFailure();
       void logAuditEvent(
         {
-          action: 'auth.login.inactive',
-          actorId: member.id,
-          targetType: 'member',
-          targetId: member.id,
+          action: 'auth.login.webnfc.admin-tag',
+          targetType: 'tag',
+          targetId: uid,
+          source: 'webnfc',
         },
         req
       );
-    } else if (member) {
+      res.status(403).json({ ok: false, error: 'Dieser Tag funktioniert nur am Eingang' });
+      return;
+    }
+
+    try {
+      const { member, isInactive } = await findMemberByTagUid(uid);
+      if (!member) {
+        recordWebnfcFailure();
+        void logAuditEvent(
+          { action: 'auth.login.invalid', targetType: 'tag', targetId: uid, source: 'webnfc' },
+          req
+        );
+        res.status(401).json({ ok: false, error: 'Unbekannter Tag', code: 'unknown-tag' });
+        return;
+      }
+      if (isInactive) {
+        void logAuditEvent(
+          {
+            action: 'auth.login.inactive',
+            actorId: member.id,
+            targetType: 'member',
+            targetId: member.id,
+            source: 'webnfc',
+          },
+          req
+        );
+        res.status(403).json({ ok: false, error: 'Mitglied ist inaktiv', code: 'inactive' });
+        return;
+      }
       void logAuditEvent(
         {
           action: 'auth.login',
           actorId: member.id,
           targetType: 'member',
           targetId: member.id,
+          source: 'webnfc',
         },
         req
       );
-    } else if (isAdminByEnv) {
-      void logAuditEvent(
-        {
-          action: 'auth.login.admin-tag',
-          targetType: 'tag',
-          targetId: event.uid,
-        },
-        req
-      );
-    } else {
-      void logAuditEvent(
-        {
-          action: 'auth.login.invalid',
-          targetType: 'tag',
-          targetId: event.uid,
-        },
-        req
-      );
+      await startSessionResponse(res, { kind: 'webnfc', memberId: member.id });
+    } catch (err) {
+      console.error('[auth-routes] Web NFC login failed:', err);
+      res.status(500).json({ ok: false, error: 'Interner Fehler' });
     }
+  });
 
-    // Determine if admin based on either environment variable or member roles
-    const isAdmin = isAdminByEnv || (member?.roles.includes('admin') ?? false);
-
-    // Enrich event with member info and admin status
-    const enrichedEvent: AuthEvent = {
-      ...event,
-      isAdmin,
-      memberFound: member !== null && !isInactive,
-      isInactive: isInactive && member !== null,
-    } as any;
-
-    // Attach member info (not part of AuthEvent interface but will be sent)
-    if (member) {
-      (enrichedEvent as any).member = {
-        id: member.id,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        roles: member.roles,
-        preferredTheme: member.preferredTheme,
-      };
+  router.get('/me', requireAuth, (req: Request, res: Response) => {
+    const auth = getAuth(req);
+    if (!auth) {
+      res.status(401).json({ ok: false, error: 'Bitte anmelden' });
+      return;
     }
+    res.json({ ok: true, data: toSessionInfo(auth) });
+  });
 
-    broadcast(enrichedEvent);
+  router.post('/ping', requireAuth, (_req: Request, res: Response) => {
+    res.status(204).end();
+  });
+
+  router.post('/logout', async (req: Request, res: Response) => {
+    const auth = getAuth(req);
+    if (!auth) {
+      // Already logged out (e.g. the session timed out): nothing to do.
+      res.status(202).json({ ok: true });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    await endSession(auth.session);
+    await logAuditEvent(
+      {
+        action: reason ? `auth.logout.${reason}` : 'auth.logout',
+        actorId: auth.memberId,
+        actorRole: auth.role,
+        targetType: 'member',
+        targetId: auth.memberId,
+      },
+      req
+    );
     res.status(202).json({ ok: true });
   });
 
+  // Reader status from the entrance bridge; only the kiosk gets it.
   router.post('/heartbeat', (req: Request, res: Response) => {
+    if (!fromEntrance(req)) {
+      res.status(202).json({ ok: true });
+      return;
+    }
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const event: import('../types/auth').HeartbeatEvent = {
+    const event: HeartbeatEvent = {
       type: 'heartbeat',
       ts: typeof body.ts === 'string' ? body.ts : new Date().toISOString(),
-      source: (body.source as import('../types/auth').TagEventSource) || 'manual',
+      source: (body.source as TagEventSource) || 'manual',
       device: typeof body.device === 'string' ? body.device : 'unknown',
     };
     broadcast(event);
@@ -284,39 +411,19 @@ export const createAuthRoutes = (broadcast: (event: AuthEvent) => void): Router 
   });
 
   router.post('/reader-error', (req: Request, res: Response) => {
+    if (!fromEntrance(req)) {
+      res.status(202).json({ ok: true });
+      return;
+    }
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const event: import('../types/auth').ReaderErrorEvent = {
+    const event: ReaderErrorEvent = {
       type: 'reader-error',
       ts: typeof body.ts === 'string' ? body.ts : new Date().toISOString(),
-      source: (body.source as import('../types/auth').TagEventSource) || 'acr122u',
+      source: (body.source as TagEventSource) || 'acr122u',
       device: typeof body.device === 'string' ? body.device : 'unknown',
       error: typeof body.error === 'string' ? body.error : 'Unknown reader error',
     };
     broadcast(event);
-    res.status(202).json({ ok: true });
-  });
-
-  router.post('/logout', async (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const memberId = typeof body.memberId === 'string' ? body.memberId.trim() : '';
-    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
-
-    if (!memberId) {
-      res.status(400).json({ ok: false, error: 'memberId is required' });
-      return;
-    }
-
-    const action = reason ? `auth.logout.${reason}` : 'auth.logout';
-    await logAuditEvent(
-      {
-        action,
-        actorId: memberId,
-        targetType: 'member',
-        targetId: memberId,
-      },
-      req
-    );
-
     res.status(202).json({ ok: true });
   });
 

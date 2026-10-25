@@ -16,6 +16,7 @@ import { getLastContact, isTerminalOnline } from '../terminals/contact';
 import { getReleaseSummary } from '../machines/machineControl';
 import type { TerminalRuntimeStatus } from '../types/terminal';
 import { generateTerminalToken, hashTerminalToken } from '../terminals/token';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 // Terminal management for admins. Mounted at /api/terminals.
 // One terminal (Raspberry Pi) per machine; each gets a secret key shown once.
@@ -27,7 +28,7 @@ const MAX_SESSION_MINUTES = 24 * 60;
 const MAX_STILL_THERE_MINUTES = 60;
 
 const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.get('x-user-role') !== 'admin') {
+  if (currentRole(req) !== 'admin') {
     res.status(403).json({ error: 'Nur Admins dürfen Terminals verwalten' });
     return;
   }

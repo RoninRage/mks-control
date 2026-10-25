@@ -12,6 +12,13 @@ import { Member, CreateMemberRequest, UpdateMemberRequest } from '../types/membe
 import { MemberImportError, MemberImportResult } from '@mks-control/shared-types';
 import { Equipment } from '../types/equipment';
 import { Area } from '../types/area';
+import { currentMemberId, currentRole, hasRole, requireRole } from '../auth/middleware';
+import { BOARD, canActOn, MEMBER_MANAGERS } from '../auth/roles';
+
+// Fields of PUT /members/:id by who may change them (docs/auth-plan.md).
+const PROFILE_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'preferredTheme'];
+const MANAGER_FIELDS = [...PROFILE_FIELDS, 'isActive', 'roles'];
+const BOARD_FIELDS = [...MANAGER_FIELDS, 'equipmentPermissions'];
 
 // In-memory upload (no disk persistence); 5 MB cap is ample for the Vereinsplaner member export.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -95,6 +102,12 @@ export const createMemberRoutes = (): Router => {
         .filter((row) => row.doc && !row.id.startsWith('_design') && row.doc.firstName)
         .map((row) => row.doc as Member);
 
+      // Members without a managing role only see themselves.
+      if (!hasRole(req, ...MEMBER_MANAGERS)) {
+        const ownId = currentMemberId(req);
+        allMembers = allMembers.filter((member) => member.id === ownId);
+      }
+
       // Filter by search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -133,6 +146,10 @@ export const createMemberRoutes = (): Router => {
   router.get('/members/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      if (id !== currentMemberId(req) && !hasRole(req, ...MEMBER_MANAGERS)) {
+        res.status(403).json({ ok: false, error: 'Keine Berechtigung' });
+        return;
+      }
       const db = getDatabase();
 
       // Find member by id field (not _id)
@@ -153,190 +170,190 @@ export const createMemberRoutes = (): Router => {
   });
 
   // GET /members/by-tag/:tagUid - Get member by tag UID
-  router.get('/members/by-tag/:tagUid', async (req: Request, res: Response) => {
-    try {
-      const { tagUid } = req.params;
-      const db = getDatabase();
-
-      const result = await db.find({
-        selector: { tagUid: { $eq: tagUid } },
-        limit: 1,
-      });
-
-      if (result.docs.length === 0) {
-        res.status(404).json({ ok: false, error: 'Member not found' });
-        return;
-      }
-
-      res.status(200).json({ ok: true, data: result.docs[0] });
-    } catch (err) {
-      res.status(500).json({ ok: false, error: 'Failed to fetch member' });
-    }
-  });
-
-  // POST /members/import - Bulk import members from a Vereinsplaner CSV (multipart/form-data, field "file")
-  // Upserts on the business membership number (memberId). Admin/Vorstand only.
-  router.post(
-    '/members/import',
-    upload.single('file'),
+  router.get(
+    '/members/by-tag/:tagUid',
+    requireRole(...MEMBER_MANAGERS),
     async (req: Request, res: Response) => {
       try {
-        const currentUserRole = req.headers['x-user-role'] as string;
-        if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
-          res.status(403).json({ ok: false, error: 'Keine Berechtigung zum Importieren' });
+        const { tagUid } = req.params;
+        const db = getDatabase();
+
+        const result = await db.find({
+          selector: { tagUid: { $eq: tagUid } },
+          limit: 1,
+        });
+
+        if (result.docs.length === 0) {
+          res.status(404).json({ ok: false, error: 'Member not found' });
           return;
         }
 
-        if (!req.file) {
-          res.status(400).json({ ok: false, error: 'Keine CSV-Datei hochgeladen' });
-          return;
-        }
-
-        let rows: ImportCsvRow[];
-        try {
-          rows = parse(req.file.buffer.toString('utf-8'), {
-            columns: true,
-            skip_empty_lines: true,
-            trim: true,
-            bom: true,
-          }) as ImportCsvRow[];
-        } catch {
-          res.status(400).json({ ok: false, error: 'CSV-Datei konnte nicht gelesen werden' });
-          return;
-        }
-
-        // Pre-scan: count each membership number so in-CSV duplicates can be flagged and skipped.
-        const memberIdCounts = new Map<string, number>();
-        for (const row of rows) {
-          const num = row.Mitgliedsnummer?.trim();
-          if (num) {
-            memberIdCounts.set(num, (memberIdCounts.get(num) ?? 0) + 1);
-          }
-        }
-
-        const db = getDatabase<Member>();
-        const errors: MemberImportError[] = [];
-        let inserted = 0;
-        let updated = 0;
-        let skipped = 0;
-
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          const rowNumber = i + 2; // +1 for header line, +1 for 1-based numbering
-          const memberId = row.Mitgliedsnummer?.trim() ?? '';
-
-          const fail = (reason: string): void => {
-            errors.push({ row: rowNumber, memberId, reason });
-            skipped++;
-          };
-
-          // Validation
-          if (!memberId) {
-            fail('Mitgliedsnummer fehlt');
-            continue;
-          }
-          const firstName = row.Vorname?.trim() ?? '';
-          const lastName = row.Nachname?.trim() ?? '';
-          if (!firstName) {
-            fail('Vorname fehlt');
-            continue;
-          }
-          if (!lastName) {
-            fail('Nachname fehlt');
-            continue;
-          }
-          const joinDate = parseGermanDate(row.Beitrittsdatum);
-          if (!joinDate) {
-            fail(`Ungültiges Beitrittsdatum: '${row.Beitrittsdatum ?? ''}'`);
-            continue;
-          }
-          const email = row['E-Mail']?.trim();
-          if (email && !email.includes('@')) {
-            fail(`Ungültige E-Mail: '${email}'`);
-            continue;
-          }
-          const phone = row.Telefonnummer?.trim();
-
-          // In-CSV duplicate: skip every occurrence of a multiply-listed membership number.
-          if ((memberIdCounts.get(memberId) ?? 0) > 1) {
-            fail('Duplikat in CSV: Mitgliedsnummer mehrfach vorhanden');
-            continue;
-          }
-
-          try {
-            const existingResult = await db.find({
-              selector: { memberId: { $eq: memberId } },
-              limit: 1,
-            });
-            const now = new Date().toISOString();
-
-            if (existingResult.docs.length > 0) {
-              // Update: refresh mapped fields, preserve roles/tagUid and CouchDB metadata.
-              const existing = existingResult.docs[0];
-              const updatedMember: Member = {
-                ...existing,
-                firstName,
-                lastName,
-                memberId,
-                joinDate,
-                ...(email ? { email } : {}),
-                ...(phone ? { phone } : {}),
-                _id: existing._id,
-                _rev: existing._rev,
-                id: existing.id,
-                roles: existing.roles, // not overwritten on import
-                tagUid: existing.tagUid, // NFC link stays manual, not overwritten
-                createdAt: existing.createdAt ?? now,
-                updatedAt: now,
-              };
-              await db.insert(updatedMember);
-              updated++;
-            } else {
-              // Insert: new CouchDB UUID, default role, active (source is the active-member list).
-              const newMember: Omit<Member, '_id' | '_rev'> = {
-                id: randomUUID(),
-                memberId,
-                firstName,
-                lastName,
-                ...(email ? { email } : {}),
-                ...(phone ? { phone } : {}),
-                roles: ['mitglied'],
-                joinDate,
-                isActive: true,
-                createdAt: now,
-                updatedAt: now,
-              };
-              await db.insert(newMember);
-              inserted++;
-            }
-          } catch {
-            fail('Fehler beim Speichern in der Datenbank');
-          }
-        }
-
-        void logAuditEvent(
-          {
-            action: 'member.import',
-            targetType: 'member',
-            targetId: 'bulk',
-          },
-          req
-        );
-
-        const result: MemberImportResult = {
-          success: true,
-          summary: { total: rows.length, inserted, updated, skipped },
-          errors,
-        };
-        res.status(200).json(result);
+        res.status(200).json({ ok: true, data: result.docs[0] });
       } catch (err) {
-        res.status(500).json({ ok: false, error: 'Failed to import members' });
+        res.status(500).json({ ok: false, error: 'Failed to fetch member' });
       }
     }
   );
 
+  // POST /members/import - Bulk import members from a Vereinsplaner CSV (multipart/form-data, field "file")
+  // Upserts on the business membership number (memberId). Admin/Vorstand only.
+  router.post('/members/import', upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      const currentUserRole = currentRole(req) ?? '';
+      if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {
+        res.status(403).json({ ok: false, error: 'Keine Berechtigung zum Importieren' });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({ ok: false, error: 'Keine CSV-Datei hochgeladen' });
+        return;
+      }
+
+      let rows: ImportCsvRow[];
+      try {
+        rows = parse(req.file.buffer.toString('utf-8'), {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+          bom: true,
+        }) as ImportCsvRow[];
+      } catch {
+        res.status(400).json({ ok: false, error: 'CSV-Datei konnte nicht gelesen werden' });
+        return;
+      }
+
+      // Pre-scan: count each membership number so in-CSV duplicates can be flagged and skipped.
+      const memberIdCounts = new Map<string, number>();
+      for (const row of rows) {
+        const num = row.Mitgliedsnummer?.trim();
+        if (num) {
+          memberIdCounts.set(num, (memberIdCounts.get(num) ?? 0) + 1);
+        }
+      }
+
+      const db = getDatabase<Member>();
+      const errors: MemberImportError[] = [];
+      let inserted = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2; // +1 for header line, +1 for 1-based numbering
+        const memberId = row.Mitgliedsnummer?.trim() ?? '';
+
+        const fail = (reason: string): void => {
+          errors.push({ row: rowNumber, memberId, reason });
+          skipped++;
+        };
+
+        // Validation
+        if (!memberId) {
+          fail('Mitgliedsnummer fehlt');
+          continue;
+        }
+        const firstName = row.Vorname?.trim() ?? '';
+        const lastName = row.Nachname?.trim() ?? '';
+        if (!firstName) {
+          fail('Vorname fehlt');
+          continue;
+        }
+        if (!lastName) {
+          fail('Nachname fehlt');
+          continue;
+        }
+        const joinDate = parseGermanDate(row.Beitrittsdatum);
+        if (!joinDate) {
+          fail(`Ungültiges Beitrittsdatum: '${row.Beitrittsdatum ?? ''}'`);
+          continue;
+        }
+        const email = row['E-Mail']?.trim();
+        if (email && !email.includes('@')) {
+          fail(`Ungültige E-Mail: '${email}'`);
+          continue;
+        }
+        const phone = row.Telefonnummer?.trim();
+
+        // In-CSV duplicate: skip every occurrence of a multiply-listed membership number.
+        if ((memberIdCounts.get(memberId) ?? 0) > 1) {
+          fail('Duplikat in CSV: Mitgliedsnummer mehrfach vorhanden');
+          continue;
+        }
+
+        try {
+          const existingResult = await db.find({
+            selector: { memberId: { $eq: memberId } },
+            limit: 1,
+          });
+          const now = new Date().toISOString();
+
+          if (existingResult.docs.length > 0) {
+            // Update: refresh mapped fields, preserve roles/tagUid and CouchDB metadata.
+            const existing = existingResult.docs[0];
+            const updatedMember: Member = {
+              ...existing,
+              firstName,
+              lastName,
+              memberId,
+              joinDate,
+              ...(email ? { email } : {}),
+              ...(phone ? { phone } : {}),
+              _id: existing._id,
+              _rev: existing._rev,
+              id: existing.id,
+              roles: existing.roles, // not overwritten on import
+              tagUid: existing.tagUid, // NFC link stays manual, not overwritten
+              createdAt: existing.createdAt ?? now,
+              updatedAt: now,
+            };
+            await db.insert(updatedMember);
+            updated++;
+          } else {
+            // Insert: new CouchDB UUID, default role, active (source is the active-member list).
+            const newMember: Omit<Member, '_id' | '_rev'> = {
+              id: randomUUID(),
+              memberId,
+              firstName,
+              lastName,
+              ...(email ? { email } : {}),
+              ...(phone ? { phone } : {}),
+              roles: ['mitglied'],
+              joinDate,
+              isActive: true,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await db.insert(newMember);
+            inserted++;
+          }
+        } catch {
+          fail('Fehler beim Speichern in der Datenbank');
+        }
+      }
+
+      void logAuditEvent(
+        {
+          action: 'member.import',
+          targetType: 'member',
+          targetId: 'bulk',
+        },
+        req
+      );
+
+      const result: MemberImportResult = {
+        success: true,
+        summary: { total: rows.length, inserted, updated, skipped },
+        errors,
+      };
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to import members' });
+    }
+  });
+
   // POST /members - Create new member
-  router.post('/members', async (req: Request, res: Response) => {
+  router.post('/members', requireRole(...BOARD), async (req: Request, res: Response) => {
     try {
       const memberData: CreateMemberRequest = req.body;
       const db = getDatabase();
@@ -390,8 +407,8 @@ export const createMemberRoutes = (): Router => {
     try {
       const { id } = req.params;
       const updates: UpdateMemberRequest = req.body;
-      const currentUserId = req.headers['x-user-id'] as string;
-      const currentUserRole = req.headers['x-user-role'] as string;
+      const currentUserId = currentMemberId(req) ?? '';
+      const currentUserRole = currentRole(req) ?? '';
 
       const db = getDatabase();
 
@@ -407,6 +424,37 @@ export const createMemberRoutes = (): Router => {
       }
 
       const existingMember = result.docs[0];
+
+      // Who may change what: everyone their own profile; managers others with a role not
+      // above their own; only admin/vorstand the equipment permissions directly.
+      const isSelf = currentUserId !== '' && currentUserId === id;
+      const role = currentRole(req);
+      const isManager = hasRole(req, ...MEMBER_MANAGERS);
+      if (!isSelf && (!isManager || !canActOn(role, existingMember.roles))) {
+        res.status(403).json({ ok: false, error: 'Keine Berechtigung für dieses Mitglied' });
+        return;
+      }
+      const allowedFields = hasRole(req, ...BOARD)
+        ? BOARD_FIELDS
+        : isManager
+          ? MANAGER_FIELDS
+          : PROFILE_FIELDS;
+      const forbidden = Object.keys(updates ?? {}).filter((key) => !allowedFields.includes(key));
+      if (forbidden.length > 0) {
+        res.status(403).json({
+          ok: false,
+          error: `Keine Berechtigung zum Ändern von: ${forbidden.join(', ')}`,
+        });
+        return;
+      }
+      // Nobody hands out a role above their own (admins excepted).
+      if (updates.roles && role !== 'admin' && updates.roles.includes('admin')) {
+        if (!(existingMember.roles ?? []).includes('admin')) {
+          res.status(403).json({ ok: false, error: 'Nur Admins können die Rolle Admin vergeben' });
+          return;
+        }
+      }
+
       const now = new Date().toISOString();
       const existingRoles = [...(existingMember.roles ?? [])].sort();
       const nextRoles = updates.roles ? [...updates.roles].sort() : existingRoles;
@@ -539,11 +587,11 @@ export const createMemberRoutes = (): Router => {
   });
 
   // DELETE /members/:id - Delete member (soft delete)
-  router.delete('/members/:id', async (req: Request, res: Response) => {
+  router.delete('/members/:id', requireRole(...BOARD), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const currentUserId = req.headers['x-user-id'] as string;
-      const currentUserRole = req.headers['x-user-role'] as string;
+      const currentUserId = currentMemberId(req) ?? '';
+      const currentUserRole = currentRole(req) ?? '';
 
       // Check if user is trying to delete themselves
       if (currentUserId === id) {
@@ -606,8 +654,8 @@ export const createMemberRoutes = (): Router => {
       try {
         const { id, equipmentId } = req.params;
         const { allowed } = req.body as { allowed: boolean };
-        const currentUserId = req.headers['x-user-id'] as string;
-        const currentUserRole = req.headers['x-user-role'] as string;
+        const currentUserId = currentMemberId(req) ?? '';
+        const currentUserRole = currentRole(req) ?? '';
 
         // Check authorization
         if (currentUserRole !== 'admin' && currentUserRole !== 'vorstand') {

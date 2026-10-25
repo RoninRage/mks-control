@@ -427,7 +427,9 @@ test.describe('Safety inputs and extra controls', () => {
       await page.getByTestId('equipment-control-save').click();
       await expect(page.getByTestId('equipment-control-remove')).toBeVisible();
 
-      const equipment = await (await request.get(`${API}/equipment/${LASER.id}`)).json();
+      const equipment = await (
+        await request.get(`${API}/equipment/${LASER.id}`, { headers: ADMIN_HEADERS })
+      ).json();
       expect(equipment.control.interlocks).toEqual([
         expect.objectContaining({ index: 0, label: 'Tür', okWhen: 'closed' }),
       ]);

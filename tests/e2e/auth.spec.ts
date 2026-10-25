@@ -11,6 +11,7 @@ import {
 } from '../helpers/auth';
 import { getTestDatabaseConnection, seedDatabase } from '../helpers/database';
 import { createTestUser } from '../helpers/factories';
+import { ENTRANCE_HEADERS } from '../helpers/session';
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
@@ -126,6 +127,7 @@ test.describe('Authentication', () => {
 
     // Post inactive user tag event
     const response = await page.request.post('http://localhost:3000/api/auth/tag', {
+      headers: ENTRANCE_HEADERS,
       data: {
         type: 'tag',
         uid: 'test-inactive-tag-001',
@@ -150,6 +152,7 @@ test.describe('Authentication', () => {
 
     // Post unknown tag event
     const response = await page.request.post('http://localhost:3000/api/auth/tag', {
+      headers: ENTRANCE_HEADERS,
       data: {
         type: 'tag',
         uid: 'unknown-tag-uid-12345',

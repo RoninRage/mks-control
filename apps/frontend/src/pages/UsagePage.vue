@@ -174,6 +174,7 @@ const END_REASONS: Record<UsageEndReason, string> = {
   'terminal-offline': 'Pi ohne Verbindung',
   system: 'Vom System beendet',
   handover: 'Übernommen',
+  interlock: 'Sicherheits-Eingang',
 };
 
 const router = useRouter();

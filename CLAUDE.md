@@ -23,6 +23,10 @@ npm run lint
 npm run test
 npm run format --workspace=apps/frontend
 
+# Typecheck (same as CI; .npmrc breaks npx inside workspace folders, so call binaries directly)
+npx tsc --noEmit -p apps/backend   # also packages/shared-types, nfc-bridge
+cd apps/frontend && ../../node_modules/.bin/vue-tsc --noEmit -p tsconfig.typecheck.json
+
 # E2E tests (Playwright) — there are no unit tests
 npm run test:e2e
 npm run test:e2e:ui        # Interactive UI
@@ -50,22 +54,26 @@ npm run <script> --workspace=nfc-bridge
 - `.env.test` also sets a unique `COUCHDB_USAGE_DB_NAME` (deleted in teardown) and fast machine timings: `TERMINAL_MINUTE_MS=1000` (one configured minute = 1 s), `TERMINAL_OFFLINE_AFTER_MS=5000`, `MACHINE_TICK_MS=250`, `USAGE_CLEANUP_INTERVAL_MS=2000`, `SHELLY_HEALTH_INTERVAL_MS=1000`, `SHELLY_CALLBACK_URL=http://127.0.0.1:3000` (the fake Shelly's `setInput()` fires its webhooks). `tests/helpers/machines.ts` has shared helpers (`setupMachine`, `keepPiOnline`, `cleanupMachines`). Tests that release machines must keep the Pi "online" by polling `/api/terminal/state`, and should delete terminals via the API so releases end in the backend.
 - `.env.test` sets `TERMINAL_IDLE_TIMEOUT_MS=10000` (automatic logout at terminals, default 5 min) so `terminals.spec.ts` can test it.
 - `tests/helpers/mockShelly.ts` starts fake Gen1/Gen2 Shellys on `127.0.0.1:<random port>` (relays, metering, inputs, lights, covers, auth, offline). `.env.test` sets `SHELLY_PASSWORD=test-shelly-secret` to match, and `SHELLY_DISCOVERY_TOKEN=test-discovery-token` for discovery reports. The mock also fakes firmware checks/updates (`availableFirmware`).
+- Login in tests: `.env.test` sets `ENTRANCE_KEY=mke_test-entrance-key` and `SESSION_IDLE_TIMEOUT_MS=30000`. `tests/global-setup.ts` creates Web NFC sessions and passes them to the workers as `TEST_ADMIN_TOKEN` / `TEST_MEMBER_TOKEN` / `TEST_VORSTAND_TOKEN` (`ADMIN_HEADERS`, `MEMBER_HEADERS`, `VORSTAND_HEADERS` in `tests/helpers/machines.ts`). `tests/helpers/session.ts` has `headersForTag(uid)`, `loginAtEntrance(uid)` and `ENTRANCE_HEADERS`; `loginAs(page)` turns the browser into the entrance kiosk first.
 - Quasar puts `data-testid` of a `q-input` on the native `<input>`, so fill it directly (`getByTestId('x').fill(...)`).
 
 ### Environment Setup
 
 Copy `.env.example` to `.env` in each service before first run:
 
-- `apps/backend/.env` — `COUCHDB_URL`, `COUCHDB_USER`, `COUCHDB_PASSWORD`, `ADMIN_TAG_UIDS` (comma-separated UIDs for admin NFC tags), `SEED_DATA`, `SEED_MODE`
-- `nfc-bridge/.env` — `GATEWAY_URL`, `DEVICE_ID`, `SOURCE`, `DEBOUNCE_MS`
+- `apps/backend/.env` — `COUCHDB_URL`, `COUCHDB_USER`, `COUCHDB_PASSWORD`, `ADMIN_TAG_UIDS` (comma-separated UIDs for admin NFC tags), `ENTRANCE_KEY` (entrance reader and kiosk, `mke_…`), `SEED_DATA`, `SEED_MODE`
+- `nfc-bridge/.env` — `GATEWAY_URL`, `DEVICE_ID`, `SOURCE`, `DEBOUNCE_MS`, `ENTRANCE_KEY` (entrance) or `TERMINAL_TOKEN` (machine terminal)
 
 The `npm run dev` script starts Docker (CouchDB) automatically.
 
 ### Test a Tag Event (simulates NFC scan)
 
+Scans need the reader's key (`ENTRANCE_KEY` from `apps/backend/.env`, `mke_dev-entrance-key` in `.env.example`, or a terminal key `mkt_…`); without one the backend answers 401. Only browsers set up as entrance kiosk ("Eingang einrichten" on the start page, same key) receive the scan and log in.
+
 ```bash
 curl -X POST http://localhost:3000/api/auth/tag \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ENTRANCE_KEY" \
   -H "x-device-id: dev-reader-01" \
   -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
 ```
@@ -116,7 +124,7 @@ packages/shared-types/  TypeScript types shared across all workspaces
 
 Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` → `migrateBackupAdmin` → seed (if `SEED_DATA=true`; `SEED_MODE=mass` uses `seedMass.ts`) → `migrateTagsToCollection` (moves legacy `member.tagUid` into the tags DB) → terminal session sweeper and `startMachineControl` (resumes open machine releases).
 
-**Auth model (no tokens/sessions on the backend):** a tag scan hits `POST /api/auth/tag`, the backend resolves the member/admin and broadcasts a `TagEvent` over the WebSocket at `/ws/auth`. The frontend (`boot/auth.ts`) sets the role in `user-store` and goes to `/dashboard`. Scanning a tag while logged in logs out, unless "tag assignment mode" is active (used when assigning a tag to a member). Roles in priority order: `admin`, `vorstand`, `bereichsleitung`, `mitglied`. After login, `boot/fetch-headers.ts` patches `window.fetch` to add `X-Source`, `X-User-ID`, `X-User-Role` and `X-Device-ID`. Backend routes authorize and audit using these headers.
+**Auth model (sessions, `docs/auth-plan.md`):** the entrance reader posts scans to `POST /api/auth/tag` with `Authorization: Bearer <ENTRANCE_KEY>`. The backend sends the `TagEvent` with a one-time `loginCode` only to WebSocket clients that sent `{type:'hello', entranceKey}` (the entrance kiosk; key stored in the browser by `utils/entranceConfig.ts`, set up on the start page). The kiosk exchanges the code via `POST /api/auth/session` for a session token (`mks_…`); phones log in with `POST /api/auth/webnfc {uid}` (never for `ADMIN_TAG_UIDS`, failures rate-limited, `WEBNFC_LOGIN=false` turns it off). Sessions are `session:<sha256>` docs in `mks_members` (`auth/sessions.ts`); kiosk sessions end after `SESSION_IDLE_TIMEOUT_MS` (5 min) without activity, phone sessions after 8 h. `boot/fetch-headers.ts` sends `Authorization: Bearer mks_…`; on 401 the frontend logs out. `auth/middleware.ts` (`authenticate` on `/api`, `requireAuth`, `requireRole`, `currentRole`/`currentMemberId`) loads the member fresh on every request — **`X-User-Role`/`X-User-ID` headers are ignored**. The audit log takes actor and role from the session. Role rules per endpoint: table in `docs/auth-plan.md`; `auth/roles.ts` `canActOn` stops anyone from changing a member with a higher role. Scanning while logged in logs out, unless "tag assignment mode" is active. Roles in priority order: `admin`, `vorstand`, `bereichsleitung`, `mitglied`.
 
 ### Backend (`apps/backend/src/`)
 
@@ -128,6 +136,7 @@ Startup order in `server.ts`: init DB → audit retention → `migrateDocTypes` 
 - `ws/authWs.ts` — WebSocket server for real-time tag events
 - `db/couchdb.ts` — CouchDB connection and initialization
 - `db/migrations.ts` — Schema migrations
+- `db/backup.ts` / `db/restore.ts` — nightly JSON backup of all databases (`couchdb-backup` service in `docker-compose.prod.yml`, `--once` for one run) and restore
 - `db/seed*.ts` — Individual seeders; `seedMass.ts` seeds 150 members / 20 areas / 200 equipment
 - `types/` — Re-exports from `shared-types` (don't define domain types here directly)
 - `GET /health` — Backend health check endpoint

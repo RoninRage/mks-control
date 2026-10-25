@@ -6,8 +6,10 @@ import {
   getTestUsageDatabase,
 } from '../helpers/database';
 import { createTestUser } from '../helpers/factories';
+import { headersForTag } from '../helpers/session';
 import {
   ADMIN_HEADERS,
+  VORSTAND_HEADERS,
   API,
   addShellyDevice,
   cleanupMachines,
@@ -351,19 +353,21 @@ test.describe('Machine metering and usages', () => {
     };
 
     test('visibility follows the roles', async ({ request }) => {
-      expect((await request.get(`${API}/usage`)).status()).toBe(403);
+      // Without a session: not logged in.
+      expect((await request.get(`${API}/usage`)).status()).toBe(401);
 
       const all = ['mm-u-drill', 'mm-u-lead', 'mm-u-mario', 'mm-u-paula'];
       expect(await idsFor(request, ADMIN_HEADERS)).toEqual(all);
-      expect(await idsFor(request, { 'x-user-role': 'vorstand', 'x-user-id': 'v' })).toEqual(all);
+      expect(await idsFor(request, VORSTAND_HEADERS)).toEqual(all);
 
       // Bereichsleitung: equipment in own areas plus own usages.
-      expect(
-        await idsFor(request, { 'x-user-role': 'bereichsleitung', 'x-user-id': LEAD.member.id })
-      ).toEqual(['mm-u-drill', 'mm-u-lead']);
+      expect(await idsFor(request, await headersForTag(LEAD.tag.tagUid))).toEqual([
+        'mm-u-drill',
+        'mm-u-lead',
+      ]);
 
       // Members: only their own, even when asking for someone else.
-      const paula = { 'x-user-role': 'mitglied', 'x-user-id': PAULA.member.id };
+      const paula = await headersForTag(PAULA.tag.tagUid);
       expect(await idsFor(request, paula)).toEqual(['mm-u-paula']);
       expect(await idsFor(request, paula, `?memberId=${MARIO.member.id}`)).toEqual([]);
     });
@@ -481,7 +485,9 @@ test.describe('Machine metering and usages', () => {
       await page.getByTestId('equipment-control-save').click();
       await expect(page.getByTestId('equipment-control-remove')).toBeVisible();
 
-      const equipment = await (await request.get(`${API}/equipment/${LASER.id}`)).json();
+      const equipment = await (
+        await request.get(`${API}/equipment/${LASER.id}`, { headers: ADMIN_HEADERS })
+      ).json();
       expect(equipment.control.shutdown).toEqual({
         mode: 'when-idle',
         idleThresholdW: 15,

@@ -214,8 +214,17 @@ const timeFormatter = computed(() => {
   }
 });
 
-const updateFilters = (patch: Partial<AuditLogFilters>): void => {
-  emit('update:filters', { ...props.filters, ...patch });
+// A key set to undefined removes that filter.
+type FilterPatch = { [K in keyof AuditLogFilters]?: AuditLogFilters[K] | undefined };
+
+const updateFilters = (patch: FilterPatch): void => {
+  const next: Record<string, string | undefined> = { ...props.filters, ...patch };
+  Object.keys(next).forEach((key) => {
+    if (next[key] === undefined) {
+      delete next[key];
+    }
+  });
+  emit('update:filters', next as AuditLogFilters);
 };
 
 const formatDateForDisplay = (isoDate?: string): string => {
@@ -270,8 +279,8 @@ const onSourceChange = (value: string | null): void => {
   emit('apply');
 };
 
-const onSearchChange = (value: string | null): void => {
-  emit('update:searchQuery', value || '');
+const onSearchChange = (value: string | number | null): void => {
+  emit('update:searchQuery', value === null ? '' : String(value));
   emit('apply');
 };
 

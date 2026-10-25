@@ -137,7 +137,7 @@
 <script setup lang="ts">
 import { onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
+import { useQuasar, type QTableColumn } from 'quasar';
 import type { Area, Equipment } from '@mks-control/shared-types';
 import { equipmentService } from 'src/services/equipmentService';
 import { areaService } from 'src/services/areaService';
@@ -154,7 +154,7 @@ const error = ref<string | null>(null);
 const equipment = ref<Equipment[]>([]);
 const areas = ref<Area[]>([]);
 
-const columns = [
+const columns: QTableColumn[] = [
   {
     name: 'name',
     label: 'Name',

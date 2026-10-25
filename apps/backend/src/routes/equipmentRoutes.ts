@@ -3,6 +3,7 @@ import { getDatabase } from '../db/couchdb';
 import { logAuditEvent } from '../db/audit';
 import { Equipment, EquipmentWithMeta } from '../types/equipment';
 import { Member } from '../types/member';
+import { requireRole } from '../auth/middleware';
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * POST /api/equipment
  * Create a new equipment item
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name, areaId, isAvailable, configuration } = req.body as Equipment;
 
@@ -134,7 +135,7 @@ router.post('/', async (req: Request, res: Response) => {
  * PUT /api/equipment/:id
  * Update an equipment item
  */
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name, areaId, isAvailable, configuration } = req.body as Equipment;
 
@@ -225,7 +226,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  * DELETE /api/equipment/:id
  * Delete an equipment item
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const db = getDatabase<Equipment>();
     const result = await db.find({

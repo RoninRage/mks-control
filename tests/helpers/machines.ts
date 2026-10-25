@@ -7,7 +7,12 @@ import { startMockShelly, type MockShelly, type MockShellyOptions } from './mock
 // API (which ends running releases in the backend) and closes the fake Shellys.
 
 export const API = 'http://localhost:3000/api';
-export const ADMIN_HEADERS = { 'x-user-role': 'admin', 'x-user-id': 'test-admin-001' };
+// Sessions created in tests/global-setup.ts (admin: test-admin-001, member: test-member-001).
+export const ADMIN_HEADERS = { authorization: `Bearer ${process.env.TEST_ADMIN_TOKEN ?? ''}` };
+export const MEMBER_HEADERS = { authorization: `Bearer ${process.env.TEST_MEMBER_TOKEN ?? ''}` };
+export const VORSTAND_HEADERS = {
+  authorization: `Bearer ${process.env.TEST_VORSTAND_TOKEN ?? ''}`,
+};
 // Must match SHELLY_PASSWORD in .env.test.
 export const SHELLY_PASSWORD = 'test-shelly-secret';
 

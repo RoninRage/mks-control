@@ -8,7 +8,7 @@
           <rfid-icon />
         </div>
 
-        <q-card flat bordered class="status-card">
+        <q-card v-if="isKiosk" flat bordered class="status-card">
           <q-card-section>
             <div class="column q-gutter-sm">
               <div class="row items-center q-gutter-sm">
@@ -19,12 +19,80 @@
           </q-card-section>
         </q-card>
 
-        <div v-if="hasNfc" class="nfc-section column items-center q-gutter-sm">
-          <div class="text-caption text-grey">oder per Handy anmelden</div>
+        <q-banner
+          v-if="isKiosk && status === 'connected' && entranceRejected"
+          class="bg-negative text-white"
+          data-testid="entrance-key-rejected"
+        >
+          Der Eingangs-Schlüssel ist ungültig. Bitte unter „Eingang einrichten“ neu eintragen.
+        </q-banner>
+
+        <div v-if="!isKiosk" class="text-body1 text-grey-8" data-testid="login-hint">
+          Bitte am Eingang mit dem Tag anmelden{{ hasNfc ? ' oder hier per Handy' : '' }}.
+        </div>
+
+        <div v-if="hasNfc && !isKiosk" class="nfc-section column items-center q-gutter-sm">
+          <div class="text-caption text-grey">Per Handy anmelden</div>
           <mobile-nfc-scanner @scanned="onMobileNfcScanned" />
         </div>
+
+        <q-btn
+          flat
+          dense
+          no-caps
+          color="primary"
+          icon="settings"
+          class="touch-button"
+          :label="isKiosk ? 'Eingang einstellen' : 'Eingang einrichten'"
+          data-testid="entrance-setup-open"
+          @click="openEntranceSetup"
+        />
       </q-card-section>
     </q-card>
+
+    <q-dialog v-model="entranceDialog">
+      <q-card class="entrance-dialog">
+        <q-card-section>
+          <div class="text-h6">Eingang einrichten</div>
+          <div class="text-body2 q-mt-sm">
+            Nur für den Bildschirm am Eingang mit NFC-Leser: Schlüssel aus
+            <code>ENTRANCE_KEY</code> auf dem Server eintragen.
+          </div>
+        </q-card-section>
+        <q-card-section>
+          <q-input
+            v-model="entranceKeyInput"
+            outlined
+            label="Eingangs-Schlüssel (mke_…)"
+            type="password"
+            autocomplete="off"
+            data-testid="entrance-key-input"
+            @keyup.enter="saveEntranceKey"
+          />
+        </q-card-section>
+        <q-card-actions align="right" class="q-gutter-sm">
+          <q-btn
+            v-if="isKiosk"
+            flat
+            color="negative"
+            label="Entfernen"
+            class="touch-button"
+            data-testid="entrance-key-remove"
+            @click="removeEntranceKey"
+          />
+          <q-btn v-close-popup flat label="Abbrechen" class="touch-button" />
+          <q-btn
+            unelevated
+            color="primary"
+            label="Speichern"
+            class="touch-button"
+            data-testid="entrance-key-save"
+            :disable="!entranceKeyInput.trim()"
+            @click="saveEntranceKey"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -34,7 +102,10 @@ import { Dark, useQuasar } from 'quasar';
 import { authEventSource } from 'src/services/authEventSource';
 import type { ConnectionStatus } from 'src/services/authEventSource';
 import { useAuthStore } from 'src/stores/auth';
-import { getApiBaseUrl } from 'src/utils/apiUrl';
+import { authService, LoginError } from 'src/services/authService';
+import { useUserStore } from 'src/stores/user-store';
+import { clearEntranceKey, getEntranceKey, setEntranceKey } from 'src/utils/entranceConfig';
+import { useRouter } from 'vue-router';
 import RfidIcon from 'components/RfidIcon.vue';
 import MobileNfcScanner from 'components/MobileNfcScanner.vue';
 
@@ -43,24 +114,57 @@ defineOptions({
 });
 
 const authStore = useAuthStore();
+const userStore = useUserStore();
+const router = useRouter();
+const $q = useQuasar();
 const status = ref<ConnectionStatus>('connecting');
 const hasNfc = 'NDEFReader' in window;
 
+// Entrance kiosk: this browser has the entrance key and receives the scans of the entrance reader.
+const isKiosk = ref<boolean>(getEntranceKey() !== null);
+const entranceAccepted = ref<boolean>(authEventSource.isEntrance());
+const entranceRejected = ref<boolean>(false);
+const entranceDialog = ref<boolean>(false);
+const entranceKeyInput = ref<string>('');
+
+function openEntranceSetup(): void {
+  entranceKeyInput.value = '';
+  entranceDialog.value = true;
+}
+
+function saveEntranceKey(): void {
+  const key = entranceKeyInput.value.trim();
+  if (!key) {
+    return;
+  }
+  setEntranceKey(key);
+  isKiosk.value = true;
+  entranceRejected.value = false;
+  entranceDialog.value = false;
+  authEventSource.reconnect();
+}
+
+function removeEntranceKey(): void {
+  clearEntranceKey();
+  isKiosk.value = false;
+  entranceRejected.value = false;
+  entranceDialog.value = false;
+  authEventSource.reconnect();
+}
+
+// Phone: the tag is read here and sent to the backend, which answers with a session.
 async function onMobileNfcScanned(uid: string): Promise<void> {
   try {
-    await fetch(getApiBaseUrl() + '/auth/tag', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'tag',
-        uid,
-        ts: new Date().toISOString(),
-        source: 'webnfc',
-        device: 'mobile-web',
-      }),
-    });
+    const session = await authService.loginWithWebNfc(uid);
+    userStore.setSession(session);
+    await router.replace('/dashboard');
   } catch (err) {
-    console.error('[IndexPage] Mobile NFC POST failed:', err);
+    $q.notify({
+      type: 'negative',
+      message: err instanceof LoginError ? err.message : 'Anmeldung fehlgeschlagen',
+      position: 'center',
+      timeout: 5000,
+    });
   }
 }
 
@@ -134,6 +238,19 @@ onMounted(() => {
 
   authEventSource.onStatus((next: ConnectionStatus): void => {
     status.value = next;
+    if (next === 'connected' && isKiosk.value) {
+      // The server answers the hello right after connecting; no answer means wrong key.
+      window.setTimeout(() => {
+        entranceRejected.value = isKiosk.value && !entranceAccepted.value;
+      }, 1500);
+    }
+  });
+
+  authEventSource.onEntranceStatus((accepted: boolean): void => {
+    entranceAccepted.value = accepted;
+    if (accepted) {
+      entranceRejected.value = false;
+    }
   });
 
   authEventSource.onUnknownTag((): void => {
@@ -182,6 +299,11 @@ onMounted(() => {
 .rfid-icon-wrapper {
   width: 200px;
   height: 200px;
+}
+
+.entrance-dialog {
+  width: 100%;
+  max-width: 420px;
 }
 
 .status-card {

@@ -28,11 +28,7 @@ export const memberService = {
     }
   },
 
-  async deleteMember(
-    memberId: string,
-    currentUserId: string,
-    currentUserRole: string
-  ): Promise<void> {
+  async deleteMember(memberId: string): Promise<void> {
     try {
       const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
@@ -40,8 +36,6 @@ export const memberService = {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUserId,
-          'x-user-role': currentUserRole,
         },
       });
 
@@ -178,8 +172,8 @@ export const memberService = {
       const url = `${apiUrl}/members/import`;
       const formData = new FormData();
       formData.append('file', file);
-      // No manual Content-Type (the browser sets the multipart boundary) and no auth headers —
-      // X-User-ID / X-User-Role are injected globally by boot/fetch-headers.ts.
+      // No manual Content-Type (the browser sets the multipart boundary); the session token is
+      // added by boot/fetch-headers.ts.
       const response = await fetch(url, {
         method: 'POST',
         body: formData,
@@ -197,12 +191,7 @@ export const memberService = {
     }
   },
 
-  async updateMemberRoles(
-    memberId: string,
-    roles: string[],
-    currentUserId: string,
-    currentUserRole: string
-  ): Promise<Member> {
+  async updateMemberRoles(memberId: string, roles: string[]): Promise<Member> {
     try {
       const apiUrl = getApiBaseUrl();
       const url = `${apiUrl}/members/${memberId}`;
@@ -210,8 +199,6 @@ export const memberService = {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUserId,
-          'x-user-role': currentUserRole,
         },
         body: JSON.stringify({ roles }),
       });

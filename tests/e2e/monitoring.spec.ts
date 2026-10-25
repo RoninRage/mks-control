@@ -4,6 +4,8 @@ import { deleteDocumentsByType, getTestDatabaseConnection } from '../helpers/dat
 import { createTestUser } from '../helpers/factories';
 import {
   ADMIN_HEADERS,
+  MEMBER_HEADERS,
+  VORSTAND_HEADERS,
   API,
   addShellyDevice,
   cleanupMachines,
@@ -96,9 +98,7 @@ test.describe('Monitoring', () => {
       };
 
       expect(
-        (
-          await request.get(`${API}/terminals/status`, { headers: { 'x-user-role': 'mitglied' } })
-        ).status()
+        (await request.get(`${API}/terminals/status`, { headers: MEMBER_HEADERS })).status()
       ).toBe(403);
       expect(await statusOf()).toMatchObject({ piOnline: false, loggedIn: null, release: null });
 
@@ -127,7 +127,7 @@ test.describe('Monitoring', () => {
 
       await scanAt(request, machine, PAULA.tag.tagUid);
       await releaseAt(request, machine);
-      expect((await forceOff({ 'x-user-role': 'vorstand', 'x-user-id': 'v' })).status()).toBe(403);
+      expect((await forceOff(VORSTAND_HEADERS)).status()).toBe(403);
       expect(machine.shelly.switches[0].on).toBe(true);
 
       expect((await forceOff(ADMIN_HEADERS)).status()).toBe(200);

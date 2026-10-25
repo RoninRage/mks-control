@@ -58,7 +58,8 @@ const loadConfig = (): BridgeConfig => {
   const deviceId = process.env.DEVICE_ID ?? 'kiosk-01';
   const source = (process.env.SOURCE ?? 'acr122u') as 'acr122u';
   const debounceMs = parseDebounce(process.env.DEBOUNCE_MS);
-  const terminalToken = (process.env.TERMINAL_TOKEN ?? '').trim();
+  // Machine terminal: TERMINAL_TOKEN (mkt_…). Entrance reader: ENTRANCE_KEY (mke_…).
+  const terminalToken = (process.env.TERMINAL_TOKEN || process.env.ENTRANCE_KEY || '').trim();
 
   return {
     gatewayUrl,
@@ -77,9 +78,10 @@ log('info', `config postPath=${config.postPath}`);
 log('info', `config deviceId=${config.deviceId}`);
 log('info', `config source=${config.source}`);
 log('info', `config debounceMs=${config.debounceMs}`);
-log('info', `config terminal=${config.terminalToken ? 'yes (key set)' : 'no'}`);
+log('info', `config key=${config.terminalToken ? 'set' : 'missing (scans will be refused)'}`);
 
-// Scans from a machine terminal must carry its key; the backend then only logs in at that Pi.
+// Every post carries the reader's key: the terminal key at a machine (logs in only at that Pi)
+// or the entrance key at the entrance. Without a key the backend refuses it.
 const tagHeaders = (): Record<string, string> => ({
   'content-type': 'application/json',
   'x-device-id': config.deviceId,
@@ -144,10 +146,7 @@ const postHeartbeat = async (): Promise<void> => {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-device-id': config.deviceId,
-      },
+      headers: tagHeaders(),
       body: JSON.stringify(event),
     });
 
@@ -174,10 +173,7 @@ const postReaderError = async (errorMessage: string): Promise<void> => {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-device-id': config.deviceId,
-      },
+      headers: tagHeaders(),
       body: JSON.stringify(event),
     });
 

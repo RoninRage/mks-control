@@ -20,6 +20,36 @@ export interface TagEvent {
   memberFound?: boolean;
   isInactive?: boolean;
   member?: MemberSummary;
+  // Only sent to the entrance kiosk: one-time code to exchange for a session
+  // (POST /api/auth/session). Missing when the tag does not log anyone in.
+  loginCode?: string;
+}
+
+export type RoleId = 'admin' | 'vorstand' | 'bereichsleitung' | 'mitglied';
+
+// Where a login session was started: the kiosk at the entrance or a phone via Web NFC.
+export type AuthSessionKind = 'entrance' | 'webnfc';
+
+// Answer of POST /api/auth/session, POST /api/auth/webnfc and GET /api/auth/me.
+export interface AuthSessionInfo {
+  token?: string; // only when the session is created
+  kind: AuthSessionKind;
+  role: RoleId; // highest role
+  roles: RoleId[];
+  member?: MemberSummary; // missing for admin tags from ADMIN_TAG_UIDS without a member
+  expiresAt: string;
+  idleTimeoutMs?: number; // entrance kiosk: logged out after this long without activity
+}
+
+// First message of a browser on /ws/auth that is the entrance kiosk.
+export interface WsHelloMessage {
+  type: 'hello';
+  entranceKey: string;
+}
+
+export interface WsHelloReply {
+  type: 'hello';
+  entrance: boolean; // false: wrong key, the socket only gets public events
 }
 
 export interface ReaderEvent {

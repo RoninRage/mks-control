@@ -3,6 +3,7 @@ import { getDatabase, getUsageDatabase } from '../db/couchdb';
 import type { Area } from '../types/area';
 import type { Equipment } from '../types/equipment';
 import type { EquipmentUsage, EquipmentUsageView, UsageListResponse } from '../types/machine';
+import { currentMemberId, currentRole } from '../auth/middleware';
 
 // Machine usages (releases). Mounted at /api/usage.
 // Visibility follows the existing roles, like the audit log:
@@ -50,8 +51,8 @@ const equipmentInOwnAreas = async (userId: string): Promise<string[]> => {
  * GET /api/usage?equipmentId=&memberId=&from=&to=&limit=
  */
 router.get('/', async (req: Request, res: Response) => {
-  const role = req.get('x-user-role') ?? '';
-  const userId = req.get('x-user-id') ?? '';
+  const role = currentRole(req) ?? '';
+  const userId = currentMemberId(req) ?? '';
   if (!role) {
     res.status(403).json({ error: 'Nicht angemeldet' });
     return;

@@ -42,6 +42,19 @@ jobs:
       - name: Install dependencies
         run: npm ci --workspaces --include-workspace-root
 
+      # Fast checks first: a type or lint error fails here instead of after the E2E run.
+      - name: Typecheck
+        run: |
+          npx tsc --noEmit -p packages/shared-types
+          npx tsc --noEmit -p apps/backend
+          npx tsc --noEmit -p nfc-bridge
+          cd apps/frontend
+          ../../node_modules/.bin/quasar prepare
+          ../../node_modules/.bin/vue-tsc --noEmit -p tsconfig.typecheck.json
+
+      - name: Lint
+        run: cd apps/frontend && ../../node_modules/.bin/eslint . --quiet
+
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
