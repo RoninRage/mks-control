@@ -1,133 +1,71 @@
-# MKS Control Monorepo
+# MKS Control
 
-This is a monorepo managed with npm workspaces containing the MKS Control application suite.
+Management system for a maker space: NFC login at the entrance, members, areas and equipment
+with permissions, an audit log, and machine control with Shelly devices and one Raspberry Pi
+terminal per machine.
 
 ## Structure
 
-- `packages/` - Shared packages and libraries
-- `apps/` - Applications and services
-  - `frontend/` - Quasar Framework web application (Vue 3 + TypeScript)
-- `nfc-bridge/` - NFC reader bridge service (ACR122U -> Auth Gateway)
-
-## Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Start all services (frontend, backend, nfc-bridge)
-npm run dev
-
-# Build all packages
-npm run build
-
-# Run tests
-npm run test
-
-# Run linting
-npm run lint
+```
+apps/backend/          Express REST API and WebSocket (port 3000), CouchDB
+apps/frontend/         Quasar / Vue 3 web app (port 9000 in development)
+nfc-bridge/            Reads the NFC reader (ACR122U) and posts scans to the backend
+packages/shared-types/ TypeScript types shared by all parts
+docs/                  Plans and guides
+tests/                 Playwright E2E tests
 ```
 
-**Note:** `NODE_ENV` is automatically set to `development` for local development, so you don't need to configure it manually.
+## Development
 
-## Running Services
-
-### Start All Services
+Requirements: Node 22 (`.nvmrc`), Docker (CouchDB).
 
 ```bash
-# From the root directory, this starts all services:
-npm run dev
+npm ci --workspaces --include-workspace-root
+cp apps/backend/.env.example apps/backend/.env
+cp nfc-bridge/.env.example nfc-bridge/.env
+npm run dev        # starts CouchDB, backend, frontend and (with a reader) the nfc-bridge
 ```
 
-This unified command starts:
+Always start through `npm run dev` from the root; the services refuse to start without
+`MONOREPO_DEV=true`. Open http://localhost:9000, tap **"Eingang einrichten"** and enter the
+`ENTRANCE_KEY` from `apps/backend/.env` (`mke_dev-entrance-key`): this browser is then the
+entrance kiosk and logs in with scans.
 
-- **Backend (Auth Gateway)** - API and WebSocket server on port 3000
-- **Frontend (Quasar PWA)** - Development server on port 5173
-- **NFC Bridge** - NFC reader bridge service
-
-### Test a Tag Event
+Simulate a scan without a reader:
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/tag \
   -H "Content-Type: application/json" \
-  -H "x-device-id: dev-reader-01" \
-  -d '{"type":"tag","uid":"04A224B1C8","source":"acr122u"}'
+  -H "Authorization: Bearer mke_dev-entrance-key" \
+  -d '{"type":"tag","uid":"04A224B1C8","source":"manual"}'
 ```
 
-Open the frontend in a browser (http://localhost:5173) and watch for connection status and tag events on the index page.
-
-### Running Individual Services
-
-If you need to run services separately:
+Checks (the same as CI):
 
 ```bash
-# Backend only
-cd apps/backend
-npm install
-npm run dev
-
-# Frontend only
-cd apps/frontend
-npm install
-npm run dev
-
-# NFC Bridge only
-cd nfc-bridge
-npm install
-cp .env.example .env
-npm run dev
+npx tsc --noEmit -p apps/backend
+cd apps/frontend && ../../node_modules/.bin/vue-tsc --noEmit -p tsconfig.typecheck.json
+npm run lint
+npm run test:e2e   # see docs/testing.md
 ```
 
-### Machine Control (Shelly)
+More for developers and AI agents: [`CLAUDE.md`](CLAUDE.md).
 
-German guides in `docs/`: [`inbetriebnahme.md`](docs/inbetriebnahme.md) (server, Shellys, test
-checklist), [`pi-setup.md`](docs/pi-setup.md) (terminal at a machine),
-[`bedienung-maschinen.md`](docs/bedienung-maschinen.md) (admin guide).
+## Production
 
-### Deployment Notes (Raspberry Pi)
+Docker images are built on every push to `master` (`latest`) and `develop` (`develop`) and run
+with `docker-compose.prod.yml` under `/opt/mks`; Watchtower updates them. Never push to `master`
+directly: every push there goes to production.
 
-- Set AUTH_WS_URL to the backend WebSocket endpoint (for example, wss://pi-host/ws/auth).
-- Ensure the backend listens on the Pi and forwards tag events to /api/auth/tag.
-- Update the x-device-id header from your NFC bridge to identify the reader.
-- For NFC bridge: Set GATEWAY_URL to the Pi-accessible Auth Gateway base URL.
-- Ensure pcscd is installed and running on the Pi.
-- Use a unique DEVICE_ID per kiosk.
+## Documentation
 
-## Frontend Application
-
-The frontend is built with:
-
-- **Quasar Framework** - Enterprise-ready Vue.js framework
-- **Vue 3** - Progressive JavaScript framework
-- **TypeScript** - Type-safe development
-- **Pinia** - Modern state management
-- **Vite** - Next-generation build tool
-- **PWA Support** - Progressive Web App capabilities
-
-See [apps/frontend/README.md](apps/frontend/README.md) for more details.
-
-## Adding a New Package
-
-Create a new directory under `packages/` or `apps/` with its own `package.json`.
-
-Example:
-
-```bash
-mkdir packages/my-package
-cd packages/my-package
-npm init -y
-```
-
-## Workspace Commands
-
-Run a command in a specific workspace:
-
-```bash
-npm run <script> --workspace=<package-name>
-```
-
-Run a command in all workspaces:
-
-```bash
-npm run <script> --workspaces
-```
+| Document                                                     | Content                                                     |
+| ------------------------------------------------------------ | ----------------------------------------------------------- |
+| [`docs/inbetriebnahme.md`](docs/inbetriebnahme.md)           | Server, `.env`, kiosk, backup, Shellys, test checklist      |
+| [`docs/pi-setup.md`](docs/pi-setup.md)                       | Setting up a Raspberry Pi terminal at a machine             |
+| [`docs/bedienung-maschinen.md`](docs/bedienung-maschinen.md) | Guide for admins: machines, terminals, usages               |
+| [`docs/auth-plan.md`](docs/auth-plan.md)                     | Login: sessions, entrance key, Web NFC, rights per endpoint |
+| [`docs/shelly-plan.md`](docs/shelly-plan.md)                 | Machine control with Shellys (phases 1–7)                   |
+| [`docs/shelly-flow.md`](docs/shelly-flow.md)                 | Original concept of the Shelly workflow                     |
+| [`docs/db-diagram.md`](docs/db-diagram.md)                   | Database documents                                          |
+| [`docs/testing.md`](docs/testing.md)                         | E2E tests                                                   |

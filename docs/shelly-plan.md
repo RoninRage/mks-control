@@ -7,7 +7,7 @@ Ein Mitglied scannt seinen Tag am Pi. Hat es eine Berechtigung für diese Maschi
 Button freigeben, und ein Shelly schaltet den Strom ein. Beim Abmelden wird die Freigabe wieder
 aufgehoben. Admins verwalten Shellys, Terminals und die Zuordnung zur Ausstattung.
 
-Grundlage ist das Konzept in [`ShellyFlow.md`](../ShellyFlow.md). Dieser Plan weicht an einer
+Grundlage ist das Konzept in [`shelly-flow.md`](shelly-flow.md). Dieser Plan weicht an einer
 Stelle bewusst davon ab (siehe „Architektur").
 
 ## Entscheidungen
@@ -29,7 +29,7 @@ Stelle bewusst davon ab (siehe „Architektur").
 
 ## Architektur: Das Backend schaltet, nicht der Pi
 
-`ShellyFlow.md` sieht vor, dass die Pis sich mit einer verteilten Konfiguration direkt mit den
+`shelly-flow.md` sieht vor, dass die Pis sich mit einer verteilten Konfiguration direkt mit den
 Shellys verbinden. Vorschlag stattdessen:
 
 ```

@@ -42,6 +42,8 @@ erDiagram
         string configuration
         string areaId FK
         boolean isAvailable
+        object control "Shelly output, interlocks, extras"
+
         string createdAt
         string updatedAt
     }
@@ -73,6 +75,63 @@ erDiagram
         string deviceId
     }
 
+    SHELLYDEVICE {
+        string _id PK
+        string type "shellyDevice"
+        string id UK
+        string shellyId
+        string mac
+        string model
+        number gen
+        string host
+        string name
+        object[] components
+        string health
+        string eventKey "never sent to the frontend"
+        boolean maintenance
+        boolean isActive
+    }
+
+    TERMINAL {
+        string _id PK
+        string type "terminal"
+        string id UK
+        string name
+        string equipmentId FK
+        string tokenHash "SHA-256 of the mkt_ key"
+        number maxSessionMinutes
+        number stillThereTimeoutMinutes
+        string lastSeenAt
+        boolean isActive
+    }
+
+    SESSION {
+        string _id PK "session:sha256 of the mks_ token"
+        string type "session"
+        string kind "entrance or webnfc"
+        string memberId FK
+        string adminTagUid
+        string createdAt
+        string lastSeenAt
+        string expiresAt
+    }
+
+    EQUIPMENTUSAGE {
+        string _id PK
+        string type "equipmentUsage"
+        string id UK
+        string equipmentId FK
+        string terminalId FK
+        string memberId FK
+        string memberName
+        boolean adminOverride
+        string startedAt
+        string endedAt
+        number durationSec
+        string endReason
+        number energyWh
+    }
+
     MEMBER ||--o{ TAG : "has"
     MEMBER ||--o{ EQUIPMENT : "has permissions for"
     AREA ||--o{ EQUIPMENT : "contains"
@@ -82,17 +141,24 @@ erDiagram
     AUDITLOG }o--|| EQUIPMENT : "may reference"
     AUDITLOG }o--|| TAG : "may reference"
     AUDITLOG }o--|| AREA : "may reference"
+    EQUIPMENT }o--o| SHELLYDEVICE : "switched by (control)"
+    TERMINAL }o--|| EQUIPMENT : "sits at"
+    MEMBER ||--o{ SESSION : "logged in with"
+    EQUIPMENT ||--o{ EQUIPMENTUSAGE : "released in"
+    MEMBER ||--o{ EQUIPMENTUSAGE : "used"
 ```
 
 ## Database Structure Overview
 
 ### Collections
 
-The system uses three main CouchDB databases:
+The system uses four CouchDB databases:
 
-1. **mks_members** - Stores members, equipment, and areas
-2. **mks_tags** - Stores RFID tag mappings
-3. **mks_audit** - Stores audit logs for user actions and system changes
+1. **mks_members** - Members, areas, equipment, Shelly devices (`shellyDevice`), machine
+   terminals (`terminal`) and login sessions (`session`), told apart by `type`
+2. **mks_tags** - RFID tag mappings
+3. **mks_audit** - Audit logs for user actions and system changes
+4. **mks_usage** - Machine releases (`EquipmentUsage`), open while a machine runs
 
 ### Entities
 
@@ -128,6 +194,28 @@ The system uses three main CouchDB databases:
 - Contains equipment
 - Has area managers (Bereichsleiter) via `bereichsleiterIds` array
 
+#### ShellyDevice
+
+- A Shelly relay, dimmer, cover or meter (Gen1 or Gen2+) found by IP or mDNS
+- `components` lists outputs, inputs and meters; `health` is kept up to date by the health monitor
+- `eventKey` authenticates its webhooks; `maintenance` blocks releases and firmware is only installed then
+
+#### Terminal
+
+- One Raspberry Pi per machine; authenticates with an `mkt_` key of which only the hash is stored
+- Logins at a terminal live in the backend's memory, not in the database
+
+#### Session
+
+- Login of a browser (`docs/auth-plan.md`), stored as `session:<sha256 of the token>`
+- `entrance` sessions end after `SESSION_IDLE_TIMEOUT_MS` without activity, `webnfc` sessions after
+  `SESSION_WEBNFC_MAX_MS`; expired ones are deleted by a sweeper
+
+#### EquipmentUsage
+
+- One machine release, from release to switch-off, with duration, end reason and kWh when metered
+- Deleted after `USAGE_RETENTION_DAYS` (365)
+
 #### AuditLog
 
 - Records all user actions and system changes for security and compliance
@@ -140,6 +228,7 @@ The system uses three main CouchDB databases:
   - **Area Management**: `area.create`, `area.update`, `area.delete`
   - **Equipment Management**: `equipment.create`, `equipment.update`, `equipment.delete`
   - **Tag Management**: `tag.add`, `tag.remove`
+  - **Machines and devices**: `terminal.*`, `machine.*`, `shelly.device.*` (see the routes)
 - Automatic retention policy: Logs older than 1 year (365 days) are purged automatically via scheduled cleanup
 - Indexes: `timestamp`, `action`, `actorId`, `targetId` for efficient querying and filtering
 

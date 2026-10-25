@@ -14,14 +14,8 @@ A Quasar Framework application built with Vue 3, TypeScript, and Vite.
 
 ## Development Setup
 
-```bash
-# Install dependencies (from monorepo root)
-npm install
-
-# Start development server
-cd apps/frontend
-npm run dev
-```
+Start everything from the monorepo root with `npm run dev` (see the root README); the dev server
+refuses to start without `MONOREPO_DEV=true`. The frontend runs on http://localhost:9000.
 
 ## Available Scripts
 
@@ -41,12 +35,14 @@ apps/frontend/
 ├── public/          # Static assets
 ├── src/
 │   ├── assets/      # Images, fonts, etc.
-│   ├── boot/        # Boot files (app initialization)
+│   ├── boot/        # Boot files: fetch headers (session token), login and kiosk (auth.ts)
 │   ├── components/  # Vue components
 │   ├── layouts/     # Layout components
 │   ├── pages/       # Page components
 │   ├── router/      # Vue Router configuration
-│   ├── stores/      # Pinia stores
+│   ├── services/    # One file per backend domain (fetch wrappers)
+│   ├── stores/      # Pinia stores (user-store holds the login session)
+│   ├── utils/       # Entrance kiosk and machine terminal keys, API URL
 │   ├── css/         # Global styles
 │   ├── App.vue      # Root component
 │   └── main.ts      # Application entry
