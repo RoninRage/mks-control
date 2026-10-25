@@ -13,8 +13,13 @@ import type {
   MachineShutdown,
 } from '../types/machine';
 import type { ShellyComponentKind } from '../types/shelly';
-import { findShellyDevice, isEquipmentReleased } from '../machines/machineControl';
+import {
+  findShellyDevice,
+  forceStopMachine,
+  isEquipmentReleased,
+} from '../machines/machineControl';
 import { DEFAULT_WATCHDOG_MINUTES } from '../machines/timing';
+import { syncAllWebhooks } from '../shelly/webhooks';
 
 // Which Shelly output powers a machine. Mounted at /api/equipment next to equipmentRoutes,
 // so the admin check is per route (the equipment list stays readable for everyone).
@@ -333,6 +338,7 @@ router.put('/:id/control', requireAdmin, async (req: Request, res: Response) => 
     };
     const result = await db.insert(updated);
 
+    void syncAllWebhooks();
     void logAuditEvent(
       {
         action: 'equipment.control.update',
@@ -368,6 +374,7 @@ router.delete('/:id/control', requireAdmin, async (req: Request, res: Response) 
     const updated: StoredEquipment = { ...rest, updatedAt: new Date().toISOString() };
     const result = await getDatabase<Equipment>().insert(updated);
 
+    void syncAllWebhooks();
     void logAuditEvent(
       { action: 'equipment.control.remove', targetType: 'equipment', targetId: equipment.id },
       req
@@ -376,6 +383,28 @@ router.delete('/:id/control', requireAdmin, async (req: Request, res: Response) 
   } catch (err) {
     console.error('[machine-routes] Error removing control:', err);
     res.status(500).json({ error: 'Steuerung konnte nicht entfernt werden' });
+  }
+});
+
+/**
+ * POST /api/equipment/:id/force-off
+ * Admin ends a running release remotely and switches the machine off.
+ */
+router.post('/:id/force-off', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const stopped = await forceStopMachine(req.params.id);
+    if (!stopped) {
+      res.status(409).json({ error: 'Die Maschine ist nicht freigegeben' });
+      return;
+    }
+    void logAuditEvent(
+      { action: 'machine.force-off', targetType: 'equipment', targetId: req.params.id },
+      req
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[machine-routes] Force off failed:', err);
+    res.status(500).json({ error: 'Abschalten fehlgeschlagen' });
   }
 });
 

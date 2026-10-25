@@ -1,6 +1,7 @@
 import type {
   CreateTerminalRequest,
   MachineExtraRequest,
+  TerminalRuntimeStatus,
   TerminalState,
   TerminalSummary,
   TerminalTokenResponse,
@@ -59,6 +60,10 @@ export const terminalAdminService = {
       { method: 'PUT', body: JSON.stringify(data) },
       'Terminal konnte nicht gespeichert werden'
     );
+  },
+
+  status(): Promise<TerminalRuntimeStatus[]> {
+    return request('/terminals/status', { method: 'GET' }, 'Status konnte nicht geladen werden');
   },
 
   rotateToken(id: string): Promise<TerminalTokenResponse> {

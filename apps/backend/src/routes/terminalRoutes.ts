@@ -11,7 +11,10 @@ import {
   toTerminalSummary,
   type StoredTerminal,
 } from '../terminals/repository';
-import { clearTerminalRuntime } from '../terminals/sessions';
+import { clearTerminalRuntime, getSessionName } from '../terminals/sessions';
+import { getLastContact, isTerminalOnline } from '../terminals/contact';
+import { getReleaseSummary } from '../machines/machineControl';
+import type { TerminalRuntimeStatus } from '../types/terminal';
 import { generateTerminalToken, hashTerminalToken } from '../terminals/token';
 
 // Terminal management for admins. Mounted at /api/terminals.
@@ -130,6 +133,32 @@ router.get('/', async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('[terminal-routes] Error listing terminals:', err);
     res.status(500).json({ error: 'Terminals konnten nicht geladen werden' });
+  }
+});
+
+/**
+ * GET /api/terminals/status
+ * Live state of every terminal: Pi online, who is logged in, running machine.
+ */
+router.get('/status', async (_req: Request, res: Response) => {
+  try {
+    const statuses: TerminalRuntimeStatus[] = (await listActiveTerminals()).map((terminal) => {
+      const lastContact = getLastContact(terminal.id);
+      const name = getSessionName(terminal.id);
+      return {
+        terminalId: terminal.id,
+        piOnline: lastContact !== undefined && isTerminalOnline(terminal.id),
+        ...(lastContact !== undefined
+          ? { lastContactAt: new Date(lastContact).toISOString() }
+          : {}),
+        loggedIn: name !== null ? { name } : null,
+        release: getReleaseSummary(terminal.id),
+      };
+    });
+    res.json(statuses);
+  } catch (err) {
+    console.error('[terminal-routes] Error reading status:', err);
+    res.status(500).json({ error: 'Status konnte nicht geladen werden' });
   }
 });
 

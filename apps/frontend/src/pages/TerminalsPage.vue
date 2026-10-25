@@ -71,10 +71,50 @@
           :data-terminal-id="terminal.id"
         >
           <q-card-section>
-            <div class="text-h6" data-testid="terminal-card-name">{{ terminal.name }}</div>
+            <div class="row items-start justify-between no-wrap">
+              <div class="text-h6" data-testid="terminal-card-name">{{ terminal.name }}</div>
+              <q-chip
+                dense
+                text-color="white"
+                :color="statusOf(terminal.id)?.piOnline ? 'positive' : 'grey-6'"
+                data-testid="terminal-card-pi"
+                :data-online="String(Boolean(statusOf(terminal.id)?.piOnline))"
+              >
+                {{ statusOf(terminal.id)?.piOnline ? 'Pi online' : 'Pi offline' }}
+              </q-chip>
+            </div>
             <div class="text-body2 text-grey-7" data-testid="terminal-card-equipment">
               Maschine: {{ equipmentName(terminal.equipmentId) }}
             </div>
+          </q-card-section>
+
+          <!-- Live: who is logged in, is the machine running -->
+          <q-card-section class="q-pt-none" data-testid="terminal-card-live">
+            <q-banner
+              v-if="statusOf(terminal.id)?.release"
+              dense
+              class="bg-primary text-white terminal-card__live"
+              data-testid="terminal-card-running"
+            >
+              <template #avatar>
+                <q-icon name="power" />
+              </template>
+              {{
+                statusOf(terminal.id)?.release?.shuttingDown
+                  ? 'Läuft bis zum Jobende'
+                  : 'Maschine läuft'
+              }}
+              · {{ statusOf(terminal.id)?.release?.memberName }} · seit
+              {{ formatTime(statusOf(terminal.id)?.release?.startedAt) }}
+            </q-banner>
+            <div
+              v-else-if="statusOf(terminal.id)?.loggedIn"
+              class="text-body2"
+              data-testid="terminal-card-logged-in"
+            >
+              Angemeldet: {{ statusOf(terminal.id)?.loggedIn?.name }}
+            </div>
+            <div v-else class="text-body2 text-grey-7">Niemand angemeldet</div>
           </q-card-section>
           <q-list dense>
             <q-item>
@@ -95,6 +135,16 @@
             </q-item>
           </q-list>
           <q-card-actions class="terminal-card__actions">
+            <q-btn
+              v-if="statusOf(terminal.id)?.release"
+              unelevated
+              color="negative"
+              label="Maschine abschalten"
+              icon="power_off"
+              class="touch-button"
+              data-testid="terminal-card-force-off"
+              @click="confirmForceOff(terminal)"
+            />
             <q-btn
               flat
               color="primary"
@@ -250,10 +300,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { copyToClipboard, useQuasar } from 'quasar';
-import type { Equipment, TerminalSummary } from '@mks-control/shared-types';
+import type {
+  Equipment,
+  TerminalRuntimeStatus,
+  TerminalSummary,
+} from '@mks-control/shared-types';
+import { authEventSource } from 'src/services/authEventSource';
+import { machineService } from 'src/services/machineService';
 import { equipmentService } from 'src/services/equipmentService';
 import { terminalAdminService } from 'src/services/terminalService';
 import { useUserStore } from 'stores/user-store';
@@ -274,6 +330,10 @@ const userStore = useUserStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const terminals = ref<TerminalSummary[]>([]);
+const statuses = ref<Record<string, TerminalRuntimeStatus>>({});
+const STATUS_POLL_MS = 5000;
+let statusTimer: ReturnType<typeof setInterval> | null = null;
+let removeStateListener: (() => void) | null = null;
 const equipment = ref<Equipment[]>([]);
 
 const form = reactive({
@@ -308,7 +368,69 @@ onMounted(async () => {
     return;
   }
   await load();
+  await loadStatuses();
+  statusTimer = setInterval(() => {
+    void loadStatuses();
+  }, STATUS_POLL_MS);
+  // A Pi's state changed (login, release, ...): refresh right away.
+  removeStateListener = authEventSource.onTerminalState((): void => {
+    void loadStatuses();
+  });
 });
+
+onBeforeUnmount(() => {
+  if (statusTimer) {
+    clearInterval(statusTimer);
+  }
+  removeStateListener?.();
+});
+
+async function loadStatuses(): Promise<void> {
+  try {
+    const list = await terminalAdminService.status();
+    statuses.value = Object.fromEntries(list.map((s) => [s.terminalId, s]));
+  } catch (err) {
+    console.error('[TerminalsPage] Status error:', err);
+  }
+}
+
+function statusOf(terminalId: string): TerminalRuntimeStatus | undefined {
+  return statuses.value[terminalId];
+}
+
+function formatTime(value: string | undefined): string {
+  return value
+    ? new Date(value).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+    : '–';
+}
+
+function confirmForceOff(terminal: TerminalSummary): void {
+  const running = statusOf(terminal.id)?.release;
+  $q.dialog({
+    title: 'Maschine abschalten',
+    message:
+      '„' +
+      equipmentName(terminal.equipmentId) +
+      '“ wird sofort ausgeschaltet' +
+      (running ? ` (läuft gerade für ${running.memberName})` : '') +
+      '. Ein laufender Job wird dabei abgebrochen.',
+    cancel: { flat: true, label: 'Abbrechen' },
+    ok: { unelevated: true, color: 'negative', label: 'Abschalten' },
+    persistent: true,
+  }).onOk(() => {
+    void forceOff(terminal);
+  });
+}
+
+async function forceOff(terminal: TerminalSummary): Promise<void> {
+  try {
+    await machineService.forceOff(terminal.equipmentId);
+    $q.notify({ type: 'positive', message: 'Maschine abgeschaltet', position: 'top' });
+  } catch (err) {
+    $q.notify({ type: 'negative', message: errorMessage(err, 'Fehler'), position: 'top' });
+  }
+  await loadStatuses();
+}
 
 const errorMessage = (err: unknown, fallback: string): string =>
   err instanceof Error && err.message ? err.message : fallback;
@@ -467,6 +589,10 @@ function copyToken(): void {
   border-radius: 16px;
   display: flex;
   flex-direction: column;
+
+  &__live {
+    border-radius: 8px;
+  }
 
   &__actions {
     flex-wrap: wrap;

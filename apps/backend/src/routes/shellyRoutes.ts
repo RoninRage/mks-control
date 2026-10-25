@@ -60,6 +60,12 @@ const sendShellyError = (res: Response, err: unknown, context: string): void => 
   res.status(500).json({ error: 'Interner Fehler' });
 };
 
+// The webhook key stays on the server.
+const toPublicDevice = (device: StoredShellyDevice): Omit<StoredShellyDevice, 'eventKey'> => {
+  const { eventKey: _eventKey, ...rest } = device;
+  return rest;
+};
+
 const readName = (value: unknown): string | null | undefined => {
   if (value === undefined) {
     return undefined;
@@ -94,10 +100,24 @@ const findDeviceByMac = async (mac: string): Promise<StoredShellyDevice | null> 
   return docs.find((doc) => doc.isActive) ?? docs[0] ?? null;
 };
 
+// The health monitor and webhook setup also write device docs. On a conflict, our change wins
+// but fields only they maintain (eventKey, push) are taken from the latest version.
 const saveDevice = async (device: StoredShellyDevice): Promise<StoredShellyDevice> => {
   const db = getDatabase<ShellyDevice>();
-  const result = await db.insert(device);
-  return { ...device, _rev: result.rev };
+  let next = device;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await db.insert(next);
+      return { ...next, _rev: result.rev };
+    } catch (err) {
+      if ((err as { statusCode?: number }).statusCode !== 409 || attempt === 2) {
+        throw err;
+      }
+      const latest = (await db.get(device._id)) as StoredShellyDevice;
+      next = { ...next, _rev: latest._rev, eventKey: latest.eventKey, push: latest.push };
+    }
+  }
+  return next;
 };
 
 const applyProbe = (
@@ -134,7 +154,7 @@ router.get('/devices', async (_req: Request, res: Response) => {
     const devices = (result.docs as StoredShellyDevice[]).sort((a, b) =>
       a.name.localeCompare(b.name, 'de')
     );
-    res.json(devices);
+    res.json(devices.map(toPublicDevice));
   } catch (err) {
     sendShellyError(res, err, 'Error listing devices');
   }
@@ -226,7 +246,7 @@ router.post('/devices', async (req: Request, res: Response) => {
       { action: 'shelly.device.create', targetType: 'shellyDevice', targetId: saved.id },
       req
     );
-    res.status(201).json(saved);
+    res.status(201).json(toPublicDevice(saved));
   } catch (err) {
     sendShellyError(res, err, 'Error creating device');
   }
@@ -279,7 +299,7 @@ router.put('/devices/:id', async (req: Request, res: Response) => {
       { action: 'shelly.device.update', targetType: 'shellyDevice', targetId: saved.id },
       req
     );
-    res.json(saved);
+    res.json(toPublicDevice(saved));
   } catch (err) {
     sendShellyError(res, err, 'Error updating device');
   }
@@ -304,7 +324,7 @@ router.post('/devices/:id/refresh', async (req: Request, res: Response) => {
     }
 
     const saved = await saveDevice(applyProbe(device, probe, new Date().toISOString()));
-    res.json(saved);
+    res.json(toPublicDevice(saved));
   } catch (err) {
     sendShellyError(res, err, 'Error refreshing device');
   }

@@ -30,6 +30,22 @@ export const machineService = {
     );
   },
 
+  // Admin switches a running machine off remotely.
+  async forceOff(equipmentId: string): Promise<void> {
+    const response = await fetch(`${getApiBaseUrl()}/equipment/${equipmentId}/force-off`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      let message = 'Abschalten fehlgeschlagen';
+      try {
+        message = ((await response.json()) as { error?: string }).error || message;
+      } catch {
+        // keep fallback
+      }
+      throw new Error(message);
+    }
+  },
+
   removeControl(equipmentId: string): Promise<Equipment> {
     return request(
       `/equipment/${equipmentId}/control`,

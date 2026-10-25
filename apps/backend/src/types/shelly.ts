@@ -5,6 +5,8 @@ export type {
   ShellyDevice,
   ShellyDeviceStatus,
   ShellyHealth,
+  ShellyHealthEvent,
+  ShellyPushStatus,
   ShellyProbeResult,
   CreateShellyDeviceRequest,
   UpdateShellyDeviceRequest,

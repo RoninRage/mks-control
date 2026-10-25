@@ -261,6 +261,39 @@ const createUsage = async (
 
 export const isReleased = (terminalId: string): boolean => releases.has(terminalId);
 
+export const getReleaseSummary = (
+  terminalId: string
+): {
+  memberName: string;
+  startedAt: string;
+  adminOverride: boolean;
+  shuttingDown: boolean;
+} | null => {
+  const release = releases.get(terminalId);
+  if (!release) {
+    return null;
+  }
+  return {
+    memberName: release.usage.memberName,
+    startedAt: release.usage.startedAt,
+    adminOverride: release.usage.adminOverride,
+    shuttingDown: release.shutdown !== null,
+  };
+};
+
+/**
+ * Admin switches a running machine off remotely (phase 6). The person at the Pi stays logged
+ * in. Returns false when the machine is not released.
+ */
+export const forceStopMachine = async (equipmentId: string): Promise<boolean> => {
+  const release = [...releases.values()].find((r) => r.usage.equipmentId === equipmentId);
+  if (!release) {
+    return false;
+  }
+  await stopMachine(release.terminalId, 'admin');
+  return true;
+};
+
 export const isDeviceInUse = (deviceId: string): boolean =>
   [...releases.values()].some((r) => r.device.id === deviceId || r.meterDevice?.id === deviceId);
 
@@ -699,6 +732,28 @@ const tickRelease = async (release: ActiveRelease): Promise<void> => {
   } catch (err) {
     console.warn(`[machines] Renewing ${release.device.name} failed: ${(err as Error).message}`);
   }
+};
+
+/**
+ * A Shelly reported a change (webhook): check the releases that use it right away instead of
+ * waiting for the next round of the control loop. Returns how many releases were checked.
+ */
+export const checkReleasesForDevice = async (deviceId: string): Promise<number> => {
+  invalidateDeviceStatus(deviceId);
+  const affected = [...releases.values()].filter(
+    (r) =>
+      r.device.id === deviceId ||
+      r.meterDevice?.id === deviceId ||
+      r.control.interlocks?.some((i) => i.deviceId === deviceId)
+  );
+  for (const release of affected) {
+    try {
+      await tickRelease(release);
+    } catch (err) {
+      console.error('[machines] Event check failed:', err);
+    }
+  }
+  return affected.length;
 };
 
 let ticking = false;

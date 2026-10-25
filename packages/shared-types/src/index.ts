@@ -50,7 +50,8 @@ export type AuthEvent =
   | ReaderEvent
   | HeartbeatEvent
   | ReaderErrorEvent
-  | TerminalStateEvent;
+  | TerminalStateEvent
+  | ShellyHealthEvent;
 
 export interface Area {
   _id?: string;
@@ -217,6 +218,9 @@ export interface ShellyDevice {
   components: ShellyComponent[];
   health: ShellyHealth;
   lastSeenAt?: string;
+  // Secret in the webhook URL the Shelly calls (phase 6). Never sent to the frontend.
+  eventKey?: string;
+  push?: ShellyPushStatus;
   isActive: boolean;
   deletedAt?: string;
   createdAt?: string;
@@ -504,4 +508,39 @@ export interface EquipmentUsageView extends EquipmentUsage {
 export interface UsageListResponse {
   usages: EquipmentUsageView[];
   totals: { count: number; durationSec: number; energyWh: number };
+}
+
+// ---------------------------------------------------------------------------
+// Monitoring (phase 6)
+// ---------------------------------------------------------------------------
+
+// Live status of a terminal for the admin overview.
+export interface TerminalRuntimeStatus {
+  terminalId: string;
+  // The Pi polled recently.
+  piOnline: boolean;
+  lastContactAt?: string;
+  loggedIn: { name: string } | null;
+  release: {
+    memberName: string;
+    startedAt: string;
+    adminOverride: boolean;
+    // Logged out, machine runs until idle.
+    shuttingDown: boolean;
+  } | null;
+}
+
+// WebSocket notice when a Shelly goes online or offline (health monitor).
+export interface ShellyHealthEvent {
+  type: 'shelly-health';
+  deviceId: string;
+  health: ShellyHealth;
+  ts: string;
+}
+
+// Push from the Shelly (Gen2+ webhooks) for safety inputs.
+export interface ShellyPushStatus {
+  state: 'active' | 'error' | 'unsupported';
+  at: string;
+  error?: string;
 }

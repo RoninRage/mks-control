@@ -42,6 +42,9 @@ TERMINAL_OFFLINE_AFTER_MS=5000
 MACHINE_TICK_MS=250
 # Usage retention cleanup runs every 2 s in tests
 USAGE_CLEANUP_INTERVAL_MS=2000
+# Shelly health monitor and webhooks (phase 6)
+SHELLY_HEALTH_INTERVAL_MS=1000
+SHELLY_CALLBACK_URL=http://127.0.0.1:3000
 `;
 
 const envPath = join(process.cwd(), '.env.test');

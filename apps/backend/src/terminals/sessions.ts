@@ -74,6 +74,12 @@ export const reportRejectedScan = (terminalId: string, result: TerminalScanResul
 
 export const hasSession = (terminalId: string): boolean => sessions.has(terminalId);
 
+// Name of the person logged in at a terminal (admin overview).
+export const getSessionName = (terminalId: string): string | null => {
+  const session = sessions.get(terminalId);
+  return session ? `${session.firstName} ${session.lastName}`.trim() : null;
+};
+
 export interface SessionLogin {
   memberId: string | null;
   firstName: string;

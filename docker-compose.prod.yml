@@ -35,6 +35,7 @@ services:
       SEED_DATA: ${SEED_DATA:-false}
       SHELLY_PASSWORD: ${SHELLY_PASSWORD:-}
       SHELLY_GEN1_USER: ${SHELLY_GEN1_USER:-admin}
+      SHELLY_CALLBACK_URL: ${SHELLY_CALLBACK_URL:-}
     depends_on:
       couchdb:
         condition: service_healthy

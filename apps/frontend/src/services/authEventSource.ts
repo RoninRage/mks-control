@@ -1,5 +1,6 @@
 import type {
   HeartbeatEvent,
+  ShellyHealthEvent,
   ReaderErrorEvent,
   ReaderEvent,
   TagEvent,
@@ -25,6 +26,8 @@ export interface AuthEventSource {
   onReaderError(callback: (event: ReaderErrorEvent) => void): void;
   // A machine terminal's state changed; returns a function that removes the listener.
   onTerminalState(callback: (event: TerminalStateEvent) => void): () => void;
+  // A Shelly went online or offline; returns a function that removes the listener.
+  onShellyHealth(callback: (event: ShellyHealthEvent) => void): () => void;
   onStatus(cb: (status: ConnectionStatus) => void): void;
   onUnknownTag(callback: (event: TagEvent) => void): void;
   onInactiveUser(callback: (event: TagEvent) => void): void;
@@ -113,6 +116,18 @@ const isTerminalStateEvent = (value: unknown): value is TerminalStateEvent => {
   );
 };
 
+const isShellyHealthEvent = (value: unknown): value is ShellyHealthEvent => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const event = value as ShellyHealthEvent;
+  return (
+    event.type === 'shelly-health' &&
+    typeof event.deviceId === 'string' &&
+    typeof event.health === 'string'
+  );
+};
+
 const isHeartbeatEvent = (value: unknown): value is HeartbeatEvent => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -142,6 +157,7 @@ export class ServerWsAuthEventSource implements AuthEventSource {
   private readonly unknownTagListeners: Array<(event: TagEvent) => void> = [];
   private readonly inactiveUserListeners: Array<(event: TagEvent) => void> = [];
   private readonly terminalStateListeners: Array<(event: TerminalStateEvent) => void> = [];
+  private readonly shellyHealthListeners: Array<(event: ShellyHealthEvent) => void> = [];
 
   public constructor(private readonly url: string) {}
 
@@ -193,6 +209,10 @@ export class ServerWsAuthEventSource implements AuthEventSource {
         }
         if (isTerminalStateEvent(parsed)) {
           this.terminalStateListeners.forEach((listener) => listener(parsed));
+          return;
+        }
+        if (isShellyHealthEvent(parsed)) {
+          this.shellyHealthListeners.forEach((listener) => listener(parsed));
         }
       } catch {
         // Ignore malformed messages
@@ -244,6 +264,16 @@ export class ServerWsAuthEventSource implements AuthEventSource {
       const index = this.terminalStateListeners.indexOf(cb);
       if (index >= 0) {
         this.terminalStateListeners.splice(index, 1);
+      }
+    };
+  }
+
+  public onShellyHealth(cb: (event: ShellyHealthEvent) => void): () => void {
+    this.shellyHealthListeners.push(cb);
+    return () => {
+      const index = this.shellyHealthListeners.indexOf(cb);
+      if (index >= 0) {
+        this.shellyHealthListeners.splice(index, 1);
       }
     };
   }
